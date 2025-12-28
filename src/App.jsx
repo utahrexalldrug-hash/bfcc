@@ -1882,7 +1882,6 @@ function App() {
                 );
               })}
             </div>
-            </div>
 
             <div className="border-t border-gray-200 p-4">
               <button
