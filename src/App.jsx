@@ -717,8 +717,8 @@ export default function App() {
           {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
-          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} />}
+          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
@@ -812,10 +812,11 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
 // ============================================================
 // LEADERBOARD VIEW (with time tabs + team competition)
 // ============================================================
-function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey, getAwardCounts, prizes, setPrizes, awards, getMemberEmoji, getTeamColor }) {
+function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey, getAwardCounts, prizes, setPrizes, awards, getMemberEmoji, getTeamColor, setTeamColor }) {
   const [period, setPeriod] = useState("weekly");
-  const [renamingTeam, setRenamingTeam] = useState(null); // null or "team1"/"team2"
+  const [renamingTeam, setRenamingTeam] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [colorEditing, setColorEditing] = useState(null); // null or "team1"/"team2"
   const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
 
   const sorted = useMemo(() => {
@@ -886,10 +887,16 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
                     <>
                       <span className="team-name" style={getTeamColor("team1") ? { color: getTeamColor("team1") } : {}}>{getTeamName("team1")}</span>
                       <button className="team-edit-btn" onClick={() => startRename("team1")} title="Rename team"><Icons.Settings size={14} /></button>
+                      <div className="color-option" style={{ width: 20, height: 20, background: getTeamColor("team1") || "var(--border)", cursor: "pointer", border: colorEditing === "team1" ? "2px solid white" : "2px solid transparent" }} onClick={() => setColorEditing(colorEditing === "team1" ? null : "team1")} title="Change team color" />
                     </>
                   )}
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Captain: {teams.team1.captain}</div>
+                {colorEditing === "team1" && (
+                  <div className="color-picker-grid" style={{ justifyContent: "flex-start", margin: "6px 0" }}>
+                    {TEAM_COLORS.map(c => <div key={c.value} className={`color-option ${getTeamColor("team1") === c.value ? "selected" : ""}`} style={{ width: 24, height: 24, background: c.value }} onClick={() => { setTeamColor("team1", c.value); setColorEditing(null); }} />)}
+                  </div>
+                )}
               </div>
               <div className="team-score">{teamScores.team1}</div>
             </div>
@@ -913,10 +920,16 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
                     <>
                       <span className="team-name" style={getTeamColor("team2") ? { color: getTeamColor("team2") } : {}}>{getTeamName("team2")}</span>
                       <button className="team-edit-btn" onClick={() => startRename("team2")} title="Rename team"><Icons.Settings size={14} /></button>
+                      <div className="color-option" style={{ width: 20, height: 20, background: getTeamColor("team2") || "var(--border)", cursor: "pointer", border: colorEditing === "team2" ? "2px solid white" : "2px solid transparent" }} onClick={() => setColorEditing(colorEditing === "team2" ? null : "team2")} title="Change team color" />
                     </>
                   )}
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Captain: {teams.team2.captain}</div>
+                {colorEditing === "team2" && (
+                  <div className="color-picker-grid" style={{ justifyContent: "flex-start", margin: "6px 0" }}>
+                    {TEAM_COLORS.map(c => <div key={c.value} className={`color-option ${getTeamColor("team2") === c.value ? "selected" : ""}`} style={{ width: 24, height: 24, background: c.value }} onClick={() => { setTeamColor("team2", c.value); setColorEditing(null); }} />)}
+                  </div>
+                )}
               </div>
               <div className="team-score">{teamScores.team2}</div>
             </div>
@@ -1250,7 +1263,7 @@ function RotationView({ today, weekRotation }) {
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey }) {
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards }) {
   const [awardMsg, setAwardMsg] = useState("");
   return (
     <div>
@@ -1368,9 +1381,14 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
               });
             }
           }}>Clear Today's Completions</button>
+          <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => {
+            if (confirm("Reset ALL awards (wins & MVPs)? This cannot be undone!")) {
+              setAwards({ _empty: true });
+            }
+          }}>Reset All Awards (Wins & MVPs)</button>
           <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
             if (confirm("Reset ALL data? This cannot be undone!")) {
-              setPoints({ _empty: true }); setCompletedChores({ _empty: true }); setStreaks({ _empty: true });
+              setPoints({ _empty: true }); setCompletedChores({ _empty: true }); setStreaks({ _empty: true }); setAwards({ _empty: true });
             }
           }}>Reset Everything</button>
         </div>
