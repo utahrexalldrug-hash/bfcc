@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { db } from "./firebase";
+import { doc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
 
 // ============================================================
 // DATA: Weekly Rotation Schedule (from spreadsheet)
@@ -149,7 +151,6 @@ function getCurrentWeekRotation(date) {
     }
   }
 
-  // If before all data, generate from rotation pattern
   const baseRotation = [
     ["Nicholas", "Cole", "Emilie", "Finn", "Liam"],
     ["Emilie", "Nicholas", "Carter", "Cole", "Liam"],
@@ -167,7 +168,7 @@ function getCurrentWeekRotation(date) {
 }
 
 // ============================================================
-// Storage helpers (localStorage)
+// Storage helpers (localStorage as offline cache)
 // ============================================================
 function loadData(key, fallback) {
   try {
@@ -182,6 +183,49 @@ function saveData(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch { /* silent */ }
+}
+
+// ============================================================
+// Firebase Sync Hook
+// ============================================================
+function useFirebaseSync(docName, localState, setLocalState) {
+  const isRemoteUpdate = useRef(false);
+  const initialized = useRef(false);
+
+  // Listen for real-time updates from Firestore
+  useEffect(() => {
+    const docRef = doc(db, "family", docName);
+    const unsub = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        isRemoteUpdate.current = true;
+        setLocalState(data);
+        saveData(`fcc_${docName}`, data);
+      }
+      initialized.current = true;
+    }, (error) => {
+      console.warn(`Firestore listener error for ${docName}:`, error);
+      initialized.current = true;
+    });
+
+    return () => unsub();
+  }, [docName, setLocalState]);
+
+  // Write local changes to Firestore
+  useEffect(() => {
+    if (!initialized.current) return;
+    if (isRemoteUpdate.current) {
+      isRemoteUpdate.current = false;
+      return;
+    }
+
+    const docRef = doc(db, "family", docName);
+    // Firestore doesn't allow empty docs, so ensure we have something
+    const dataToSave = localState && Object.keys(localState).length > 0 ? localState : { _empty: true };
+    setDoc(docRef, dataToSave).catch((err) => {
+      console.warn(`Firestore write error for ${docName}:`, err);
+    });
+  }, [docName, localState]);
 }
 
 // ============================================================
@@ -261,6 +305,17 @@ const Icons = {
       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
+  Cloud: ({ size = 20, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
+    </svg>
+  ),
+  CloudOff: ({ size = 20, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22.61 16.95A5 5 0 0018 10h-1.26a8 8 0 00-7.05-6M5 5a8 8 0 004 15h9a5 5 0 001.7-.3" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  ),
 };
 
 // ============================================================
@@ -306,7 +361,6 @@ const styles = `
     flex-direction: column;
   }
 
-  /* Header */
   .header {
     background: linear-gradient(135deg, #1a2332 0%, #0f1724 100%);
     border-bottom: 1px solid var(--border);
@@ -347,7 +401,26 @@ const styles = `
     gap: 8px;
   }
 
-  /* Navigation */
+  .sync-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .sync-online {
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.1);
+  }
+
+  .sync-offline {
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+  }
+
   .nav {
     display: flex;
     background: var(--bg-secondary);
@@ -388,7 +461,6 @@ const styles = `
     background: rgba(255,255,255,0.03);
   }
 
-  /* Main Content */
   .main {
     flex: 1;
     padding: 16px;
@@ -397,7 +469,6 @@ const styles = `
     margin: 0 auto;
   }
 
-  /* Cards */
   .card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -417,7 +488,6 @@ const styles = `
     gap: 8px;
   }
 
-  /* Member cards on Today view */
   .member-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -539,7 +609,6 @@ const styles = `
   .tag-weekly { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
   .tag-young { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
 
-  /* Weekly rotation */
   .weekly-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -604,7 +673,6 @@ const styles = `
     color: #f87171;
   }
 
-  /* Leaderboard */
   .leaderboard-item {
     display: flex;
     align-items: center;
@@ -674,7 +742,6 @@ const styles = `
     background: rgba(251, 146, 60, 0.1);
   }
 
-  /* Week View */
   .week-nav {
     display: flex;
     align-items: center;
@@ -786,7 +853,6 @@ const styles = `
     font-weight: 400;
   }
 
-  /* Parent Panel */
   .pin-overlay {
     position: fixed;
     inset: 0;
@@ -894,7 +960,6 @@ const styles = `
     color: #f87171;
   }
 
-  /* Admin styles */
   .admin-section {
     margin-bottom: 24px;
   }
@@ -959,7 +1024,6 @@ const styles = `
     text-align: center;
   }
 
-  /* Animations */
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -986,7 +1050,6 @@ const styles = `
     animation: checkPop 0.25s ease;
   }
 
-  /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -1004,11 +1067,29 @@ export default function App() {
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [isParent, setIsParent] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // Persist data
+  // Firebase real-time sync
+  useFirebaseSync("completedChores", completedChores, setCompletedChores);
+  useFirebaseSync("points", points, setPoints);
+  useFirebaseSync("streaks", streaks, setStreaks);
+
+  // Also keep localStorage as cache (for offline/fast load)
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
   useEffect(() => { saveData("fcc_streaks", streaks); }, [streaks]);
+
+  // Online/offline detection
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   const dayName = getDayName(today);
   const todayKey = dateToKey(today);
@@ -1018,12 +1099,24 @@ export default function App() {
     const key = `${todayKey}_${member}_${choreId}`;
     setCompletedChores(prev => {
       const next = { ...prev };
+      // Remove the _empty placeholder if present
+      delete next._empty;
       if (next[key]) {
         delete next[key];
-        setPoints(p => ({ ...p, [member]: Math.max(0, (p[member] || 0) - 1) }));
+        setPoints(p => {
+          const updated = { ...p };
+          delete updated._empty;
+          updated[member] = Math.max(0, (updated[member] || 0) - 1);
+          return updated;
+        });
       } else {
         next[key] = true;
-        setPoints(p => ({ ...p, [member]: (p[member] || 0) + 1 }));
+        setPoints(p => {
+          const updated = { ...p };
+          delete updated._empty;
+          updated[member] = (updated[member] || 0) + 1;
+          return updated;
+        });
       }
       return next;
     });
@@ -1051,7 +1144,6 @@ export default function App() {
       });
     }
 
-    // Add weekly chores for this member
     if (weekRotation) {
       if (weekRotation.collectTrash === member) chores.push({ id: "w_trash", text: "Collect Trash (all rooms)", tag: "weekly" });
       if (weekRotation.trashOut === member) chores.push({ id: "w_trashout", text: `Take Trash Out${weekRotation.recycle ? " + Recycling" : ""}`, tag: "weekly" });
@@ -1081,13 +1173,16 @@ export default function App() {
     <>
       <style>{styles}</style>
       <div className="app">
-        {/* Header */}
         <header className="header">
           <div className="header-left">
             <span className="header-logo">Family HQ</span>
             <span className="header-date">{formatDate(today)}</span>
           </div>
           <div className="header-right">
+            <div className={`sync-indicator ${isOnline ? "sync-online" : "sync-offline"}`}>
+              {isOnline ? <Icons.Cloud size={14} /> : <Icons.CloudOff size={14} />}
+              {isOnline ? "Synced" : "Offline"}
+            </div>
             {isParent ? (
               <button className="btn btn-ghost" onClick={() => setIsParent(false)} style={{ fontSize: "0.8rem" }}>
                 <Icons.Lock size={16} /> Lock
@@ -1100,7 +1195,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* Navigation */}
         <nav className="nav">
           <button className={`nav-btn ${currentTab === "today" ? "active" : ""}`} onClick={() => setCurrentTab("today")}>
             <Icons.Home size={20} /> Today
@@ -1121,7 +1215,6 @@ export default function App() {
           )}
         </nav>
 
-        {/* Main Content */}
         <main className="main">
           {currentTab === "today" && (
             <TodayView
@@ -1163,7 +1256,6 @@ export default function App() {
           )}
         </main>
 
-        {/* PIN Dialog */}
         {showPinDialog && (
           <PinDialog
             onSuccess={() => { setIsParent(true); setShowPinDialog(false); }}
@@ -1396,7 +1488,6 @@ function RotationView({ today, weekRotation }) {
         </div>
       </div>
 
-      {/* Upcoming rotations */}
       <div className="card animate-in" style={{ animationDelay: "0.1s" }}>
         <div className="card-title">
           <Icons.Calendar size={22} color="var(--text-secondary)" />
@@ -1493,7 +1584,6 @@ function LeaderboardView({ sorted, points, maxPoints, streaks }) {
         })}
       </div>
 
-      {/* Stats */}
       <div className="card animate-in" style={{ animationDelay: "0.1s" }}>
         <div className="card-title">
           <Icons.Users size={22} color="var(--text-secondary)" />
@@ -1504,7 +1594,9 @@ function LeaderboardView({ sorted, points, maxPoints, streaks }) {
             <div className="weekly-icon" style={{ fontSize: "1.8rem" }}>⭐</div>
             <div className="weekly-info">
               <div className="weekly-task">Total Points</div>
-              <div className="weekly-person">{Object.values(points).reduce((a, b) => a + b, 0)}</div>
+              <div className="weekly-person">
+                {Object.entries(points).reduce((a, [k, b]) => k === "_empty" ? a : a + (b || 0), 0)}
+              </div>
             </div>
           </div>
           <div className="weekly-item">
@@ -1525,16 +1617,18 @@ function LeaderboardView({ sorted, points, maxPoints, streaks }) {
 // ============================================================
 function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks }) {
   const adjustPoints = (member, delta) => {
-    setPoints(prev => ({
-      ...prev,
-      [member]: Math.max(0, (prev[member] || 0) + delta)
-    }));
+    setPoints(prev => {
+      const updated = { ...prev };
+      delete updated._empty;
+      updated[member] = Math.max(0, (updated[member] || 0) + delta);
+      return updated;
+    });
   };
 
   const resetAllPoints = () => {
     if (window.confirm("Reset ALL points to zero? This cannot be undone.")) {
-      setPoints({});
-      setStreaks({});
+      setPoints({ _empty: true });
+      setStreaks({ _empty: true });
     }
   };
 
@@ -1544,8 +1638,9 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
       setCompletedChores(prev => {
         const next = {};
         Object.keys(prev).forEach(k => {
-          if (!k.startsWith(todayKey)) next[k] = prev[k];
+          if (!k.startsWith(todayKey) && k !== "_empty") next[k] = prev[k];
         });
+        if (Object.keys(next).length === 0) next._empty = true;
         return next;
       });
     }
@@ -1590,6 +1685,13 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
         </div>
 
         <div className="admin-section">
+          <div className="admin-section-title">Sync Status</div>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
+            Data syncs automatically across all devices via Firebase. Check for the green <strong>Synced</strong> indicator in the header.
+          </p>
+        </div>
+
+        <div className="admin-section">
           <div className="admin-section-title">PIN</div>
           <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
             Default parent PIN is <strong>1234</strong>. To change it, update PARENT_PIN in the code.
@@ -1619,7 +1721,6 @@ function PinDialog({ onSuccess, onClose }) {
       next?.focus();
     }
 
-    // Check if complete
     if (index === 3 && value) {
       const fullPin = newPin.join("");
       if (fullPin === PARENT_PIN) {
