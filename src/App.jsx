@@ -286,6 +286,10 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .team-members{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .team-member-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:0.82rem;font-weight:600}
 .team-vs{text-align:center;font-family:'Fredoka',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text-muted);padding:8px 0}
+.team-name-row{display:flex;align-items:center;gap:6px}
+.team-edit-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);transition:color 0.15s;display:flex;align-items:center}
+.team-edit-btn:hover{color:var(--accent)}
+.mvp-badge{display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;font-weight:800;color:#fbbf24;padding:2px 8px;border-radius:8px;background:rgba(245,158,11,0.15);margin-left:6px;text-transform:uppercase;letter-spacing:0.5px}
 .competition-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:700;margin-bottom:16px}
 .badge-individual{background:rgba(59,130,246,0.12);color:#60a5fa}
 .badge-team{background:rgba(139,92,246,0.12);color:#a78bfa}
@@ -502,7 +506,7 @@ export default function App() {
           {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
-          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} streaks={streaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} />}
+          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} streaks={streaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} />}
           {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
@@ -564,8 +568,10 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
 // ============================================================
 // LEADERBOARD VIEW (with time tabs + team competition)
 // ============================================================
-function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName }) {
+function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey }) {
   const [period, setPeriod] = useState("weekly");
+  const [renamingTeam, setRenamingTeam] = useState(null); // null or "team1"/"team2"
+  const [renameValue, setRenameValue] = useState("");
   const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
 
   const sorted = useMemo(() => {
@@ -580,6 +586,36 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName }) {
     const t2Score = teams.team2.members.reduce((sum, m) => sum + getPoints(m, "weekly"), 0);
     return { team1: t1Score, team2: t2Score };
   }, [teamWeek, teams, getPoints]);
+
+  // MVP: top scorer on the winning team
+  const mvp = useMemo(() => {
+    if (!teamWeek || !teams || !teamScores) return null;
+    const winningTeamKey = teamScores.team1 >= teamScores.team2 ? "team1" : "team2";
+    // If tied, both teams can have MVP
+    const winningMembers = teams[winningTeamKey].members;
+    if (winningMembers.every(m => getPoints(m, "weekly") === 0)) return null;
+    let topMember = winningMembers[0];
+    let topPts = getPoints(winningMembers[0], "weekly");
+    for (let i = 1; i < winningMembers.length; i++) {
+      const p = getPoints(winningMembers[i], "weekly");
+      if (p > topPts) { topMember = winningMembers[i]; topPts = p; }
+    }
+    return topPts > 0 ? topMember : null;
+  }, [teamWeek, teams, teamScores, getPoints]);
+
+  const startRename = (teamKey) => {
+    setRenamingTeam(teamKey);
+    setRenameValue(getTeamName(teamKey));
+  };
+
+  const saveRename = () => {
+    if (renamingTeam && renameValue.trim()) {
+      const nameKey = `${weekStartKey}_${renamingTeam}`;
+      setTeamName(nameKey, renameValue.trim());
+    }
+    setRenamingTeam(null);
+    setRenameValue("");
+  };
 
   return (
     <div>
@@ -596,7 +632,16 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName }) {
           <div className={`team-card ${teamScores.team1 >= teamScores.team2 ? "winning" : ""}`}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div className="team-name">{getTeamName("team1")}</div>
+                <div className="team-name-row">
+                  {renamingTeam === "team1" ? (
+                    <input className="form-input" style={{ padding: "4px 8px", fontSize: "1rem", width: 180 }} value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveRename(); if (e.key === "Escape") setRenamingTeam(null); }} onBlur={saveRename} autoFocus maxLength={30} />
+                  ) : (
+                    <>
+                      <span className="team-name">{getTeamName("team1")}</span>
+                      <button className="team-edit-btn" onClick={() => startRename("team1")} title="Rename team"><Icons.Settings size={14} /></button>
+                    </>
+                  )}
+                </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Captain: {teams.team1.captain}</div>
               </div>
               <div className="team-score">{teamScores.team1}</div>
@@ -604,7 +649,7 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName }) {
             <div className="team-members">
               {teams.team1.members.map(m => {
                 const mo = FAMILY_MEMBERS.find(f => f.name === m);
-                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} <span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
+                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} {mvp === m && <span className="mvp-badge">⭐ MVP</span>}<span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
               })}
             </div>
           </div>
@@ -614,7 +659,16 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName }) {
           <div className={`team-card ${teamScores.team2 > teamScores.team1 ? "winning" : ""}`}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div className="team-name">{getTeamName("team2")}</div>
+                <div className="team-name-row">
+                  {renamingTeam === "team2" ? (
+                    <input className="form-input" style={{ padding: "4px 8px", fontSize: "1rem", width: 180 }} value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveRename(); if (e.key === "Escape") setRenamingTeam(null); }} onBlur={saveRename} autoFocus maxLength={30} />
+                  ) : (
+                    <>
+                      <span className="team-name">{getTeamName("team2")}</span>
+                      <button className="team-edit-btn" onClick={() => startRename("team2")} title="Rename team"><Icons.Settings size={14} /></button>
+                    </>
+                  )}
+                </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Captain: {teams.team2.captain}</div>
               </div>
               <div className="team-score">{teamScores.team2}</div>
@@ -622,7 +676,7 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName }) {
             <div className="team-members">
               {teams.team2.members.map(m => {
                 const mo = FAMILY_MEMBERS.find(f => f.name === m);
-                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} <span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
+                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} {mvp === m && <span className="mvp-badge">⭐ MVP</span>}<span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
               })}
             </div>
           </div>
