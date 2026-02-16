@@ -58,6 +58,26 @@ const FAMILY_MEMBERS = [
 
 const PARENT_PIN = "1234";
 
+const EMOJI_OPTIONS = [
+  "🦅","🌸","⚡","🎯","🌟","🚀","🐉","🦁","🐺","🦊","🐻","🐼",
+  "🦄","🐝","🦋","🐬","🦈","🐙","🦖","🦕","🐢","🦜","🐸","🦩",
+  "🔥","💎","⚔️","🛡️","🎮","🎸","🏀","⚽","🏈","🎨","🧩","🌈",
+  "💫","✨","🌙","☀️","❄️","🌊","🍕","🍩","🎪","🎭","👑","💪",
+];
+
+const TEAM_COLORS = [
+  { name: "Red", value: "#EF4444" },
+  { name: "Orange", value: "#F97316" },
+  { name: "Yellow", value: "#EAB308" },
+  { name: "Green", value: "#22C55E" },
+  { name: "Teal", value: "#14B8A6" },
+  { name: "Blue", value: "#3B82F6" },
+  { name: "Indigo", value: "#6366F1" },
+  { name: "Purple", value: "#8B5CF6" },
+  { name: "Pink", value: "#EC4899" },
+  { name: "Rose", value: "#F43F5E" },
+];
+
 function getToday() { return new Date(); }
 function getDayName(date) { return DAYS[date.getDay()]; }
 function formatDate(date) { return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }); }
@@ -352,6 +372,43 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .milestone-title{font-family:'Fredoka',sans-serif;font-size:1.5rem;font-weight:700;color:var(--warning);margin-bottom:4px}
 .milestone-sub{font-size:0.9rem;color:var(--text-secondary);font-weight:600}
 .milestone-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+@keyframes boxShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+@keyframes boxHover{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes confettiBurst{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(0.5)}}
+@keyframes prizeReveal{0%{opacity:0;transform:scale(0.5) rotateY(90deg)}50%{transform:scale(1.1) rotateY(0deg)}100%{opacity:1;transform:scale(1) rotateY(0deg)}}
+@keyframes sparkle{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}}
+.prize-card{background:var(--bg-card);border:2px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;text-align:center;transition:all 0.3s}
+.prize-card.has-winner{border-color:var(--warning);background:linear-gradient(135deg,rgba(245,158,11,0.06),rgba(139,92,246,0.06))}
+.prize-type{font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px}
+.prize-label{font-family:'Fredoka',sans-serif;font-size:1rem;font-weight:600;color:var(--text-primary);margin-bottom:8px}
+.prize-value{font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:700;color:var(--warning);padding:8px 16px;border-radius:12px;background:rgba(245,158,11,0.1);display:inline-block}
+.mystery-box{display:inline-flex;flex-direction:column;align-items:center;cursor:default;padding:12px 20px;border-radius:16px;background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(245,158,11,0.12));border:2px dashed rgba(139,92,246,0.3)}
+.mystery-box.locked{animation:boxHover 2s ease infinite}
+.mystery-box.unlocked{cursor:pointer;border-style:solid;border-color:var(--warning);animation:boxShake 0.5s ease infinite}
+.mystery-box.unlocked:hover{background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(245,158,11,0.2))}
+.mystery-box-icon{font-size:2.5rem;margin-bottom:4px}
+.mystery-box-text{font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px}
+.mystery-box.unlocked .mystery-box-text{color:var(--warning)}
+.prize-revealed{animation:prizeReveal 0.6s ease forwards}
+.confetti-container{position:fixed;inset:0;pointer-events:none;z-index:250;overflow:hidden}
+.confetti-piece{position:absolute;width:10px;height:10px;border-radius:2px;animation:confettiFall linear forwards}
+@keyframes confettiFall{0%{opacity:1;transform:translateY(0) rotate(0deg)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+.prize-winner-name{font-family:'Fredoka',sans-serif;font-size:0.9rem;font-weight:600;margin-top:6px}
+.prize-form-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.mystery-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-secondary)}
+.mystery-toggle input{width:18px;height:18px;accent-color:var(--accent)}
+.emoji-picker-btn{cursor:pointer;transition:transform 0.15s;border:none;background:none;padding:0}
+.emoji-picker-btn:hover{transform:scale(1.15)}
+.emoji-picker-btn:active{transform:scale(0.95)}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;max-height:200px;overflow-y:auto;padding:8px}
+.emoji-option{font-size:1.5rem;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:2px solid transparent;cursor:pointer;background:rgba(255,255,255,0.03);transition:all 0.15s}
+.emoji-option:hover{background:rgba(255,255,255,0.08);border-color:var(--border)}
+.emoji-option.selected{border-color:var(--accent);background:rgba(59,130,246,0.1)}
+.color-picker-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}
+.color-option{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all 0.15s}
+.color-option:hover{transform:scale(1.1)}
+.color-option.selected{border-color:white;box-shadow:0 0 12px rgba(255,255,255,0.3)}
+.team-badge-mini{display:inline-flex;align-items:center;gap:3px;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:6px;letter-spacing:0.3px}
 .animate-in{animation:fadeIn 0.3s ease both}
 .animate-in:nth-child(1){animation-delay:0.02s}.animate-in:nth-child(2){animation-delay:0.06s}.animate-in:nth-child(3){animation-delay:0.1s}.animate-in:nth-child(4){animation-delay:0.14s}.animate-in:nth-child(5){animation-delay:0.18s}.animate-in:nth-child(6){animation-delay:0.22s}
 @keyframes checkPop{0%{transform:scale(0.8)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
@@ -371,6 +428,9 @@ export default function App() {
   const [customTasks, setCustomTasks] = useState(() => loadData("fcc_customTasks", {}));
   const [teamNames, setTeamNames] = useState(() => loadData("fcc_teamNames", {}));
   const [awards, setAwards] = useState(() => loadData("fcc_awards", {}));
+  const [prizes, setPrizes] = useState(() => loadData("fcc_prizes", {}));
+  const [customEmojis, setCustomEmojis] = useState(() => loadData("fcc_customEmojis", {}));
+  const [teamColors, setTeamColors] = useState(() => loadData("fcc_teamColors", {}));
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTeamNaming, setShowTeamNaming] = useState(null);
@@ -386,6 +446,9 @@ export default function App() {
   useFirebaseSync("customTasks", customTasks, setCustomTasks);
   useFirebaseSync("teamNames", teamNames, setTeamNames);
   useFirebaseSync("awards", awards, setAwards);
+  useFirebaseSync("prizes", prizes, setPrizes);
+  useFirebaseSync("customEmojis", customEmojis, setCustomEmojis);
+  useFirebaseSync("teamColors", teamColors, setTeamColors);
 
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
@@ -393,6 +456,9 @@ export default function App() {
   useEffect(() => { saveData("fcc_customTasks", customTasks); }, [customTasks]);
   useEffect(() => { saveData("fcc_teamNames", teamNames); }, [teamNames]);
   useEffect(() => { saveData("fcc_awards", awards); }, [awards]);
+  useEffect(() => { saveData("fcc_prizes", prizes); }, [prizes]);
+  useEffect(() => { saveData("fcc_customEmojis", customEmojis); }, [customEmojis]);
+  useEffect(() => { saveData("fcc_teamColors", teamColors); }, [teamColors]);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -559,6 +625,32 @@ export default function App() {
     return teamKey === "team1" ? "Team 1" : "Team 2";
   }, [teamNames, weekStartKey]);
 
+  const getMemberEmoji = useCallback((name) => {
+    if (customEmojis && !customEmojis._empty && customEmojis[name]) return customEmojis[name];
+    return FAMILY_MEMBERS.find(m => m.name === name)?.emoji || "⭐";
+  }, [customEmojis]);
+
+  const setMemberEmoji = useCallback((name, emoji) => {
+    setCustomEmojis(prev => { const u = { ...prev }; delete u._empty; u[name] = emoji; return u; });
+  }, []);
+
+  const getTeamColor = useCallback((teamKey) => {
+    const ck = `${weekStartKey}_${teamKey}`;
+    return teamColors?.[ck] || null;
+  }, [teamColors, weekStartKey]);
+
+  const setTeamColor = useCallback((teamKey, color) => {
+    const ck = `${weekStartKey}_${teamKey}`;
+    setTeamColors(prev => { const u = { ...prev }; delete u._empty; u[ck] = color; return u; });
+  }, [weekStartKey]);
+
+  const getTeamForMember = useCallback((memberName) => {
+    if (!teamWeek || !teams) return null;
+    if (teams.team1.members.includes(memberName)) return { key: "team1", ...teams.team1 };
+    if (teams.team2.members.includes(memberName)) return { key: "team2", ...teams.team2 };
+    return null;
+  }, [teamWeek, teams]);
+
   const recordWeekAwards = useCallback(() => {
     const wk = weekStartKey;
     const alreadyRecorded = Object.keys(awards).some(k => k.startsWith(`win_${wk}_`));
@@ -622,16 +714,16 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} />}
+          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
-          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} />}
+          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {showAddTask && <AddTaskModal onAdd={(task) => { addCustomTask(task); setShowAddTask(false); }} onClose={() => setShowAddTask(false)} todayKey={todayKey} />}
-        {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onClose={() => setShowTeamNaming(null)} />}
+        {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} getMemberEmoji={getMemberEmoji} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onColor={(color) => setTeamColor(showTeamNaming.teamKey, color)} onClose={() => setShowTeamNaming(null)} />}
         {milestone && (
           <div className="milestone-overlay">
             <div className="milestone-popup">
@@ -650,7 +742,8 @@ export default function App() {
 // ============================================================
 // TODAY VIEW
 // ============================================================
-function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks }) {
+function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor }) {
+  const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   return (
     <div>
       {members.map((member) => {
@@ -659,14 +752,21 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         const allDone = total > 0 && done === total;
         const weeklyPts = getPoints(member.name, "weekly");
         const streak = computedStreaks?.[member.name] || 0;
+        const emoji = getMemberEmoji(member.name);
+        const team = getTeamForMember(member.name);
+        const teamColor = team ? getTeamColor(team.key) : null;
+        const cardBorderColor = teamColor || member.color;
         return (
-          <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: member.color }}>
+          <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: cardBorderColor }}>
             <div className="member-header">
               <div className="member-name-row">
-                <div className="member-emoji">{member.emoji}</div>
+                <button className="emoji-picker-btn" onClick={(e) => { e.stopPropagation(); setEmojiPicker(emojiPicker === member.name ? null : member.name); }}>
+                  <div className="member-emoji">{emoji}</div>
+                </button>
                 <div>
                   <div className="member-name" style={{ color: member.color }}>
                     {member.name}
+                    {teamWeek && team && <span className="team-badge-mini" style={{ background: `${teamColor || "var(--border)"}22`, color: teamColor || "var(--text-muted)", border: `1px solid ${teamColor || "var(--border)"}` }}>{getTeamName(team.key)}</span>}
                     {streak >= 30 ? <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>
                      : streak >= 14 ? <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>
                      : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
@@ -680,6 +780,13 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
               </div>
               <div className="member-points"><Icons.Star size={18} color="#F59E0B" filled />{weeklyPts}</div>
             </div>
+            {emojiPicker === member.name && (
+              <div className="emoji-grid" style={{ marginBottom: 12 }}>
+                {EMOJI_OPTIONS.map(e => (
+                  <div key={e} className={`emoji-option ${emoji === e ? "selected" : ""}`} onClick={() => { setMemberEmoji(member.name, e); setEmojiPicker(null); }}>{e}</div>
+                ))}
+              </div>
+            )}
             <div className="chore-list">
               {chores.map((chore) => {
                 const completed = isChoreComplete(member.name, chore.id);
@@ -705,7 +812,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
 // ============================================================
 // LEADERBOARD VIEW (with time tabs + team competition)
 // ============================================================
-function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey, getAwardCounts }) {
+function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey, getAwardCounts, prizes, setPrizes, awards, getMemberEmoji, getTeamColor }) {
   const [period, setPeriod] = useState("weekly");
   const [renamingTeam, setRenamingTeam] = useState(null); // null or "team1"/"team2"
   const [renameValue, setRenameValue] = useState("");
@@ -763,10 +870,13 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
         </span>
       </div>
 
+      {/* Prize Cards */}
+      <PrizeDisplay prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} period={period} awards={awards} teamWeek={teamWeek} />
+
       {/* Team standings (team weeks only, weekly period) */}
       {teamWeek && teams && period === "weekly" && teamScores && (
         <div className="animate-in" style={{ marginBottom: 16 }}>
-          <div className={`team-card ${teamScores.team1 >= teamScores.team2 ? "winning" : ""}`}>
+          <div className={`team-card ${teamScores.team1 >= teamScores.team2 ? "winning" : ""}`} style={getTeamColor("team1") ? { borderColor: getTeamColor("team1") } : {}}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div className="team-name-row">
@@ -774,7 +884,7 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
                     <input className="form-input" style={{ padding: "4px 8px", fontSize: "1rem", width: 180 }} value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveRename(); if (e.key === "Escape") setRenamingTeam(null); }} onBlur={saveRename} autoFocus maxLength={30} />
                   ) : (
                     <>
-                      <span className="team-name">{getTeamName("team1")}</span>
+                      <span className="team-name" style={getTeamColor("team1") ? { color: getTeamColor("team1") } : {}}>{getTeamName("team1")}</span>
                       <button className="team-edit-btn" onClick={() => startRename("team1")} title="Rename team"><Icons.Settings size={14} /></button>
                     </>
                   )}
@@ -786,14 +896,14 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
             <div className="team-members">
               {teams.team1.members.map(m => {
                 const mo = FAMILY_MEMBERS.find(f => f.name === m);
-                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} {mvp === m && <span className="mvp-badge">⭐ MVP</span>}<span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
+                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${getTeamColor("team1") || mo?.color}` }}>{getMemberEmoji(m)} {m} {mvp === m && <span className="mvp-badge">⭐ MVP</span>}<span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
               })}
             </div>
           </div>
 
           <div className="team-vs">VS</div>
 
-          <div className={`team-card ${teamScores.team2 > teamScores.team1 ? "winning" : ""}`}>
+          <div className={`team-card ${teamScores.team2 > teamScores.team1 ? "winning" : ""}`} style={getTeamColor("team2") ? { borderColor: getTeamColor("team2") } : {}}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div className="team-name-row">
@@ -801,7 +911,7 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
                     <input className="form-input" style={{ padding: "4px 8px", fontSize: "1rem", width: 180 }} value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveRename(); if (e.key === "Escape") setRenamingTeam(null); }} onBlur={saveRename} autoFocus maxLength={30} />
                   ) : (
                     <>
-                      <span className="team-name">{getTeamName("team2")}</span>
+                      <span className="team-name" style={getTeamColor("team2") ? { color: getTeamColor("team2") } : {}}>{getTeamName("team2")}</span>
                       <button className="team-edit-btn" onClick={() => startRename("team2")} title="Rename team"><Icons.Settings size={14} /></button>
                     </>
                   )}
@@ -813,7 +923,7 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
             <div className="team-members">
               {teams.team2.members.map(m => {
                 const mo = FAMILY_MEMBERS.find(f => f.name === m);
-                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} {mvp === m && <span className="mvp-badge">⭐ MVP</span>}<span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
+                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${getTeamColor("team2") || mo?.color}` }}>{getMemberEmoji(m)} {m} {mvp === m && <span className="mvp-badge">⭐ MVP</span>}<span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
               })}
             </div>
           </div>
@@ -838,7 +948,7 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
           return (
             <div key={member.name} className="leaderboard-item animate-in">
               <div className="leaderboard-rank">{i < 3 ? medals[i] : `#${i + 1}`}</div>
-              <div className="member-emoji" style={{ fontSize: "1.3rem", width: 36, height: 36 }}>{member.emoji}</div>
+              <div className="member-emoji" style={{ fontSize: "1.3rem", width: 36, height: 36 }}>{getMemberEmoji(member.name)}</div>
               <div style={{ flex: 1 }}>
                 <div className="leaderboard-name" style={{ color: member.color }}>
                   {member.name}
@@ -871,23 +981,120 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
 }
 
 // ============================================================
+// ============================================================
+// PRIZE DISPLAY (Points tab)
+// ============================================================
+function PrizeDisplay({ prizes, setPrizes, weekStartKey, period, awards, teamWeek }) {
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [revealedPrizes, setRevealedPrizes] = useState({});
+
+  const PRIZE_TYPES = [
+    { key: "weekly", label: "Weekly Winner", icon: "🏆" },
+    { key: "monthly", label: "Monthly Winner", icon: "📅" },
+    ...(teamWeek ? [{ key: "team", label: "Winning Team", icon: "👫" }] : []),
+    { key: "mvp", label: "MVP", icon: "⭐" },
+  ];
+
+  const isFinalized = Object.keys(awards || {}).some(k => k.startsWith(`win_${weekStartKey}_`));
+
+  const triggerConfetti = () => {
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 3000);
+  };
+
+  const revealPrize = (prizeKey) => {
+    if (!isFinalized) return;
+    triggerConfetti();
+    setRevealedPrizes(prev => ({ ...prev, [prizeKey]: true }));
+  };
+
+  // Get active prizes for current period
+  const activePrizes = PRIZE_TYPES.map(t => {
+    const pk = `${t.key}_${weekStartKey}`;
+    const prize = prizes?.[pk];
+    if (!prize) return null;
+    return { ...t, prize, pk };
+  }).filter(Boolean);
+
+  if (activePrizes.length === 0) return null;
+
+  return (
+    <>
+      {showConfetti && (
+        <div className="confetti-container">
+          {Array.from({ length: 40 }, (_, i) => (
+            <div key={i} className="confetti-piece" style={{
+              left: `${Math.random() * 100}%`,
+              top: `-5%`,
+              background: ["#f59e0b", "#ef4444", "#3b82f6", "#10b981", "#8b5cf6", "#ec4899"][i % 6],
+              width: `${6 + Math.random() * 8}px`,
+              height: `${6 + Math.random() * 8}px`,
+              borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+              animationDuration: `${2 + Math.random() * 2}s`,
+              animationDelay: `${Math.random() * 0.5}s`,
+            }} />
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+        {activePrizes.map(({ key, label, icon, prize, pk }) => {
+          const isMystery = prize.mystery;
+          const isRevealed = revealedPrizes[pk];
+          const canReveal = isFinalized && isMystery && !isRevealed;
+
+          return (
+            <div key={pk} className={`prize-card ${isFinalized ? "has-winner" : ""}`} style={{ flex: "1 1 calc(50% - 4px)", minWidth: 150 }}>
+              <div className="prize-type">{icon} {label}</div>
+              {isMystery && !isRevealed ? (
+                <div className={`mystery-box ${canReveal ? "unlocked" : "locked"}`} onClick={() => canReveal && revealPrize(pk)}>
+                  <div className="mystery-box-icon">🎁</div>
+                  <div className="mystery-box-text">{canReveal ? "Tap to reveal!" : "Mystery Prize"}</div>
+                </div>
+              ) : (
+                <div className={isRevealed ? "prize-revealed" : ""}>
+                  <div className="prize-value">{prize.text || "TBD"}</div>
+                </div>
+              )}
+              {!isFinalized && <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 6 }}>🔒 Winner not decided yet</div>}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// ============================================================
 // TEAM NAMING MODAL
 // ============================================================
-function TeamNamingModal({ teamKey, captain, nameKey, onName, onClose }) {
+function TeamNamingModal({ teamKey, captain, nameKey, getMemberEmoji, onName, onColor, onClose }) {
   const [name, setName] = useState("");
+  const [selectedColor, setSelectedColor] = useState(TEAM_COLORS[5].value);
   const member = FAMILY_MEMBERS.find(m => m.name === captain);
+  const handleSave = () => {
+    onColor(selectedColor);
+    onName(nameKey, name.trim() || (teamKey === "team1" ? "Team 1" : "Team 2"));
+  };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign: "center" }}>
-        <div style={{ fontSize: "2.5rem", marginBottom: 8 }}>{member?.emoji || "⭐"}</div>
+        <div style={{ fontSize: "2.5rem", marginBottom: 8 }}>{getMemberEmoji(captain)}</div>
         <div className="pin-title" style={{ color: member?.color }}>{captain}, you're Team Captain!</div>
-        <div className="pin-subtitle">Name your team for this week</div>
+        <div className="pin-subtitle">Name your team and pick a color!</div>
         <div className="form-group">
-          <input className="form-input" type="text" placeholder="Enter a team name..." maxLength={30} value={name} onChange={e => setName(e.target.value)} autoFocus onKeyDown={e => { if (e.key === "Enter" && name.trim()) onName(nameKey, name.trim()); }} />
+          <input className="form-input" type="text" placeholder="Enter a team name..." maxLength={30} value={name} onChange={e => setName(e.target.value)} autoFocus onKeyDown={e => { if (e.key === "Enter") handleSave(); }} />
+        </div>
+        <div className="form-group">
+          <label className="form-label" style={{ textAlign: "center" }}>Team Color</label>
+          <div className="color-picker-grid">
+            {TEAM_COLORS.map(c => (
+              <div key={c.value} className={`color-option ${selectedColor === c.value ? "selected" : ""}`} style={{ background: c.value }} onClick={() => setSelectedColor(c.value)} title={c.name} />
+            ))}
+          </div>
         </div>
         <div className="form-actions" style={{ justifyContent: "center" }}>
-          <button className="btn btn-ghost" onClick={() => { onName(nameKey, teamKey === "team1" ? "Team 1" : "Team 2"); }}>Skip</button>
-          <button className="btn btn-primary" onClick={() => onName(nameKey, name.trim() || (teamKey === "team1" ? "Team 1" : "Team 2"))} disabled={false}>Save Name</button>
+          <button className="btn btn-ghost" onClick={() => { onColor(selectedColor); onName(nameKey, teamKey === "team1" ? "Team 1" : "Team 2"); }}>Skip</button>
+          <button className="btn btn-primary" style={{ background: selectedColor }} onClick={handleSave}>Save</button>
         </div>
       </div>
     </div>
@@ -973,39 +1180,69 @@ function WeekView({ today, weekOffset, setWeekOffset }) {
 // ROTATION VIEW
 // ============================================================
 function RotationView({ today, weekRotation }) {
-  if (!weekRotation) return <div className="card">No rotation data for this week.</div>;
-  const tasks = [
-    { icon: "🗑️", task: "Collect Trash", person: weekRotation.collectTrash },
-    { icon: "🚛", task: "Take Trash Out", person: weekRotation.trashOut },
-    { icon: "🫧", task: "Refill Soap", person: weekRotation.refillSoap },
-    { icon: "🧻", task: "Toilet Paper", person: weekRotation.toiletPaper },
-    { icon: "🗑️", task: "Bring Cans In", person: weekRotation.bringCansIn },
-  ];
+  const [rotationOffset, setRotationOffset] = useState(0);
   const member = (name) => FAMILY_MEMBERS.find(m => m.name === name);
+
+  // Show 4 weeks at a time starting from offset
+  const weeks = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < 4; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + (rotationOffset + i) * 7);
+      const ws = getWeekStart(d);
+      const rot = getCurrentWeekRotation(ws);
+      const isCurrent = dateToKey(getWeekStart(today)) === dateToKey(ws);
+      result.push({ date: ws, rotation: rot, isCurrent });
+    }
+    return result;
+  }, [today, rotationOffset]);
+
   return (
     <div>
-      <div className="card animate-in">
-        <div className="card-title"><Icons.Recycle size={22} color="var(--success)" /> This Week's Rotation</div>
-        <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
-          <span className={`recycle-badge ${weekRotation.recycle ? "recycle-yes" : "recycle-no"}`}>
-            <Icons.Recycle size={14} /> Recycling: {weekRotation.recycle ? "YES" : "No"}
-          </span>
-        </div>
-        <div className="weekly-grid">
-          {tasks.map((t) => {
-            const m = member(t.person);
-            return (
-              <div key={t.task} className="weekly-item">
-                <div className="weekly-icon">{t.icon}</div>
-                <div className="weekly-info">
-                  <div className="weekly-task">{t.task}</div>
-                  <div className="weekly-person" style={{ color: m?.color }}>{m?.emoji} {t.person}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="week-nav">
+        <button className="week-nav-btn" onClick={() => setRotationOffset(o => o - 4)}><Icons.ChevronLeft size={20} /></button>
+        <span className="week-label">Rotation Schedule</span>
+        <button className="week-nav-btn" onClick={() => setRotationOffset(o => o + 4)}><Icons.ChevronRight size={20} /></button>
       </div>
+      {weeks.map(({ date, rotation, isCurrent }) => {
+        if (!rotation) return null;
+        const weekLabel = `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(date.getTime() + 6*24*60*60*1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+        const tasks = [
+          { icon: "🗑️", task: "Collect Trash", person: rotation.collectTrash },
+          { icon: "🚛", task: "Take Trash Out", person: rotation.trashOut },
+          { icon: "🫧", task: "Refill Soap", person: rotation.refillSoap },
+          { icon: "🧻", task: "Toilet Paper", person: rotation.toiletPaper },
+          { icon: "🗑️", task: "Bring Cans In", person: rotation.bringCansIn },
+        ];
+        return (
+          <div key={dateToKey(date)} className="card animate-in" style={isCurrent ? { borderColor: "var(--accent)", borderWidth: 2 } : {}}>
+            <div className="card-title">
+              <Icons.Recycle size={18} color={isCurrent ? "var(--accent)" : "var(--success)"} />
+              <span>{weekLabel}</span>
+              {isCurrent && <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", background: "rgba(59,130,246,0.1)", padding: "2px 8px", borderRadius: 6 }}>THIS WEEK</span>}
+            </div>
+            <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+              <span className={`recycle-badge ${rotation.recycle ? "recycle-yes" : "recycle-no"}`}>
+                <Icons.Recycle size={14} /> Recycling: {rotation.recycle ? "YES" : "No"}
+              </span>
+            </div>
+            <div className="weekly-grid">
+              {tasks.map((t) => {
+                const m = member(t.person);
+                return (
+                  <div key={t.task} className="weekly-item">
+                    <div className="weekly-icon">{t.icon}</div>
+                    <div className="weekly-info">
+                      <div className="weekly-task">{t.task}</div>
+                      <div className="weekly-person" style={{ color: m?.color }}>{m?.emoji} {t.person}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1013,7 +1250,7 @@ function RotationView({ today, weekRotation }) {
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards }) {
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey }) {
   const [awardMsg, setAwardMsg] = useState("");
   return (
     <div>
@@ -1057,6 +1294,39 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
           })}
         </div>
       )}
+
+      {/* Set Prizes */}
+      <div className="card">
+        <div className="card-title">🎁 Set Prizes</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+          Set prizes for this week's competitions. Toggle mystery box to hide the prize until revealed!
+        </div>
+        {[
+          { key: "weekly", label: "Weekly Winner Prize", icon: "🏆" },
+          { key: "monthly", label: "Monthly Winner Prize", icon: "📅" },
+          { key: "team", label: "Winning Team Prize", icon: "👫" },
+          { key: "mvp", label: "MVP Prize", icon: "⭐" },
+        ].map(({ key, label, icon }) => {
+          const pk = `${key}_${weekStartKey}`;
+          const current = prizes?.[pk] || {};
+          return (
+            <div key={pk} style={{ marginBottom: 12, padding: 12, background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+              <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6 }}>{icon} {label}</div>
+              <div className="prize-form-row">
+                <input className="form-input" style={{ flex: 1 }} placeholder="e.g. Ice cream trip!" value={current.text || ""} onChange={e => {
+                  setPrizes(prev => { const u = { ...prev }; delete u._empty; u[pk] = { ...current, text: e.target.value }; return u; });
+                }} />
+              </div>
+              <label className="mystery-toggle">
+                <input type="checkbox" checked={!!current.mystery} onChange={e => {
+                  setPrizes(prev => { const u = { ...prev }; delete u._empty; u[pk] = { ...current, mystery: e.target.checked }; return u; });
+                }} />
+                🎁 Mystery Box (hidden until winner revealed)
+              </label>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Finalize Week Awards */}
       <div className="card">
