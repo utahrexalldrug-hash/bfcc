@@ -312,6 +312,7 @@ export default function App() {
   const [streaks, setStreaks] = useState(() => loadData("fcc_streaks", {}));
   const [customTasks, setCustomTasks] = useState(() => loadData("fcc_customTasks", {}));
   const [teamNames, setTeamNames] = useState(() => loadData("fcc_teamNames", {}));
+  const [awards, setAwards] = useState(() => loadData("fcc_awards", {}));
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTeamNaming, setShowTeamNaming] = useState(null); // null or { teamKey, captain }
@@ -324,12 +325,14 @@ export default function App() {
   useFirebaseSync("streaks", streaks, setStreaks);
   useFirebaseSync("customTasks", customTasks, setCustomTasks);
   useFirebaseSync("teamNames", teamNames, setTeamNames);
+  useFirebaseSync("awards", awards, setAwards);
 
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
   useEffect(() => { saveData("fcc_streaks", streaks); }, [streaks]);
   useEffect(() => { saveData("fcc_customTasks", customTasks); }, [customTasks]);
   useEffect(() => { saveData("fcc_teamNames", teamNames); }, [teamNames]);
+  useEffect(() => { saveData("fcc_awards", awards); }, [awards]);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -475,6 +478,41 @@ export default function App() {
     return teamKey === "team1" ? "Team 1" : "Team 2";
   }, [teamNames, weekStartKey]);
 
+  const recordWeekAwards = useCallback(() => {
+    const wk = weekStartKey;
+    const alreadyRecorded = Object.keys(awards).some(k => k.startsWith(`win_${wk}_`));
+    if (alreadyRecorded) return "already";
+    setAwards(prev => {
+      const u = { ...prev }; delete u._empty;
+      const sorted = [...FAMILY_MEMBERS].sort((a, b) => getPoints(b.name, "weekly") - getPoints(a.name, "weekly"));
+      if (getPoints(sorted[0].name, "weekly") > 0) u[`win_${wk}_${sorted[0].name}`] = true;
+      if (teamWeek && teams) {
+        const t1 = teams.team1.members.reduce((s, m) => s + getPoints(m, "weekly"), 0);
+        const t2 = teams.team2.members.reduce((s, m) => s + getPoints(m, "weekly"), 0);
+        const winTeam = t1 >= t2 ? teams.team1 : teams.team2;
+        let topM = winTeam.members[0], topP = getPoints(winTeam.members[0], "weekly");
+        for (const m of winTeam.members) { const p = getPoints(m, "weekly"); if (p > topP) { topM = m; topP = p; } }
+        if (topP > 0) u[`mvp_${wk}_${topM}`] = true;
+      }
+      if (Object.keys(u).length === 0) u._empty = true;
+      return u;
+    });
+    return "recorded";
+  }, [weekStartKey, awards, getPoints, teamWeek, teams]);
+
+  const getAwardCounts = useCallback((member, type, period) => {
+    if (!awards || awards._empty) return 0;
+    const prefix = type === "win" ? "win_" : "mvp_";
+    return Object.keys(awards).filter(k => {
+      if (!k.startsWith(prefix) || !k.endsWith(`_${member}`)) return false;
+      if (period === "alltime") return true;
+      const weekKey = k.slice(prefix.length, k.length - member.length - 1);
+      if (period === "monthly") return weekKey.startsWith(monthKey);
+      if (period === "yearly") return weekKey.startsWith(yearKey);
+      return true;
+    }).length;
+  }, [awards, monthKey, yearKey]);
+
   return (
     <><style>{styles}</style>
       <div className="app">
@@ -506,8 +544,8 @@ export default function App() {
           {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
-          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} streaks={streaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} />}
+          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} streaks={streaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
@@ -568,7 +606,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
 // ============================================================
 // LEADERBOARD VIEW (with time tabs + team competition)
 // ============================================================
-function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey }) {
+function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey, getAwardCounts }) {
   const [period, setPeriod] = useState("weekly");
   const [renamingTeam, setRenamingTeam] = useState(null); // null or "team1"/"team2"
   const [renameValue, setRenameValue] = useState("");
@@ -708,6 +746,16 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName, set
                   {streak > 1 && <span className="streak-badge" style={{ marginLeft: 8 }}><Icons.Fire size={14} color="#fb923c" /> {streak}</span>}
                 </div>
                 <div className="leaderboard-bar"><div className="leaderboard-bar-fill" style={{ width: `${maxPts > 0 ? (pts / maxPts) * 100 : 0}%`, background: member.color }} /></div>
+                {period !== "weekly" && (() => {
+                  const wins = getAwardCounts(member.name, "win", period);
+                  const mvps = getAwardCounts(member.name, "mvp", period);
+                  return (wins > 0 || mvps > 0) ? (
+                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                      {wins > 0 && <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#fbbf24" }}>🏆 {wins} win{wins !== 1 ? "s" : ""}</span>}
+                      {mvps > 0 && <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#a78bfa" }}>⭐ {mvps} MVP{mvps !== 1 ? "s" : ""}</span>}
+                    </div>
+                  ) : null;
+                })()}
               </div>
               <div className="leaderboard-score"><Icons.Star size={18} color="#F59E0B" filled />{pts}</div>
             </div>
@@ -861,7 +909,8 @@ function RotationView({ today, weekRotation }) {
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints }) {
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards }) {
+  const [awardMsg, setAwardMsg] = useState("");
   return (
     <div>
       <div className="card">
@@ -904,6 +953,21 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
           })}
         </div>
       )}
+
+      {/* Finalize Week Awards */}
+      <div className="card">
+        <div className="card-title"><Icons.Trophy size={22} color="var(--warning)" /> Finalize Week</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+          Record this week's 1st place winner and MVP (team weeks). Do this at the end of each week before points reset.
+        </div>
+        <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
+          const result = recordWeekAwards();
+          if (result === "already") setAwardMsg("Awards already recorded for this week!");
+          else setAwardMsg("✅ Awards recorded! Winner and MVP saved.");
+          setTimeout(() => setAwardMsg(""), 3000);
+        }}>🏆 Record This Week's Awards</button>
+        {awardMsg && <div style={{ marginTop: 8, fontSize: "0.85rem", fontWeight: 600, color: awardMsg.startsWith("✅") ? "var(--success)" : "var(--warning)", textAlign: "center" }}>{awardMsg}</div>}
+      </div>
 
       {/* Reset Actions */}
       <div className="card">
