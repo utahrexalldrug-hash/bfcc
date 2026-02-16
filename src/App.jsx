@@ -2,9 +2,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { db } from "./firebase";
 import { doc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
 
-// ============================================================
-// DATA: Weekly Rotation Schedule (from spreadsheet)
-// ============================================================
 const WEEKLY_ROTATIONS = [
   { date: "2025-07-30", collectTrash: "Emilie", trashOut: "Carter", recycle: false, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
   { date: "2025-08-06", collectTrash: "Carter", trashOut: "Cole", recycle: true, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
@@ -42,60 +39,12 @@ const WEEKLY_ROTATIONS = [
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const DAILY_CHORES = {
-  Nicholas: {
-    Sunday: { type: "dishes", zone: null, dinnerJob: null },
-    Monday: { type: "zone", zone: "Office/Front Hall", dinnerJob: "Clear Table" },
-    Tuesday: { type: "dishes", zone: null, dinnerJob: null },
-    Wednesday: { type: "zone", zone: "Family Room/Vacuum", dinnerJob: "Take Out Trash" },
-    Thursday: { type: "zone", zone: "Kitchen Floor", dinnerJob: "Sweep" },
-    Friday: { type: "zone", zone: "Office/Front Hall", dinnerJob: "Clear Table" },
-    Saturday: { type: "zone", zone: "Office/Front Hall", dinnerJob: "Clear Table" },
-  },
-  Emilie: {
-    Sunday: { type: "zone", zone: "Kitchen Floor", dinnerJob: "Sweep" },
-    Monday: { type: "zone", zone: "Family Room/Vacuum", dinnerJob: "Take Out Trash" },
-    Tuesday: { type: "zone", zone: "Office/Front Hall", dinnerJob: "Clear Table" },
-    Wednesday: { type: "zone", zone: "Kitchen Floor", dinnerJob: "Sweep" },
-    Thursday: { type: "dishes", zone: null, dinnerJob: null },
-    Friday: { type: "zone", zone: "Family Room/Vacuum", dinnerJob: "Take Out Trash" },
-    Saturday: { type: "dishes", zone: null, dinnerJob: null },
-  },
-  Carter: {
-    Sunday: { type: "zone", zone: "Family Room/Vacuum", dinnerJob: "Take Out Trash" },
-    Monday: { type: "dishes", zone: null, dinnerJob: null },
-    Tuesday: { type: "zone", zone: "Kitchen Floor", dinnerJob: "Sweep" },
-    Wednesday: { type: "zone", zone: "Office/Front Hall", dinnerJob: "Clear Table" },
-    Thursday: { type: "zone", zone: "Family Room/Vacuum", dinnerJob: "Take Out Trash" },
-    Friday: { type: "dishes", zone: null, dinnerJob: null },
-    Saturday: { type: "zone", zone: "Kitchen Floor", dinnerJob: "Sweep" },
-  },
-  Cole: {
-    Sunday: { type: "zone", zone: "Office/Front Hall", dinnerJob: "Clear Table" },
-    Monday: { type: "zone", zone: "Kitchen Floor", dinnerJob: "Sweep" },
-    Tuesday: { type: "zone", zone: "Family Room/Vacuum", dinnerJob: "Take Out Trash" },
-    Wednesday: { type: "dishes", zone: null, dinnerJob: null },
-    Thursday: { type: "zone", zone: "Office/Front Hall", dinnerJob: "Clear Table" },
-    Friday: { type: "zone", zone: "Kitchen Floor", dinnerJob: "Sweep" },
-    Saturday: { type: "zone", zone: "Family Room/Vacuum", dinnerJob: "Take Out Trash" },
-  },
-  Finn: {
-    Sunday: { type: "young", task: "Set Table/Stairs" },
-    Monday: { type: "young", task: "Help with Dishes/Upstairs Hallway" },
-    Tuesday: { type: "young", task: "Set Table/Stairs" },
-    Wednesday: { type: "young", task: "Help with Dishes/Upstairs Hallway" },
-    Thursday: { type: "young", task: "Set Table/Stairs" },
-    Friday: { type: "young", task: "Help with Dishes/Upstairs Hallway" },
-    Saturday: { type: "young", task: "Set Table/Stairs" },
-  },
-  Liam: {
-    Sunday: { type: "young", task: "Help with Dishes/Upstairs Hallway" },
-    Monday: { type: "young", task: "Set Table/Stairs" },
-    Tuesday: { type: "young", task: "Help with Dishes/Upstairs Hallway" },
-    Wednesday: { type: "young", task: "Set Table/Stairs" },
-    Thursday: { type: "young", task: "Help with Dishes/Upstairs Hallway" },
-    Friday: { type: "young", task: "Set Table/Stairs" },
-    Saturday: { type: "young", task: "Help with Dishes/Upstairs Hallway" },
-  },
+  Nicholas: { Sunday:{type:"dishes",zone:null,dinnerJob:null},Monday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Tuesday:{type:"dishes",zone:null,dinnerJob:null},Wednesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Thursday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Friday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Saturday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"} },
+  Emilie: { Sunday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Monday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Tuesday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Wednesday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Thursday:{type:"dishes",zone:null,dinnerJob:null},Friday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Saturday:{type:"dishes",zone:null,dinnerJob:null} },
+  Carter: { Sunday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Monday:{type:"dishes",zone:null,dinnerJob:null},Tuesday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Wednesday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Thursday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Friday:{type:"dishes",zone:null,dinnerJob:null},Saturday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"} },
+  Cole: { Sunday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Monday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Tuesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Wednesday:{type:"dishes",zone:null,dinnerJob:null},Thursday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Friday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Saturday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"} },
+  Finn: { Sunday:{type:"young",task:"Set Table/Stairs"},Monday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Tuesday:{type:"young",task:"Set Table/Stairs"},Wednesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Thursday:{type:"young",task:"Set Table/Stairs"},Friday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Saturday:{type:"young",task:"Set Table/Stairs"} },
+  Liam: { Sunday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Monday:{type:"young",task:"Set Table/Stairs"},Tuesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Wednesday:{type:"young",task:"Set Table/Stairs"},Thursday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Friday:{type:"young",task:"Set Table/Stairs"},Saturday:{type:"young",task:"Help with Dishes/Upstairs Hallway"} },
 };
 
 const FAMILY_MEMBERS = [
@@ -127,6 +76,54 @@ function getCurrentWeekRotation(date) {
   const r = baseRotation[idx];
   return { date: weekStartKey, collectTrash: r[0], trashOut: r[1], recycle: weekNum % 2 === 1, bringCansIn: r[2], refillSoap: r[3], toiletPaper: r[4] };
 }
+
+// Week number since a fixed epoch (for determining individual vs team weeks)
+function getWeekNumber(date) {
+  const epoch = new Date("2025-07-27"); // A Sunday
+  const weekStart = getWeekStart(date);
+  return Math.floor((weekStart.getTime() - epoch.getTime()) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function isTeamWeek(date) {
+  return getWeekNumber(date) % 2 === 1; // odd weeks = team weeks
+}
+
+// Seeded random for deterministic team generation per week
+function seededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function shuffleArray(arr, rng) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getTeamsForWeek(date) {
+  const weekNum = getWeekNumber(date);
+  const seed = weekNum * 31337 + 42;
+  const rng = seededRandom(seed);
+  const names = FAMILY_MEMBERS.map(m => m.name);
+  const shuffled = shuffleArray(names, rng);
+  // Captain is index 0 of each team, rotates based on week
+  const captainIdx = weekNum % FAMILY_MEMBERS.length;
+  // Ensure captain is first in their team
+  return {
+    team1: { members: shuffled.slice(0, 3), captain: shuffled[0] },
+    team2: { members: shuffled.slice(3, 6), captain: shuffled[3] },
+  };
+}
+
+function getWeekStartKey(date) { return dateToKey(getWeekStart(date)); }
+function getMonthKey(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`; }
+function getYearKey(date) { return `${date.getFullYear()}`; }
 
 function loadData(key, fallback) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } }
 function saveData(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
@@ -246,8 +243,11 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .day-member-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .day-member-chore{color:var(--text-secondary);font-size:0.7rem;font-weight:400}
 .pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
-.pin-dialog{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:32px;text-align:center;width:320px;max-width:90vw}
-.pin-title{font-family:'Fredoka',sans-serif;font-size:1.4rem;font-weight:700;margin-bottom:8px}
+.pin-dialog,.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:28px;max-width:92vw;max-height:90vh;overflow-y:auto}
+.pin-dialog{padding:32px;text-align:center;width:320px}
+.modal{width:380px}
+.pin-title,.modal-title{font-family:'Fredoka',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:8px}
+.modal-title{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
 .pin-subtitle{color:var(--text-secondary);font-size:0.9rem;margin-bottom:24px}
 .pin-input{display:flex;gap:12px;justify-content:center;margin-bottom:24px}
 .pin-digit{width:50px;height:56px;border-radius:12px;border:2px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:1.5rem;font-weight:700;text-align:center;font-family:'Fredoka',sans-serif;outline:none;transition:border-color 0.2s}
@@ -266,8 +266,6 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .points-adjust-btn:hover{background:var(--bg-card-hover)}
 .points-value{font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:700;min-width:40px;text-align:center}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
-.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:28px;width:380px;max-width:92vw;max-height:90vh;overflow-y:auto}
-.modal-title{font-family:'Fredoka',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
 .form-group{margin-bottom:16px}
 .form-label{display:block;font-size:0.8rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
 .form-input,.form-select{width:100%;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:'Nunito',sans-serif;font-size:0.95rem;font-weight:600;outline:none;transition:border-color 0.2s}
@@ -278,6 +276,19 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .add-task-fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:16px;background:var(--accent);color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(59,130,246,0.4);transition:all 0.2s;z-index:50}
 .add-task-fab:hover{background:#2563eb;transform:scale(1.05)}.add-task-fab:active{transform:scale(0.95)}
+.time-tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--bg-secondary);padding:4px;border-radius:12px}
+.time-tab{flex:1;padding:8px 4px;border:none;background:none;color:var(--text-muted);font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;border-radius:8px;transition:all 0.2s;text-transform:uppercase;letter-spacing:0.3px}
+.time-tab.active{background:var(--accent);color:white}
+.team-card{background:var(--bg-card);border:2px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;transition:all 0.2s}
+.team-card.winning{border-color:var(--warning);background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02))}
+.team-name{font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:700;margin-bottom:4px}
+.team-score{font-family:'Fredoka',sans-serif;font-size:2rem;font-weight:700;color:var(--warning)}
+.team-members{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.team-member-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:0.82rem;font-weight:600}
+.team-vs{text-align:center;font-family:'Fredoka',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text-muted);padding:8px 0}
+.competition-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:700;margin-bottom:16px}
+.badge-individual{background:rgba(59,130,246,0.12);color:#60a5fa}
+.badge-team{background:rgba(139,92,246,0.12);color:#a78bfa}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .animate-in{animation:fadeIn 0.3s ease both}
 .animate-in:nth-child(1){animation-delay:0.02s}.animate-in:nth-child(2){animation-delay:0.06s}.animate-in:nth-child(3){animation-delay:0.1s}.animate-in:nth-child(4){animation-delay:0.14s}.animate-in:nth-child(5){animation-delay:0.18s}.animate-in:nth-child(6){animation-delay:0.22s}
@@ -296,8 +307,10 @@ export default function App() {
   const [points, setPoints] = useState(() => loadData("fcc_points", {}));
   const [streaks, setStreaks] = useState(() => loadData("fcc_streaks", {}));
   const [customTasks, setCustomTasks] = useState(() => loadData("fcc_customTasks", {}));
+  const [teamNames, setTeamNames] = useState(() => loadData("fcc_teamNames", {}));
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showTeamNaming, setShowTeamNaming] = useState(null); // null or { teamKey, captain }
   const [isParent, setIsParent] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -306,11 +319,13 @@ export default function App() {
   useFirebaseSync("points", points, setPoints);
   useFirebaseSync("streaks", streaks, setStreaks);
   useFirebaseSync("customTasks", customTasks, setCustomTasks);
+  useFirebaseSync("teamNames", teamNames, setTeamNames);
 
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
   useEffect(() => { saveData("fcc_streaks", streaks); }, [streaks]);
   useEffect(() => { saveData("fcc_customTasks", customTasks); }, [customTasks]);
+  useEffect(() => { saveData("fcc_teamNames", teamNames); }, [teamNames]);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -322,7 +337,41 @@ export default function App() {
 
   const dayName = getDayName(today);
   const todayKey = dateToKey(today);
+  const weekStartKey = getWeekStartKey(today);
+  const monthKey = getMonthKey(today);
+  const yearKey = getYearKey(today);
   const weekRotation = getCurrentWeekRotation(today);
+  const teamWeek = isTeamWeek(today);
+  const teams = teamWeek ? getTeamsForWeek(today) : null;
+
+  // Points are stored with period prefixes: w_WEEKKEY_member, m_MONTHKEY_member, y_YEAR_member, a_member
+  const addPoints = useCallback((member, delta) => {
+    setPoints(p => {
+      const u = { ...p }; delete u._empty;
+      // Weekly
+      const wk = `w_${weekStartKey}_${member}`;
+      u[wk] = Math.max(0, (u[wk] || 0) + delta);
+      // Monthly
+      const mk = `m_${monthKey}_${member}`;
+      u[mk] = Math.max(0, (u[mk] || 0) + delta);
+      // Yearly
+      const yk = `y_${yearKey}_${member}`;
+      u[yk] = Math.max(0, (u[yk] || 0) + delta);
+      // All-time
+      const ak = `a_${member}`;
+      u[ak] = Math.max(0, (u[ak] || 0) + delta);
+      return u;
+    });
+  }, [weekStartKey, monthKey, yearKey]);
+
+  const getPoints = useCallback((member, period) => {
+    if (!points || points._empty) return 0;
+    if (period === "weekly") return points[`w_${weekStartKey}_${member}`] || 0;
+    if (period === "monthly") return points[`m_${monthKey}_${member}`] || 0;
+    if (period === "yearly") return points[`y_${yearKey}_${member}`] || 0;
+    if (period === "alltime") return points[`a_${member}`] || 0;
+    return 0;
+  }, [points, weekStartKey, monthKey, yearKey]);
 
   const getCustomTasksForMember = useCallback((member) => {
     if (!customTasks || customTasks._empty) return [];
@@ -337,14 +386,39 @@ export default function App() {
       const next = { ...prev }; delete next._empty;
       if (next[key]) {
         delete next[key];
-        setPoints(p => { const u = { ...p }; delete u._empty; u[member] = Math.max(0, (u[member] || 0) - pointValue); return u; });
+        addPoints(member, -pointValue);
       } else {
         next[key] = true;
-        setPoints(p => { const u = { ...p }; delete u._empty; u[member] = (u[member] || 0) + pointValue; return u; });
+        addPoints(member, pointValue);
+        // Check if this is a team captain's first chore of the week
+        if (teamWeek && teams) {
+          const isT1Captain = teams.team1.captain === member;
+          const isT2Captain = teams.team2.captain === member;
+          if (isT1Captain || isT2Captain) {
+            const tk = isT1Captain ? "team1" : "team2";
+            const nameKey = `${weekStartKey}_${tk}`;
+            if (!teamNames[nameKey] && !teamNames._empty) {
+              // Check if they have any other completions this week
+              // Check all 7 days of the current week for any completions by this captain
+              const ws = getWeekStart(today);
+              const weekDayKeys = Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(ws); d.setDate(d.getDate() + i); return dateToKey(d);
+              });
+              const hasOtherCompletions = Object.keys(prev).some(k => {
+                return weekDayKeys.some(dk => k.startsWith(dk)) && k.includes(`_${member}_`);
+              });
+              if (!hasOtherCompletions) {
+                setTimeout(() => setShowTeamNaming({ teamKey: tk, captain: member, nameKey }), 300);
+              }
+            }
+          } else if (isT1Captain === false && isT2Captain === false) {
+            // not a captain, skip
+          }
+        }
       }
       return next;
     });
-  }, [todayKey]);
+  }, [todayKey, today, addPoints, teamWeek, teams, weekStartKey, teamNames]);
 
   const isChoreComplete = useCallback((member, choreId) => {
     return !!completedChores[`${todayKey}_${member}_${choreId}`];
@@ -386,8 +460,16 @@ export default function App() {
     setCustomTasks(prev => { const u = { ...prev }; delete u[taskKey]; if (Object.keys(u).length === 0) u._empty = true; return u; });
   }, []);
 
-  const sortedLeaderboard = useMemo(() => [...FAMILY_MEMBERS].sort((a, b) => (points[b.name] || 0) - (points[a.name] || 0)), [points]);
-  const maxPoints = useMemo(() => Math.max(1, ...FAMILY_MEMBERS.map(m => points[m.name] || 0)), [points]);
+  const setTeamName = useCallback((nameKey, name) => {
+    setTeamNames(prev => { const u = { ...prev }; delete u._empty; u[nameKey] = name; return u; });
+  }, []);
+
+  const getTeamName = useCallback((teamKey) => {
+    const nameKey = `${weekStartKey}_${teamKey}`;
+    const name = teamNames[nameKey];
+    if (name) return name;
+    return teamKey === "team1" ? "Team 1" : "Team 2";
+  }, [teamNames, weekStartKey]);
 
   return (
     <><style>{styles}</style>
@@ -417,15 +499,16 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} points={points} isParent={isParent} deleteCustomTask={deleteCustomTask} />}
+          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
-          {currentTab === "leaderboard" && <LeaderboardView sorted={sortedLeaderboard} points={points} maxPoints={maxPoints} streaks={streaks} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} />}
+          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} streaks={streaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {showAddTask && <AddTaskModal onAdd={(task) => { addCustomTask(task); setShowAddTask(false); }} onClose={() => setShowAddTask(false)} todayKey={todayKey} />}
+        {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onClose={() => setShowTeamNaming(null)} />}
       </div>
     </>
   );
@@ -434,13 +517,14 @@ export default function App() {
 // ============================================================
 // TODAY VIEW
 // ============================================================
-function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, points, isParent, deleteCustomTask }) {
+function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask }) {
   return (
     <div>
       {members.map((member) => {
         const chores = getMemberChores(member.name);
         const { done, total } = getCompletionCount(member.name);
         const allDone = total > 0 && done === total;
+        const weeklyPts = getPoints(member.name, "weekly");
         return (
           <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: member.color }}>
             <div className="member-header">
@@ -453,7 +537,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                   </div>
                 </div>
               </div>
-              <div className="member-points"><Icons.Star size={18} color="#F59E0B" filled />{points[member.name] || 0}</div>
+              <div className="member-points"><Icons.Star size={18} color="#F59E0B" filled />{weeklyPts}</div>
             </div>
             <div className="chore-list">
               {chores.map((chore) => {
@@ -478,50 +562,151 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
 }
 
 // ============================================================
+// LEADERBOARD VIEW (with time tabs + team competition)
+// ============================================================
+function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName }) {
+  const [period, setPeriod] = useState("weekly");
+  const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
+
+  const sorted = useMemo(() => {
+    return [...FAMILY_MEMBERS].sort((a, b) => getPoints(b.name, period) - getPoints(a.name, period));
+  }, [getPoints, period]);
+
+  const maxPts = useMemo(() => Math.max(1, ...FAMILY_MEMBERS.map(m => getPoints(m.name, period))), [getPoints, period]);
+
+  const teamScores = useMemo(() => {
+    if (!teamWeek || !teams) return null;
+    const t1Score = teams.team1.members.reduce((sum, m) => sum + getPoints(m, "weekly"), 0);
+    const t2Score = teams.team2.members.reduce((sum, m) => sum + getPoints(m, "weekly"), 0);
+    return { team1: t1Score, team2: t2Score };
+  }, [teamWeek, teams, getPoints]);
+
+  return (
+    <div>
+      {/* Competition type badge */}
+      <div style={{ textAlign: "center" }}>
+        <span className={`competition-badge ${teamWeek ? "badge-team" : "badge-individual"}`}>
+          {teamWeek ? "\u{1F46B} Team Week" : "\u{1F3C3} Individual Week"}
+        </span>
+      </div>
+
+      {/* Team standings (team weeks only, weekly period) */}
+      {teamWeek && teams && period === "weekly" && teamScores && (
+        <div className="animate-in" style={{ marginBottom: 16 }}>
+          <div className={`team-card ${teamScores.team1 >= teamScores.team2 ? "winning" : ""}`}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div className="team-name">{getTeamName("team1")}</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Captain: {teams.team1.captain}</div>
+              </div>
+              <div className="team-score">{teamScores.team1}</div>
+            </div>
+            <div className="team-members">
+              {teams.team1.members.map(m => {
+                const mo = FAMILY_MEMBERS.find(f => f.name === m);
+                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} <span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
+              })}
+            </div>
+          </div>
+
+          <div className="team-vs">VS</div>
+
+          <div className={`team-card ${teamScores.team2 > teamScores.team1 ? "winning" : ""}`}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div className="team-name">{getTeamName("team2")}</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Captain: {teams.team2.captain}</div>
+              </div>
+              <div className="team-score">{teamScores.team2}</div>
+            </div>
+            <div className="team-members">
+              {teams.team2.members.map(m => {
+                const mo = FAMILY_MEMBERS.find(f => f.name === m);
+                return <span key={m} className="team-member-chip" style={{ borderLeft: `3px solid ${mo?.color}` }}>{mo?.emoji} {m} <span style={{ color: "var(--warning)", fontWeight: 800, marginLeft: 4 }}>{getPoints(m, "weekly")}</span></span>;
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Time period tabs */}
+      <div className="time-tabs">
+        {[["weekly","Week"],["monthly","Month"],["yearly","Year"],["alltime","All"]].map(([key, label]) => (
+          <button key={key} className={`time-tab ${period === key ? "active" : ""}`} onClick={() => setPeriod(key)}>{label}</button>
+        ))}
+      </div>
+
+      {/* Individual leaderboard */}
+      <div className="card animate-in">
+        <div className="card-title"><Icons.Trophy size={22} color="var(--warning)" />
+          {period === "weekly" ? "This Week" : period === "monthly" ? "This Month" : period === "yearly" ? "This Year" : "All Time"}
+        </div>
+        {sorted.map((member, i) => {
+          const pts = getPoints(member.name, period);
+          const streak = streaks?.[member.name] || 0;
+          return (
+            <div key={member.name} className="leaderboard-item animate-in">
+              <div className="leaderboard-rank">{i < 3 ? medals[i] : `#${i + 1}`}</div>
+              <div className="member-emoji" style={{ fontSize: "1.3rem", width: 36, height: 36 }}>{member.emoji}</div>
+              <div style={{ flex: 1 }}>
+                <div className="leaderboard-name" style={{ color: member.color }}>
+                  {member.name}
+                  {streak > 1 && <span className="streak-badge" style={{ marginLeft: 8 }}><Icons.Fire size={14} color="#fb923c" /> {streak}</span>}
+                </div>
+                <div className="leaderboard-bar"><div className="leaderboard-bar-fill" style={{ width: `${maxPts > 0 ? (pts / maxPts) * 100 : 0}%`, background: member.color }} /></div>
+              </div>
+              <div className="leaderboard-score"><Icons.Star size={18} color="#F59E0B" filled />{pts}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// TEAM NAMING MODAL
+// ============================================================
+function TeamNamingModal({ teamKey, captain, nameKey, onName, onClose }) {
+  const [name, setName] = useState("");
+  const member = FAMILY_MEMBERS.find(m => m.name === captain);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign: "center" }}>
+        <div style={{ fontSize: "2.5rem", marginBottom: 8 }}>{member?.emoji || "⭐"}</div>
+        <div className="pin-title" style={{ color: member?.color }}>{captain}, you're Team Captain!</div>
+        <div className="pin-subtitle">Name your team for this week</div>
+        <div className="form-group">
+          <input className="form-input" type="text" placeholder="Enter a team name..." maxLength={30} value={name} onChange={e => setName(e.target.value)} autoFocus onKeyDown={e => { if (e.key === "Enter" && name.trim()) onName(nameKey, name.trim()); }} />
+        </div>
+        <div className="form-actions" style={{ justifyContent: "center" }}>
+          <button className="btn btn-ghost" onClick={() => { onName(nameKey, teamKey === "team1" ? "Team 1" : "Team 2"); }}>Skip</button>
+          <button className="btn btn-primary" onClick={() => onName(nameKey, name.trim() || (teamKey === "team1" ? "Team 1" : "Team 2"))} disabled={false}>Save Name</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // ADD TASK MODAL
 // ============================================================
 function AddTaskModal({ onAdd, onClose, todayKey }) {
-  const [description, setDescription] = useState("");
-  const [assignee, setAssignee] = useState("Nicholas");
+  const [desc, setDesc] = useState("");
+  const [assignee, setAssignee] = useState(FAMILY_MEMBERS[0].name);
   const [pts, setPts] = useState(1);
   const [date, setDate] = useState(todayKey);
-
-  const handleSubmit = () => {
-    if (!description.trim()) return;
-    onAdd({ description: description.trim(), assignee, points: Math.max(1, Math.min(50, pts)), date });
-  };
-
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal">
-        <div className="modal-title">
-          <span>{"\u{1F4DD}"} Add Custom Task</span>
-          <button className="btn btn-ghost" onClick={onClose} style={{ padding: 4 }}><Icons.X size={20} /></button>
-        </div>
-        <div className="form-group">
-          <label className="form-label">What needs to be done?</label>
-          <input className="form-input" type="text" placeholder="e.g. Clean the garage" value={description} onChange={(e) => setDescription(e.target.value)} autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }} />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Assign to</label>
-          <select className="form-select" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-            {FAMILY_MEMBERS.map(m => <option key={m.name} value={m.name}>{m.emoji} {m.name}</option>)}
-          </select>
-        </div>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title"><span>Add Custom Task</span><button className="btn btn-ghost" onClick={onClose} style={{ padding: 4 }}><Icons.X size={20} /></button></div>
+        <div className="form-group"><label className="form-label">Task Description</label><input className="form-input" placeholder="What needs doing?" value={desc} onChange={e => setDesc(e.target.value)} autoFocus /></div>
+        <div className="form-group"><label className="form-label">Assign To</label><select className="form-select" value={assignee} onChange={e => setAssignee(e.target.value)}>{FAMILY_MEMBERS.map(m => <option key={m.name} value={m.name}>{m.emoji} {m.name}</option>)}</select></div>
         <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Points</label>
-            <input className="form-input" type="number" min="1" max="50" value={pts} onChange={(e) => setPts(parseInt(e.target.value) || 1)} inputMode="numeric" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Due date</label>
-            <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
+          <div className="form-group"><label className="form-label">Points</label><input className="form-input" type="number" min={1} max={50} value={pts} onChange={e => setPts(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))} /></div>
+          <div className="form-group"><label className="form-label">Due Date</label><input className="form-input" type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
         </div>
-        <div className="form-actions">
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={!description.trim()} style={{ opacity: description.trim() ? 1 : 0.5 }}><Icons.Plus size={18} /> Add Task</button>
-        </div>
+        <div className="form-actions"><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => { if (desc.trim()) onAdd({ description: desc.trim(), assignee, points: pts, date }); }} disabled={!desc.trim()}>Add Task</button></div>
       </div>
     </div>
   );
@@ -532,38 +717,43 @@ function AddTaskModal({ onAdd, onClose, todayKey }) {
 // ============================================================
 function WeekView({ today, weekOffset, setWeekOffset }) {
   const weekStart = useMemo(() => { const d = getWeekStart(today); d.setDate(d.getDate() + weekOffset * 7); return d; }, [today, weekOffset]);
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }), [weekStart]);
-  const weekLabel = useMemo(() => {
-    const s = weekDays[0], e = weekDays[6];
-    const sM = s.toLocaleDateString("en-US", { month: "short" }), eM = e.toLocaleDateString("en-US", { month: "short" });
-    return sM === eM ? `${sM} ${s.getDate()} \u2013 ${e.getDate()}` : `${sM} ${s.getDate()} \u2013 ${eM} ${e.getDate()}`;
-  }, [weekDays]);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }), [weekStart]);
+  const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const rotation = getCurrentWeekRotation(weekStart);
 
   return (
     <div>
       <div className="week-nav">
         <button className="week-nav-btn" onClick={() => setWeekOffset(o => o - 1)}><Icons.ChevronLeft size={20} /></button>
-        <div style={{ textAlign: "center" }}>
-          <div className="week-label">{weekLabel}</div>
-          {weekOffset !== 0 && <button className="btn btn-ghost" onClick={() => setWeekOffset(0)} style={{ fontSize: "0.75rem", padding: "2px 8px" }}>Today</button>}
-        </div>
+        <span className="week-label">{weekLabel}</span>
         <button className="week-nav-btn" onClick={() => setWeekOffset(o => o + 1)}><Icons.ChevronRight size={20} /></button>
       </div>
       <div className="week-grid">
-        {weekDays.map((d, i) => {
-          const dayN = getDayName(d);
-          const isToday = dateToKey(d) === dateToKey(today);
+        {days.map((date) => {
+          const dn = getDayName(date);
+          const isToday = dateToKey(date) === dateToKey(today);
           return (
-            <div key={i} className={`day-col ${isToday ? "today" : ""}`}>
-              <div className="day-col-header"><div className="day-name">{dayN.slice(0, 3)}</div><div className="day-date-num">{d.getDate()}</div></div>
+            <div key={dateToKey(date)} className={`day-col ${isToday ? "today" : ""}`}>
+              <div className="day-col-header">
+                <div className="day-name">{dn.slice(0, 3)}</div>
+                <div className="day-date-num">{date.getDate()}</div>
+              </div>
               {FAMILY_MEMBERS.map(member => {
-                const daily = DAILY_CHORES[member.name]?.[dayN];
+                const daily = DAILY_CHORES[member.name]?.[dn];
                 if (!daily) return null;
-                let sc = "";
-                if (daily.type === "dishes") sc = "Dishes";
-                else if (daily.type === "zone") sc = daily.zone;
-                else if (daily.type === "young") sc = daily.task.split("/")[0];
-                return (<div key={member.name} className="day-member"><div className="day-member-dot" style={{ background: member.color }} /><div><div style={{ fontSize: "0.78rem", fontWeight: 700 }}>{member.name}</div><div className="day-member-chore">{sc}</div></div></div>);
+                let label = "";
+                if (daily.type === "dishes") label = "Dishes";
+                else if (daily.type === "zone") label = daily.zone.split("/")[0];
+                else if (daily.type === "young") label = daily.task.split("/")[0];
+                return (
+                  <div key={member.name} className="day-member">
+                    <div className="day-member-dot" style={{ background: member.color }} />
+                    <div>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 700 }}>{member.name}</div>
+                      <div className="day-member-chore">{label}</div>
+                    </div>
+                  </div>
+                );
               })}
             </div>
           );
@@ -578,97 +768,36 @@ function WeekView({ today, weekOffset, setWeekOffset }) {
 // ============================================================
 function RotationView({ today, weekRotation }) {
   if (!weekRotation) return <div className="card">No rotation data for this week.</div>;
-  const findColor = (name) => FAMILY_MEMBERS.find(m => m.name === name)?.color;
+  const tasks = [
+    { icon: "🗑️", task: "Collect Trash", person: weekRotation.collectTrash },
+    { icon: "🚛", task: "Take Trash Out", person: weekRotation.trashOut },
+    { icon: "🫧", task: "Refill Soap", person: weekRotation.refillSoap },
+    { icon: "🧻", task: "Toilet Paper", person: weekRotation.toiletPaper },
+    { icon: "🗑️", task: "Bring Cans In", person: weekRotation.bringCansIn },
+  ];
+  const member = (name) => FAMILY_MEMBERS.find(m => m.name === name);
   return (
     <div>
       <div className="card animate-in">
-        <div className="card-title"><Icons.Recycle size={22} color="var(--accent)" />This Week's Rotation</div>
-        <div style={{ marginBottom: 16, textAlign: "center" }}>
-          <span className={`recycle-badge ${weekRotation.recycle ? "recycle-yes" : "recycle-no"}`}><Icons.Recycle size={14} />{weekRotation.recycle ? "Recycling Week" : "No Recycling"}</span>
+        <div className="card-title"><Icons.Recycle size={22} color="var(--success)" /> This Week's Rotation</div>
+        <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
+          <span className={`recycle-badge ${weekRotation.recycle ? "recycle-yes" : "recycle-no"}`}>
+            <Icons.Recycle size={14} /> Recycling: {weekRotation.recycle ? "YES" : "No"}
+          </span>
         </div>
         <div className="weekly-grid">
-          {[
-            { icon: "\u{1F5D1}\uFE0F", task: "Collect Trash", person: weekRotation.collectTrash, note: "Wed after school, before electronics" },
-            { icon: "\u{1F69B}", task: "Take Trash Out", person: weekRotation.trashOut, note: "Wednesday evening" },
-            { icon: "\u{1F4E6}", task: "Bring Cans In", person: weekRotation.bringCansIn, note: "Thursday" },
-            { icon: "\u{1F9F4}", task: "Refill Soap", person: weekRotation.refillSoap, note: "Wed after school, before electronics" },
-            { icon: "\u{1F9FB}", task: "Toilet Paper", person: weekRotation.toiletPaper, note: "Wed after school, before electronics" },
-          ].map(item => (
-            <div key={item.task} className="weekly-item">
-              <div className="weekly-icon">{item.icon}</div>
-              <div className="weekly-info">
-                <div className="weekly-task">{item.task}</div>
-                <div className="weekly-person" style={{ color: findColor(item.person) }}>{item.person}</div>
-                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{item.note}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="card animate-in" style={{ animationDelay: "0.1s" }}>
-        <div className="card-title"><Icons.Calendar size={22} color="var(--text-secondary)" />Upcoming Weeks</div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-            <thead><tr style={{ borderBottom: "1px solid var(--border)" }}>
-              {["Week Of","Collect","Out","\u267B\uFE0F","Cans","Soap","TP"].map(h => <th key={h} style={{ padding: "8px", textAlign: h === "\u267B\uFE0F" ? "center" : "left", color: "var(--text-muted)", fontWeight: 700 }}>{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {WEEKLY_ROTATIONS.filter(r => r.date >= dateToKey(today)).slice(0, 8).map(r => {
-                const d = new Date(r.date + "T00:00:00");
-                const isThisWeek = r.date === weekRotation?.date;
-                return (
-                  <tr key={r.date} style={{ borderBottom: "1px solid var(--border)", background: isThisWeek ? "rgba(59,130,246,0.08)" : "transparent" }}>
-                    <td style={{ padding: "8px", fontWeight: isThisWeek ? 800 : 600 }}>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}{isThisWeek && <span style={{ color: "var(--accent)", fontSize: "0.7rem", marginLeft: 6 }}>NOW</span>}</td>
-                    <td style={{ padding: "8px", color: findColor(r.collectTrash), fontWeight: 600 }}>{r.collectTrash}</td>
-                    <td style={{ padding: "8px", color: findColor(r.trashOut), fontWeight: 600 }}>{r.trashOut}</td>
-                    <td style={{ padding: "8px", textAlign: "center" }}>{r.recycle ? "\u2705" : "\u2014"}</td>
-                    <td style={{ padding: "8px", color: findColor(r.bringCansIn), fontWeight: 600 }}>{r.bringCansIn}</td>
-                    <td style={{ padding: "8px", color: findColor(r.refillSoap), fontWeight: 600 }}>{r.refillSoap}</td>
-                    <td style={{ padding: "8px", color: findColor(r.toiletPaper), fontWeight: 600 }}>{r.toiletPaper}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// LEADERBOARD VIEW
-// ============================================================
-function LeaderboardView({ sorted, points, maxPoints, streaks }) {
-  const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
-  return (
-    <div>
-      <div className="card animate-in">
-        <div className="card-title"><Icons.Trophy size={22} color="var(--warning)" />Leaderboard</div>
-        {sorted.map((member, i) => {
-          const pts = points[member.name] || 0;
-          const streak = streaks[member.name] || 0;
-          return (
-            <div key={member.name} className="leaderboard-item animate-in">
-              <div className="leaderboard-rank">{i < 3 ? medals[i] : `#${i + 1}`}</div>
-              <div className="member-emoji" style={{ fontSize: "1.3rem", width: 36, height: 36 }}>{member.emoji}</div>
-              <div style={{ flex: 1 }}>
-                <div className="leaderboard-name" style={{ color: member.color }}>
-                  {member.name}
-                  {streak > 1 && <span className="streak-badge" style={{ marginLeft: 8 }}><Icons.Fire size={14} color="#fb923c" /> {streak}</span>}
+          {tasks.map((t) => {
+            const m = member(t.person);
+            return (
+              <div key={t.task} className="weekly-item">
+                <div className="weekly-icon">{t.icon}</div>
+                <div className="weekly-info">
+                  <div className="weekly-task">{t.task}</div>
+                  <div className="weekly-person" style={{ color: m?.color }}>{m?.emoji} {t.person}</div>
                 </div>
-                <div className="leaderboard-bar"><div className="leaderboard-bar-fill" style={{ width: `${(pts / maxPoints) * 100}%`, background: member.color }} /></div>
               </div>
-              <div className="leaderboard-score"><Icons.Star size={18} color="#F59E0B" filled />{pts}</div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="card animate-in" style={{ animationDelay: "0.1s" }}>
-        <div className="card-title"><Icons.Users size={22} color="var(--text-secondary)" />Family Stats</div>
-        <div className="weekly-grid">
-          <div className="weekly-item"><div className="weekly-icon" style={{ fontSize: "1.8rem" }}>{"\u2B50"}</div><div className="weekly-info"><div className="weekly-task">Total Points</div><div className="weekly-person">{Object.entries(points).reduce((a, [k, b]) => k === "_empty" ? a : a + (b || 0), 0)}</div></div></div>
-          <div className="weekly-item"><div className="weekly-icon" style={{ fontSize: "1.8rem" }}>{"\u{1F451}"}</div><div className="weekly-info"><div className="weekly-task">Leader</div><div className="weekly-person" style={{ color: sorted[0]?.color }}>{sorted[0]?.name || "\u2014"}</div></div></div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -678,76 +807,80 @@ function LeaderboardView({ sorted, points, maxPoints, streaks }) {
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask }) {
-  const adjustPoints = (member, delta) => {
-    setPoints(prev => { const u = { ...prev }; delete u._empty; u[member] = Math.max(0, (u[member] || 0) + delta); return u; });
-  };
-  const resetAllPoints = () => {
-    if (window.confirm("Reset ALL points to zero? This cannot be undone.")) { setPoints({ _empty: true }); setStreaks({ _empty: true }); }
-  };
-  const resetTodayChores = () => {
-    if (window.confirm("Reset today's chore completions?")) {
-      const tk = dateToKey(getToday());
-      setCompletedChores(prev => {
-        const next = {}; Object.keys(prev).forEach(k => { if (!k.startsWith(tk) && k !== "_empty") next[k] = prev[k]; });
-        if (Object.keys(next).length === 0) next._empty = true; return next;
-      });
-    }
-  };
-  const activeTasks = customTasks && !customTasks._empty ? Object.entries(customTasks).filter(([k, v]) => k !== "_empty" && v) : [];
-
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints }) {
   return (
     <div>
-      <div className="card animate-in">
-        <div className="card-title"><Icons.Settings size={22} color="var(--accent)" />Parent Controls</div>
+      <div className="card">
+        <div className="card-title"><Icons.Settings size={22} color="var(--accent)" /> Point Management</div>
         <div className="admin-section">
-          <div className="admin-section-title">Adjust Points</div>
-          {FAMILY_MEMBERS.map(member => (
-            <div key={member.name} className="admin-row">
-              <label style={{ color: member.color }}>{member.emoji} {member.name}</label>
-              <div className="points-adjust">
-                <button className="points-adjust-btn" onClick={() => adjustPoints(member.name, -5)}>-5</button>
-                <button className="points-adjust-btn" onClick={() => adjustPoints(member.name, -1)}>-</button>
-                <span className="points-value">{points[member.name] || 0}</span>
-                <button className="points-adjust-btn" onClick={() => adjustPoints(member.name, 1)}>+</button>
-                <button className="points-adjust-btn" onClick={() => adjustPoints(member.name, 5)}>+5</button>
-              </div>
-            </div>
-          ))}
-        </div>
-        {activeTasks.length > 0 && (
-          <div className="admin-section">
-            <div className="admin-section-title">Custom Tasks ({activeTasks.length})</div>
-            {activeTasks.map(([key, task]) => {
-              const mo = FAMILY_MEMBERS.find(m => m.name === task.assignee);
-              return (
-                <div key={key} className="admin-row">
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{task.description}</div>
-                    <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                      <span style={{ color: mo?.color, fontWeight: 600 }}>{task.assignee}</span> {"\u2022"} {task.points} pts {"\u2022"} {task.date}
-                    </div>
-                  </div>
-                  <button className="chore-delete-btn" onClick={() => deleteCustomTask(key)} title="Delete task"><Icons.Trash size={16} /></button>
+          <div className="admin-section-title">Adjust Weekly Points</div>
+          {FAMILY_MEMBERS.map(member => {
+            const pts = getPoints(member.name, "weekly");
+            return (
+              <div key={member.name} className="admin-row">
+                <label style={{ color: member.color }}>{member.emoji} {member.name}</label>
+                <div className="points-adjust">
+                  <button className="points-adjust-btn" onClick={() => addPoints(member.name, -1)}>-</button>
+                  <span className="points-value">{pts}</span>
+                  <button className="points-adjust-btn" onClick={() => addPoints(member.name, 1)}>+</button>
                 </div>
-              );
-            })}
-          </div>
-        )}
-        <div className="admin-section">
-          <div className="admin-section-title">Reset Options</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className="btn btn-danger" onClick={resetTodayChores}>Reset Today's Chores</button>
-            <button className="btn btn-danger" onClick={resetAllPoints}>Reset All Points</button>
-          </div>
+              </div>
+            );
+          })}
         </div>
-        <div className="admin-section">
-          <div className="admin-section-title">Sync Status</div>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Data syncs automatically across all devices via Firebase. Check for the green <strong>Synced</strong> indicator in the header.</p>
+      </div>
+
+      {/* Custom Tasks */}
+      {customTasks && !customTasks._empty && Object.keys(customTasks).filter(k => k !== "_empty").length > 0 && (
+        <div className="card">
+          <div className="card-title"><Icons.Star size={22} color="var(--warning)" /> Custom Tasks</div>
+          {Object.entries(customTasks).filter(([k]) => k !== "_empty").map(([key, task]) => {
+            const m = FAMILY_MEMBERS.find(f => f.name === task.assignee);
+            return (
+              <div key={key} className="admin-row">
+                <div>
+                  <div style={{ fontWeight: 700 }}>{task.description}</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                    <span style={{ color: m?.color }}>{task.assignee}</span> · {task.points} pts · {task.date}
+                  </div>
+                </div>
+                <button className="btn btn-danger" onClick={() => deleteCustomTask(key)} style={{ padding: "6px 10px", fontSize: "0.75rem" }}><Icons.Trash size={14} /> Delete</button>
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      {/* Reset Actions */}
+      <div className="card">
+        <div className="card-title"><Icons.Trash size={22} color="var(--danger)" /> Reset Data</div>
         <div className="admin-section">
-          <div className="admin-section-title">PIN</div>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Default parent PIN is <strong>1234</strong>. To change it, update PARENT_PIN in the code.</p>
+          <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => {
+            if (confirm("Reset ALL weekly points to 0?")) {
+              setPoints(p => {
+                const u = { ...p };
+                Object.keys(u).forEach(k => { if (k.startsWith("w_")) delete u[k]; });
+                if (Object.keys(u).length === 0) u._empty = true;
+                return u;
+              });
+            }
+          }}>Reset Weekly Points</button>
+          <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => {
+            if (confirm("Clear today's completed chores?")) {
+              const todayKey = dateToKey(getToday());
+              setCompletedChores(p => {
+                const u = {};
+                Object.entries(p).forEach(([k, v]) => { if (!k.startsWith(todayKey)) u[k] = v; });
+                if (Object.keys(u).length === 0) u._empty = true;
+                return u;
+              });
+            }
+          }}>Clear Today's Completions</button>
+          <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
+            if (confirm("Reset ALL data? This cannot be undone!")) {
+              setPoints({ _empty: true }); setCompletedChores({ _empty: true }); setStreaks({ _empty: true });
+            }
+          }}>Reset Everything</button>
         </div>
       </div>
     </div>
@@ -760,35 +893,28 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
 function PinDialog({ onSuccess, onClose }) {
   const [pin, setPin] = useState(["", "", "", ""]);
   const [error, setError] = useState(false);
-  const handleChange = (index, value) => {
-    if (value.length > 1) return;
-    const newPin = [...pin]; newPin[index] = value; setPin(newPin); setError(false);
-    if (value && index < 3) { document.getElementById(`pin-${index + 1}`)?.focus(); }
-    if (index === 3 && value) {
-      if (newPin.join("") === PARENT_PIN) { onSuccess(); }
-      else { setError(true); setPin(["", "", "", ""]); setTimeout(() => document.getElementById("pin-0")?.focus(), 100); }
+  const refs = [useRef(), useRef(), useRef(), useRef()];
+  useEffect(() => { refs[0].current?.focus(); }, []);
+  const handleChange = (i, val) => {
+    if (!/^\d*$/.test(val)) return;
+    const newPin = [...pin]; newPin[i] = val.slice(-1);
+    setPin(newPin); setError(false);
+    if (val && i < 3) refs[i + 1].current?.focus();
+    const full = newPin.join("");
+    if (full.length === 4) {
+      if (full === PARENT_PIN) onSuccess();
+      else { setError(true); setTimeout(() => { setPin(["","","",""]); refs[0].current?.focus(); }, 600); }
     }
   };
-  const handleKeyDown = (index, e) => {
-    if (e.key === "Backspace" && !pin[index] && index > 0) document.getElementById(`pin-${index - 1}`)?.focus();
-    if (e.key === "Escape") onClose();
-  };
-  useEffect(() => { document.getElementById("pin-0")?.focus(); }, []);
   return (
-    <div className="pin-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="pin-dialog">
-        <button className="btn btn-ghost" onClick={onClose} style={{ position: "absolute", top: 12, right: 12 }}><Icons.X size={20} /></button>
-        <div style={{ fontSize: "2.5rem", marginBottom: 8 }}>{"\u{1F512}"}</div>
+    <div className="pin-overlay" onClick={onClose}>
+      <div className="pin-dialog" onClick={e => e.stopPropagation()}>
         <div className="pin-title">Parent Access</div>
         <div className="pin-subtitle">Enter 4-digit PIN</div>
-        {error && <div className="pin-error">Incorrect PIN. Try again.</div>}
         <div className="pin-input">
-          {pin.map((digit, i) => (
-            <input key={i} id={`pin-${i}`} type="tel" className="pin-digit" value={digit}
-              onChange={(e) => handleChange(i, e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) => handleKeyDown(i, e)} maxLength={1} inputMode="numeric" autoComplete="off" />
-          ))}
+          {pin.map((d, i) => <input key={i} ref={refs[i]} type="tel" inputMode="numeric" className="pin-digit" value={d} onChange={e => handleChange(i, e.target.value)} onKeyDown={e => { if (e.key === "Backspace" && !pin[i] && i > 0) refs[i-1].current?.focus(); }} maxLength={1} />)}
         </div>
+        {error && <div className="pin-error">Incorrect PIN</div>}
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
       </div>
     </div>
