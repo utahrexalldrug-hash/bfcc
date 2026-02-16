@@ -125,6 +125,46 @@ function getWeekStartKey(date) { return dateToKey(getWeekStart(date)); }
 function getMonthKey(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`; }
 function getYearKey(date) { return `${date.getFullYear()}`; }
 
+// Get daily chores that are due TODAY for a member (excludes weekly chores without specific due days)
+function getDailyDueChores(member, date) {
+  const dayName = getDayName(date);
+  const daily = DAILY_CHORES[member]?.[dayName];
+  const chores = [];
+  if (!daily) return chores;
+  if (daily.type === "dishes") chores.push("dishes");
+  else if (daily.type === "zone") { chores.push("zone"); chores.push("dinner"); }
+  else if (daily.type === "young") { daily.task.split("/").forEach((_, i) => chores.push(`task_${i}`)); }
+  // Only include weekly chores that have a specific due day matching today
+  const weekRotation = getCurrentWeekRotation(date);
+  if (weekRotation && dayName === "Thursday") {
+    if (weekRotation.bringCansIn === member) chores.push("w_cans");
+  }
+  return chores;
+}
+
+// Calculate streak: consecutive days (ending today or yesterday) where all daily-due chores were completed
+function calculateStreak(member, completedChores, today) {
+  let streak = 0;
+  const d = new Date(today);
+  for (let i = 0; i < 365; i++) {
+    const checkDate = new Date(d);
+    checkDate.setDate(d.getDate() - i);
+    const dk = dateToKey(checkDate);
+    const dueChores = getDailyDueChores(member, checkDate);
+    if (dueChores.length === 0) continue; // skip days with no chores due (shouldn't happen but safety)
+    const allDone = dueChores.every(choreId => !!completedChores[`${dk}_${member}_${choreId}`]);
+    if (allDone) streak++;
+    else {
+      // If today's chores aren't done yet, don't break — they still have time
+      if (i === 0) continue;
+      break;
+    }
+  }
+  return streak;
+}
+
+const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
+
 function loadData(key, fallback) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } }
 function saveData(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
 
@@ -294,6 +334,24 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .badge-individual{background:rgba(59,130,246,0.12);color:#60a5fa}
 .badge-team{background:rgba(139,92,246,0.12);color:#a78bfa}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes flamePulse{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.15);filter:brightness(1.3)}}
+@keyframes flameGlow{0%,100%{text-shadow:0 0 4px rgba(251,146,60,0.4)}50%{text-shadow:0 0 12px rgba(251,146,60,0.8),0 0 20px rgba(245,158,11,0.4)}}
+@keyframes goldenShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+@keyframes milestoneIn{0%{opacity:0;transform:scale(0.5) translateY(20px)}50%{transform:scale(1.1) translateY(-5px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes milestoneOut{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(0.8) translateY(-20px)}}
+@keyframes fireParticle{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-40px) scale(0.3)}}
+.streak-fire{display:inline-flex;align-items:center;margin-left:6px}
+.streak-fire-1{animation:flamePulse 2s ease infinite}
+.streak-fire-2{animation:flameGlow 1.5s ease infinite}
+.streak-fire-3{animation:flameGlow 1s ease infinite}
+.streak-on-fire{display:inline-flex;align-items:center;gap:3px;font-size:0.65rem;font-weight:900;padding:2px 8px;border-radius:8px;background:linear-gradient(90deg,#f59e0b,#ef4444,#f59e0b,#ef4444);background-size:300% 100%;animation:goldenShimmer 3s linear infinite;color:white;text-transform:uppercase;letter-spacing:1px;margin-left:6px}
+.milestone-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:300;pointer-events:none}
+.milestone-popup{background:linear-gradient(135deg,rgba(30,42,58,0.97),rgba(15,23,36,0.97));border:2px solid var(--warning);border-radius:24px;padding:32px 40px;text-align:center;animation:milestoneIn 0.5s ease forwards;pointer-events:auto;box-shadow:0 0 40px rgba(245,158,11,0.3)}
+.milestone-popup.exit{animation:milestoneOut 0.4s ease forwards}
+.milestone-emoji{font-size:3.5rem;margin-bottom:8px;animation:flamePulse 1s ease infinite}
+.milestone-title{font-family:'Fredoka',sans-serif;font-size:1.5rem;font-weight:700;color:var(--warning);margin-bottom:4px}
+.milestone-sub{font-size:0.9rem;color:var(--text-secondary);font-weight:600}
+.milestone-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .animate-in{animation:fadeIn 0.3s ease both}
 .animate-in:nth-child(1){animation-delay:0.02s}.animate-in:nth-child(2){animation-delay:0.06s}.animate-in:nth-child(3){animation-delay:0.1s}.animate-in:nth-child(4){animation-delay:0.14s}.animate-in:nth-child(5){animation-delay:0.18s}.animate-in:nth-child(6){animation-delay:0.22s}
 @keyframes checkPop{0%{transform:scale(0.8)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
@@ -315,9 +373,11 @@ export default function App() {
   const [awards, setAwards] = useState(() => loadData("fcc_awards", {}));
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
-  const [showTeamNaming, setShowTeamNaming] = useState(null); // null or { teamKey, captain }
+  const [showTeamNaming, setShowTeamNaming] = useState(null);
   const [isParent, setIsParent] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [milestone, setMilestone] = useState(null); // { member, streak }
+  const prevStreaksRef = useRef({});
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useFirebaseSync("completedChores", completedChores, setCompletedChores);
@@ -350,6 +410,27 @@ export default function App() {
   const weekRotation = getCurrentWeekRotation(today);
   const teamWeek = isTeamWeek(today);
   const teams = teamWeek ? getTeamsForWeek(today) : null;
+
+  // Compute streaks from completedChores
+  const computedStreaks = useMemo(() => {
+    const s = {};
+    FAMILY_MEMBERS.forEach(m => { s[m.name] = calculateStreak(m.name, completedChores, today); });
+    return s;
+  }, [completedChores, today]);
+
+  // Detect milestone hits and show popup
+  useEffect(() => {
+    for (const m of FAMILY_MEMBERS) {
+      const prev = prevStreaksRef.current[m.name] || 0;
+      const curr = computedStreaks[m.name] || 0;
+      if (curr > prev && STREAK_MILESTONES.includes(curr)) {
+        setMilestone({ member: m.name, streak: curr, emoji: m.emoji, color: m.color });
+        setTimeout(() => setMilestone(null), 3500);
+        break;
+      }
+    }
+    prevStreaksRef.current = { ...computedStreaks };
+  }, [computedStreaks]);
 
   // Points are stored with period prefixes: w_WEEKKEY_member, m_MONTHKEY_member, y_YEAR_member, a_member
   const addPoints = useCallback((member, delta) => {
@@ -541,16 +622,26 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} />}
+          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
-          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} streaks={streaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} />}
+          {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} />}
           {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {showAddTask && <AddTaskModal onAdd={(task) => { addCustomTask(task); setShowAddTask(false); }} onClose={() => setShowAddTask(false)} todayKey={todayKey} />}
         {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onClose={() => setShowTeamNaming(null)} />}
+        {milestone && (
+          <div className="milestone-overlay">
+            <div className="milestone-popup">
+              <div className="milestone-emoji">{milestone.emoji} 🔥</div>
+              <div className="milestone-title" style={{ color: milestone.color }}>{milestone.member}</div>
+              <div className="milestone-title">{milestone.streak}-DAY STREAK!</div>
+              <div className="milestone-sub">{milestone.streak >= 30 ? "ABSOLUTELY ON FIRE! 🔥🔥🔥" : milestone.streak >= 14 ? "Unstoppable! Keep it going! 🔥🔥" : milestone.streak >= 7 ? "A whole week! Amazing! 🔥" : "Getting started! Keep it up! 🔥"}</div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -559,7 +650,7 @@ export default function App() {
 // ============================================================
 // TODAY VIEW
 // ============================================================
-function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask }) {
+function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks }) {
   return (
     <div>
       {members.map((member) => {
@@ -567,13 +658,21 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         const { done, total } = getCompletionCount(member.name);
         const allDone = total > 0 && done === total;
         const weeklyPts = getPoints(member.name, "weekly");
+        const streak = computedStreaks?.[member.name] || 0;
         return (
           <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: member.color }}>
             <div className="member-header">
               <div className="member-name-row">
                 <div className="member-emoji">{member.emoji}</div>
                 <div>
-                  <div className="member-name" style={{ color: member.color }}>{member.name}</div>
+                  <div className="member-name" style={{ color: member.color }}>
+                    {member.name}
+                    {streak >= 30 ? <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>
+                     : streak >= 14 ? <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>
+                     : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
+                     : streak >= 3 ? <span className="streak-fire streak-fire-1" title={`${streak}-day streak!`}>🔥 {streak}d</span>
+                     : null}
+                  </div>
                   <div style={{ fontSize: "0.8rem", color: allDone ? "#10B981" : "var(--text-muted)", fontWeight: 600 }}>
                     {allDone ? "All done!" : `${done}/${total} complete`}
                   </div>
@@ -606,7 +705,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
 // ============================================================
 // LEADERBOARD VIEW (with time tabs + team competition)
 // ============================================================
-function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey, getAwardCounts }) {
+function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamName, setTeamName, weekStartKey, getAwardCounts }) {
   const [period, setPeriod] = useState("weekly");
   const [renamingTeam, setRenamingTeam] = useState(null); // null or "team1"/"team2"
   const [renameValue, setRenameValue] = useState("");
@@ -735,7 +834,7 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName, set
         </div>
         {sorted.map((member, i) => {
           const pts = getPoints(member.name, period);
-          const streak = streaks?.[member.name] || 0;
+          const streak = computedStreaks?.[member.name] || 0;
           return (
             <div key={member.name} className="leaderboard-item animate-in">
               <div className="leaderboard-rank">{i < 3 ? medals[i] : `#${i + 1}`}</div>
@@ -743,7 +842,12 @@ function LeaderboardView({ getPoints, streaks, teamWeek, teams, getTeamName, set
               <div style={{ flex: 1 }}>
                 <div className="leaderboard-name" style={{ color: member.color }}>
                   {member.name}
-                  {streak > 1 && <span className="streak-badge" style={{ marginLeft: 8 }}><Icons.Fire size={14} color="#fb923c" /> {streak}</span>}
+                  {streak >= 30 ? <span className="streak-on-fire" style={{ marginLeft: 8 }}>🔥 {streak}d ON FIRE</span>
+                   : streak >= 14 ? <span className="streak-fire streak-fire-3" style={{ marginLeft: 8 }}>🔥🔥🔥 {streak}d</span>
+                   : streak >= 7 ? <span className="streak-fire streak-fire-2" style={{ marginLeft: 8 }}>🔥🔥 {streak}d</span>
+                   : streak >= 3 ? <span className="streak-fire streak-fire-1" style={{ marginLeft: 8 }}>🔥 {streak}d</span>
+                   : streak >= 1 ? <span className="streak-badge" style={{ marginLeft: 8 }}><Icons.Fire size={14} color="#fb923c" /> {streak}d</span>
+                   : null}
                 </div>
                 <div className="leaderboard-bar"><div className="leaderboard-bar-fill" style={{ width: `${maxPts > 0 ? (pts / maxPts) * 100 : 0}%`, background: member.color }} /></div>
                 {period !== "weekly" && (() => {
