@@ -3,40 +3,117 @@ import { db } from "./firebase";
 import { doc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
 
 const WEEKLY_ROTATIONS = [
-  { date: "2025-07-30", collectTrash: "Emilie", trashOut: "Carter", recycle: false, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-08-06", collectTrash: "Carter", trashOut: "Cole", recycle: true, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-08-13", collectTrash: "Cole", trashOut: "Emilie", recycle: false, bringCansIn: "Finn", refillSoap: "Carter", toiletPaper: "Liam" },
-  { date: "2025-08-20", collectTrash: "Emilie", trashOut: "Carter", recycle: true, bringCansIn: "Liam", refillSoap: "Finn", toiletPaper: "Cole" },
-  { date: "2025-08-27", collectTrash: "Carter", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-09-03", collectTrash: "Cole", trashOut: "Emilie", recycle: true, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-09-10", collectTrash: "Emilie", trashOut: "Carter", recycle: false, bringCansIn: "Finn", refillSoap: "Liam", toiletPaper: "Cole" },
-  { date: "2025-09-17", collectTrash: "Nicholas", trashOut: "Cole", recycle: true, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-09-24", collectTrash: "Emilie", trashOut: "Nicholas", recycle: false, bringCansIn: "Carter", refillSoap: "Cole", toiletPaper: "Liam" },
-  { date: "2025-10-01", collectTrash: "Carter", trashOut: "Emilie", recycle: true, bringCansIn: "Nicholas", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-10-08", collectTrash: "Cole", trashOut: "Carter", recycle: false, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-10-15", collectTrash: "Nicholas", trashOut: "Cole", recycle: true, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-10-22", collectTrash: "Emilie", trashOut: "Nicholas", recycle: false, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-10-29", collectTrash: "Carter", trashOut: "Emilie", recycle: true, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Liam" },
-  { date: "2025-11-05", collectTrash: "Cole", trashOut: "Carter", recycle: false, bringCansIn: "Nicholas", refillSoap: "Finn", toiletPaper: "Emilie" },
-  { date: "2025-11-12", collectTrash: "Nicholas", trashOut: "Cole", recycle: true, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-11-19", collectTrash: "Emilie", trashOut: "Nicholas", recycle: false, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-11-26", collectTrash: "Carter", trashOut: "Emilie", recycle: true, bringCansIn: "Cole", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-12-03", collectTrash: "Cole", trashOut: "Carter", recycle: false, bringCansIn: "Liam", refillSoap: "Emilie", toiletPaper: "Finn" },
-  { date: "2025-12-10", collectTrash: "Nicholas", trashOut: "Cole", recycle: true, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Emilie" },
-  { date: "2025-12-17", collectTrash: "Emilie", trashOut: "Nicholas", recycle: false, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-12-24", collectTrash: "Carter", trashOut: "Emilie", recycle: true, bringCansIn: "Nicholas", refillSoap: "Liam", toiletPaper: "Cole" },
-  { date: "2025-12-31", collectTrash: "Cole", trashOut: "Carter", recycle: false, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2026-01-07", collectTrash: "Nicholas", trashOut: "Cole", recycle: true, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2026-01-14", collectTrash: "Emilie", trashOut: "Nicholas", recycle: false, bringCansIn: "Cole", refillSoap: "Carter", toiletPaper: "Liam" },
-  { date: "2026-01-21", collectTrash: "Carter", trashOut: "Emilie", recycle: true, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Finn" },
-  { date: "2026-01-28", collectTrash: "Cole", trashOut: "Carter", recycle: false, bringCansIn: "Nicholas", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2026-02-04", collectTrash: "Nicholas", trashOut: "Cole", recycle: true, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Liam" },
-  { date: "2026-02-11", collectTrash: "Emilie", trashOut: "Nicholas", recycle: false, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2026-02-18", collectTrash: "Carter", trashOut: "Emilie", recycle: true, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2026-02-25", collectTrash: "Cole", trashOut: "Carter", recycle: false, bringCansIn: "Liam", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-07-30", collectTrash: "Emilie", trashOut: "Carter", recycle: true, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-08-06", collectTrash: "Carter", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2025-08-13", collectTrash: "Cole", trashOut: "Emilie", recycle: true, bringCansIn: "Finn", refillSoap: "Carter", toiletPaper: "Liam" },
+  { date: "2025-08-20", collectTrash: "Emilie", trashOut: "Carter", recycle: false, bringCansIn: "Liam", refillSoap: "Finn", toiletPaper: "Cole" },
+  { date: "2025-08-27", collectTrash: "Carter", trashOut: "Cole", recycle: true, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2025-09-03", collectTrash: "Cole", trashOut: "Emilie", recycle: false, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-09-10", collectTrash: "Emilie", trashOut: "Carter", recycle: true, bringCansIn: "Finn", refillSoap: "Liam", toiletPaper: "Cole" },
+  { date: "2025-09-17", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-09-24", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Cole", toiletPaper: "Liam" },
+  { date: "2025-10-01", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Nicholas", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2025-10-08", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-10-15", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2025-10-22", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-10-29", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Liam" },
+  { date: "2025-11-05", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Nicholas", refillSoap: "Finn", toiletPaper: "Emilie" },
+  { date: "2025-11-12", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2025-11-19", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-11-26", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Cole", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2025-12-03", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Liam", refillSoap: "Emilie", toiletPaper: "Finn" },
+  { date: "2025-12-10", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Emilie" },
+  { date: "2025-12-17", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2025-12-24", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Nicholas", refillSoap: "Liam", toiletPaper: "Cole" },
+  { date: "2025-12-31", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2026-01-07", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2026-01-14", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Cole", refillSoap: "Carter", toiletPaper: "Liam" },
+  { date: "2026-01-21", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Finn" },
+  { date: "2026-01-28", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Nicholas", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2026-02-04", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Liam" },
+  { date: "2026-02-11", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
+  { date: "2026-02-18", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
+  { date: "2026-02-25", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Liam", refillSoap: "Finn", toiletPaper: "Liam" },
 ];
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// ============================================================
+// HOUSEKEEPING CHARTS (6 rotating weekly, Mon/Tue/Wed/Thu only)
+// ============================================================
+const HOUSEKEEPING_CHARTS = [
+  { // Chart 1
+    name: "Chart 1",
+    tasks: {
+      Monday: "Bathroom counter/sink",
+      Tuesday: "Dust windowsills",
+      Wednesday: "Pick up bedroom + office for Roborock",
+      Thursday: "Wipe light switches",
+    },
+    zone: "Coat closet/stairs/upstairs hallway",
+  },
+  { // Chart 2
+    name: "Chart 2",
+    tasks: {
+      Monday: "Toilet",
+      Tuesday: "Dust banister/handrail",
+      Wednesday: "Pick up bedroom + family room for Roborock, vacuum top stairs",
+      Thursday: "Wipe doorknobs",
+    },
+    zone: "Office/Front hallway",
+  },
+  { // Chart 3
+    name: "Chart 3",
+    tasks: {
+      Monday: "Tub",
+      Tuesday: "Dust pieces (TV stand, front hall piece, piano, printer table)",
+      Wednesday: "Pick up bedroom + upstairs hallway for Roborock",
+      Thursday: "Wipe microwave",
+    },
+    zone: "Kitchen",
+  },
+  { // Chart 4
+    name: "Chart 4",
+    tasks: {
+      Monday: "Mirror",
+      Tuesday: "Dust baseboards",
+      Wednesday: "Pick up family room + main floor for Roborock, vacuum bottom stairs",
+      Thursday: "Wipe oven",
+    },
+    zone: "Family Room",
+  },
+  { // Chart 5
+    name: "Chart 5",
+    tasks: {
+      Monday: "Clean shower door/glass",
+      Tuesday: "Dust ceiling fan blades",
+      Wednesday: "Pick up upstairs rooms for Roborock",
+      Thursday: "Wipe dishwasher",
+    },
+    zone: "Bathroom(s)",
+  },
+  { // Chart 6
+    name: "Chart 6",
+    tasks: {
+      Monday: "Wipe bathroom cabinets/shelves",
+      Tuesday: "Dust shelves/bookcase",
+      Wednesday: "Pick up entry/mudroom for Roborock",
+      Thursday: "Wipe fridge",
+    },
+    zone: "Laundry area/garage entry",
+  },
+];
+
+// Laundry days are fixed per kid (do not rotate with charts)
+const LAUNDRY_DAYS = {
+  Nicholas: "Monday",
+  Carter: "Tuesday",
+  Cole: "Wednesday",
+  Finn: "Thursday",
+  Liam: "Friday",
+  Emilie: "Saturday",
+};
+
 
 const DAILY_CHORES = {
   Nicholas: { Sunday:{type:"dishes",zone:null,dinnerJob:null},Monday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Tuesday:{type:"dishes",zone:null,dinnerJob:null},Wednesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Thursday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Friday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Saturday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"} },
@@ -108,6 +185,42 @@ function isTeamWeek(date) {
   return getWeekNumber(date) % 2 === 1; // odd weeks = team weeks
 }
 
+// Get the housekeeping chart assigned to a member for a given date's week
+function getChartAssignment(memberName, date) {
+  const weekNum = getWeekNumber(date);
+  const memberIndex = FAMILY_MEMBERS.findIndex(m => m.name === memberName);
+  const chartIndex = ((memberIndex + weekNum) % 6 + 6) % 6;
+  return HOUSEKEEPING_CHARTS[chartIndex];
+}
+
+// Check if a given Saturday is a mop Saturday (every other Saturday)
+// Uses week number: even weeks = mop Saturday
+function isMopSaturday(date) {
+  const weekNum = getWeekNumber(date);
+  return weekNum % 2 === 0;
+}
+
+// Get incomplete housekeeping tasks from the current week (for Saturday catch-up)
+function getIncompleteHousekeepingTasks(member, date, completedChores) {
+  const weekStart = getWeekStart(date);
+  const chart = getChartAssignment(member, date);
+  const incomplete = [];
+  const housekeepingDays = ["Monday", "Tuesday", "Wednesday", "Thursday"];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    const dn = getDayName(d);
+    if (!housekeepingDays.includes(dn)) continue;
+    const dk = dateToKey(d);
+    const task = chart.tasks[dn];
+    if (task && !completedChores[`${dk}_${member}_hk_${dn.toLowerCase()}`]) {
+      incomplete.push({ day: dn, task });
+    }
+  }
+  return incomplete;
+}
+
+
 // Seeded random for deterministic team generation per week
 function seededRandom(seed) {
   let s = seed;
@@ -158,6 +271,18 @@ function getDailyDueChores(member, date) {
   const weekRotation = getCurrentWeekRotation(date);
   if (weekRotation && dayName === "Thursday") {
     if (weekRotation.bringCansIn === member) chores.push("w_cans");
+  }
+  // Housekeeping chart tasks
+  if (dayName !== "Sunday" && dayName !== "Friday" && dayName !== "Saturday") {
+    const chart = getChartAssignment(member, date);
+    if (chart.tasks[dayName]) {
+      chores.push(`hk_${dayName.toLowerCase()}`);
+    }
+    chores.push("hk_zone");
+  }
+  // Laundry
+  if (LAUNDRY_DAYS[member] === dayName) {
+    chores.push("laundry");
   }
   return chores;
 }
@@ -265,7 +390,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .chore-tag{font-size:0.7rem;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:0.5px}
 .tag-dishes{background:rgba(59,130,246,0.15);color:#60a5fa}.tag-zone{background:rgba(16,185,129,0.15);color:#34d399}
 .tag-dinner{background:rgba(245,158,11,0.15);color:#fbbf24}.tag-weekly{background:rgba(139,92,246,0.15);color:#a78bfa}
-.tag-young{background:rgba(236,72,153,0.15);color:#f472b6}.tag-custom{background:rgba(251,146,60,0.15);color:#fb923c}
+.tag-young{background:rgba(236,72,153,0.15);color:#f472b6}.tag-custom{background:rgba(251,146,60,0.15);color:#fb923c}.tag-housekeeping{background:rgba(20,184,166,0.15);color:#2dd4bf}.tag-laundry{background:rgba(168,85,247,0.15);color:#c084fc}
 .chore-points-badge{font-size:0.7rem;font-weight:800;color:var(--warning);padding:2px 6px;border-radius:6px;background:rgba(245,158,11,0.1);margin-right:4px;white-space:nowrap}
 .chore-delete-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);transition:color 0.15s;flex-shrink:0;display:flex;align-items:center}
 .chore-delete-btn:hover{color:#f87171}
@@ -596,9 +721,41 @@ export default function App() {
       if (weekRotation.refillSoap === member) chores.push({ id: "w_soap", text: "Refill Soap", tag: "weekly", pointValue: 1 });
       if (weekRotation.toiletPaper === member) chores.push({ id: "w_tp", text: "Refill Toilet Paper", tag: "weekly", pointValue: 1 });
     }
+
+    // Housekeeping chart tasks
+    const chart = getChartAssignment(member, today);
+    if (dayName !== "Sunday" && dayName !== "Friday") {
+      if (dayName === "Saturday") {
+        // Saturday: mop (every other) + catch-up for missed tasks
+        if (isMopSaturday(today)) {
+          chores.push({ id: "hk_mop", text: "Mop kitchen & bathrooms", tag: "housekeeping", pointValue: 1 });
+        }
+        // Show incomplete housekeeping tasks from the week
+        const incomplete = getIncompleteHousekeepingTasks(member, today, completedChores);
+        incomplete.forEach(item => {
+          chores.push({ id: `hk_catchup_${item.day.toLowerCase()}`, text: `Catch-up: ${item.task} (${item.day})`, tag: "housekeeping", pointValue: 1 });
+        });
+      } else {
+        // Mon-Thu: daily housekeeping task
+        const hkTask = chart.tasks[dayName];
+        if (hkTask) {
+          chores.push({ id: `hk_${dayName.toLowerCase()}`, text: hkTask, tag: "housekeeping", pointValue: 1 });
+        }
+      }
+      // Show zone assignment as a reminder (not a checkable task, but shown for context)
+      if (dayName !== "Saturday") {
+        chores.push({ id: "hk_zone", text: `HK Zone: ${chart.zone}`, tag: "housekeeping", pointValue: 1 });
+      }
+    }
+
+    // Laundry day
+    if (LAUNDRY_DAYS[member] === dayName) {
+      chores.push({ id: "laundry", text: "Laundry Day! (wash, dry, fold, put away)", tag: "laundry", pointValue: 1 });
+    }
+
     chores.push(...getCustomTasksForMember(member));
     return chores;
-  }, [dayName, weekRotation, getCustomTasksForMember]);
+  }, [dayName, weekRotation, getCustomTasksForMember, today, completedChores]);
 
   const getCompletionCount = useCallback((member) => {
     const chores = getMemberChores(member);
@@ -1171,12 +1328,18 @@ function WeekView({ today, weekOffset, setWeekOffset }) {
                 if (daily.type === "dishes") label = "Dishes";
                 else if (daily.type === "zone") label = daily.zone.split("/")[0];
                 else if (daily.type === "young") label = daily.task.split("/")[0];
+                // Housekeeping chart task for this day
+                const chart = getChartAssignment(member.name, date);
+                const hkTask = (dn !== "Sunday" && dn !== "Friday" && dn !== "Saturday") ? chart.tasks[dn] : null;
+                const isLaundryDay = LAUNDRY_DAYS[member.name] === dn;
                 return (
                   <div key={member.name} className="day-member">
                     <div className="day-member-dot" style={{ background: member.color }} />
                     <div>
                       <div style={{ fontSize: "0.78rem", fontWeight: 700 }}>{member.name}</div>
                       <div className="day-member-chore">{label}</div>
+                      {hkTask && <div className="day-member-chore" style={{ color: "#2dd4bf" }}>{hkTask.length > 25 ? hkTask.slice(0, 25) + "..." : hkTask}</div>}
+                      {isLaundryDay && <div className="day-member-chore" style={{ color: "#c084fc" }}>🧺 Laundry</div>}
                     </div>
                   </div>
                 );
