@@ -532,6 +532,23 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 @keyframes checkPop{0%{transform:scale(0.8)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 .check-pop{animation:checkPop 0.25s ease}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.streak-spotlight{background:linear-gradient(135deg,rgba(251,146,60,0.08),rgba(239,68,68,0.05));border-color:rgba(251,146,60,0.3)}
+.streak-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.streak-card{background:rgba(255,255,255,0.04);border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,0.06);transition:all 0.3s}
+.streak-card-warm{border-color:rgba(251,146,60,0.2)}
+.streak-card-fire{border-color:rgba(251,146,60,0.4);background:rgba(251,146,60,0.06)}
+.streak-card-blazing{border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.06);animation:flamePulse 2s ease infinite}
+.streak-card-legendary{border-color:rgba(245,158,11,0.6);background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(239,68,68,0.1));animation:goldenShimmer 3s linear infinite;background-size:300% 100%}
+.streak-card-top{display:flex;align-items:baseline;justify-content:center;gap:4px;margin-bottom:4px}
+.streak-card-emoji{font-size:1.3rem}
+.streak-card-days{font-family:'Fredoka',sans-serif;font-size:2rem;font-weight:800;color:var(--warning);line-height:1}
+.streak-card-unit{font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px}
+.streak-card-name{font-family:'Fredoka',sans-serif;font-size:0.85rem;font-weight:600;margin-bottom:2px}
+.streak-card-tier{font-size:0.7rem;font-weight:700;color:var(--text-secondary);margin-bottom:6px}
+.streak-progress-wrap{margin-top:4px}
+.streak-progress-bar{height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden}
+.streak-progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#fb923c,#ef4444);transition:width 0.5s ease}
+.streak-progress-label{font-size:0.6rem;color:var(--text-muted);font-weight:600;margin-top:3px;text-align:right}
 .history-hall-of-fame{display:flex;flex-direction:column;gap:8px}
 .hall-of-fame-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border-left:3px solid}
 .hall-of-fame-rank{font-size:1.2rem;width:32px;text-align:center;font-weight:800}
@@ -951,10 +968,67 @@ export default function App() {
 // ============================================================
 // TODAY VIEW
 // ============================================================
+function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
+  const TIERS = [
+    { min: 0, label: "No streak", icon: "", next: 3 },
+    { min: 3, label: "Warming up", icon: "🔥", next: 7 },
+    { min: 7, label: "On fire!", icon: "🔥🔥", next: 14 },
+    { min: 14, label: "Blazing!", icon: "🔥🔥🔥", next: 30 },
+    { min: 30, label: "UNSTOPPABLE", icon: "🔥", next: 50 },
+    { min: 50, label: "LEGENDARY", icon: "🔥", next: 100 },
+    { min: 100, label: "MYTHICAL", icon: "🔥", next: null },
+  ];
+  const getTier = (s) => { for (let i = TIERS.length - 1; i >= 0; i--) { if (s >= TIERS[i].min) return TIERS[i]; } return TIERS[0]; };
+
+  const streakData = members.map(m => {
+    const streak = computedStreaks?.[m.name] || 0;
+    const tier = getTier(streak);
+    return { ...m, streak, tier };
+  }).sort((a, b) => b.streak - a.streak);
+
+  const anyStreaks = streakData.some(s => s.streak >= 1);
+  if (!anyStreaks) return null;
+
+  return (
+    <div className="card animate-in streak-spotlight">
+      <div className="card-title"><Icons.Fire size={22} color="#fb923c" /> Streak Tracker</div>
+      <div className="streak-grid">
+        {streakData.map(s => {
+          if (s.streak < 1) return null;
+          const nextMilestone = s.tier.next;
+          const prevMilestone = s.tier.min;
+          const progress = nextMilestone ? ((s.streak - prevMilestone) / (nextMilestone - prevMilestone)) * 100 : 100;
+          return (
+            <div key={s.name} className={`streak-card ${s.streak >= 30 ? "streak-card-legendary" : s.streak >= 14 ? "streak-card-blazing" : s.streak >= 7 ? "streak-card-fire" : "streak-card-warm"}`}>
+              <div className="streak-card-top">
+                <span className="streak-card-emoji">{getMemberEmoji(s.name)}</span>
+                <span className="streak-card-days">{s.streak}</span>
+                <span className="streak-card-unit">days</span>
+              </div>
+              <div className="streak-card-name" style={{ color: s.color }}>{s.name}</div>
+              <div className="streak-card-tier">{s.tier.icon} {s.tier.label}</div>
+              {nextMilestone && (
+                <div className="streak-progress-wrap">
+                  <div className="streak-progress-bar">
+                    <div className="streak-progress-fill" style={{ width: `${Math.min(progress, 100)}%` }} />
+                  </div>
+                  <div className="streak-progress-label">Next: {nextMilestone}d</div>
+                </div>
+              )}
+              {!nextMilestone && <div className="streak-progress-label" style={{ textAlign: "center", marginTop: 4 }}>Max tier reached! 👑</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   return (
     <div>
+      <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
       {members.map((member) => {
         const chores = getMemberChores(member.name);
         const { done, total } = getCompletionCount(member.name);
