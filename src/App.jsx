@@ -2,39 +2,35 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { db } from "./firebase";
 import { doc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
 
-const WEEKLY_ROTATIONS = [
-  { date: "2025-07-30", collectTrash: "Emilie", trashOut: "Carter", recycle: true, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-08-06", collectTrash: "Carter", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-08-13", collectTrash: "Cole", trashOut: "Emilie", recycle: true, bringCansIn: "Finn", refillSoap: "Carter", toiletPaper: "Liam" },
-  { date: "2025-08-20", collectTrash: "Emilie", trashOut: "Carter", recycle: false, bringCansIn: "Liam", refillSoap: "Finn", toiletPaper: "Cole" },
-  { date: "2025-08-27", collectTrash: "Carter", trashOut: "Cole", recycle: true, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-09-03", collectTrash: "Cole", trashOut: "Emilie", recycle: false, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-09-10", collectTrash: "Emilie", trashOut: "Carter", recycle: true, bringCansIn: "Finn", refillSoap: "Liam", toiletPaper: "Cole" },
-  { date: "2025-09-17", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-09-24", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Cole", toiletPaper: "Liam" },
-  { date: "2025-10-01", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Nicholas", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-10-08", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-10-15", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-10-22", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-10-29", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Liam" },
-  { date: "2025-11-05", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Nicholas", refillSoap: "Finn", toiletPaper: "Emilie" },
-  { date: "2025-11-12", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-11-19", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-11-26", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Cole", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2025-12-03", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Liam", refillSoap: "Emilie", toiletPaper: "Finn" },
-  { date: "2025-12-10", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Emilie" },
-  { date: "2025-12-17", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2025-12-24", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Nicholas", refillSoap: "Liam", toiletPaper: "Cole" },
-  { date: "2025-12-31", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Emilie", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2026-01-07", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2026-01-14", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Cole", refillSoap: "Carter", toiletPaper: "Liam" },
-  { date: "2026-01-21", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Finn", refillSoap: "Cole", toiletPaper: "Finn" },
-  { date: "2026-01-28", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Nicholas", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2026-02-04", collectTrash: "Nicholas", trashOut: "Cole", recycle: false, bringCansIn: "Emilie", refillSoap: "Liam", toiletPaper: "Liam" },
-  { date: "2026-02-11", collectTrash: "Emilie", trashOut: "Nicholas", recycle: true, bringCansIn: "Carter", refillSoap: "Liam", toiletPaper: "Finn" },
-  { date: "2026-02-18", collectTrash: "Carter", trashOut: "Emilie", recycle: false, bringCansIn: "Cole", refillSoap: "Finn", toiletPaper: "Liam" },
-  { date: "2026-02-25", collectTrash: "Cole", trashOut: "Carter", recycle: true, bringCansIn: "Liam", refillSoap: "Finn", toiletPaper: "Liam" },
-];
+// ============================================================
+// AUTO-GENERATING WEEKLY ROTATION SYSTEM
+// All roles cycle through the original 31-week spreadsheet pattern.
+// Recycle alternates every week. When weeks exceed 31, the pattern
+// loops back to the start — no manual updates needed.
+// ============================================================
+const ROTATION_EPOCH_SUNDAY = new Date("2025-07-27"); // Sunday of first rotation week
+const ROT_COLLECT_TRASH = ["Emilie","Carter","Cole","Emilie","Carter","Cole","Emilie","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole"];
+const ROT_TRASH_OUT = ["Carter","Cole","Emilie","Carter","Cole","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter"];
+const ROT_BRING_CANS = ["Cole","Emilie","Finn","Liam","Emilie","Carter","Finn","Emilie","Carter","Nicholas","Emilie","Carter","Cole","Finn","Nicholas","Emilie","Carter","Cole","Liam","Finn","Carter","Nicholas","Emilie","Carter","Cole","Finn","Nicholas","Emilie","Carter","Cole","Liam"];
+const ROT_REFILL_SOAP = ["Finn","Liam","Carter","Finn","Liam","Finn","Liam","Finn","Cole","Liam","Finn","Liam","Finn","Cole","Finn","Liam","Finn","Liam","Emilie","Cole","Finn","Liam","Finn","Liam","Carter","Cole","Finn","Liam","Liam","Finn","Finn"];
+const ROT_TOILET_PAPER = ["Liam","Finn","Liam","Cole","Finn","Liam","Cole","Liam","Liam","Finn","Liam","Finn","Liam","Liam","Emilie","Finn","Liam","Finn","Finn","Emilie","Liam","Cole","Liam","Finn","Liam","Finn","Liam","Liam","Finn","Liam","Liam"];
+const ROT_LEN = 31;
+
+function getWeeklyRotation(date) {
+  const weekStart = getWeekStart(date);
+  const weekNum = Math.round((weekStart.getTime() - ROTATION_EPOCH_SUNDAY.getTime()) / (7*24*60*60*1000));
+  if (weekNum < 0) return null;
+  const idx = ((weekNum % ROT_LEN) + ROT_LEN) % ROT_LEN;
+  return {
+    date: dateToKey(weekStart),
+    collectTrash: ROT_COLLECT_TRASH[idx],
+    trashOut: ROT_TRASH_OUT[idx],
+    recycle: weekNum % 2 === 0,
+    bringCansIn: ROT_BRING_CANS[idx],
+    refillSoap: ROT_REFILL_SOAP[idx],
+    toiletPaper: ROT_TOILET_PAPER[idx],
+  };
+}
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -162,16 +158,7 @@ function getWeekStart(date) { const d = new Date(date); d.setDate(d.getDate() - 
 function dateToKey(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
 
 function getCurrentWeekRotation(date) {
-  const weekStart = getWeekStart(date);
-  const weekStartKey = dateToKey(weekStart);
-  for (let i = WEEKLY_ROTATIONS.length - 1; i >= 0; i--) {
-    if (WEEKLY_ROTATIONS[i].date <= weekStartKey) return WEEKLY_ROTATIONS[i];
-  }
-  const baseRotation = [["Nicholas","Cole","Emilie","Finn","Liam"],["Emilie","Nicholas","Carter","Cole","Liam"],["Carter","Emilie","Nicholas","Liam","Finn"],["Cole","Carter","Finn","Finn","Liam"]];
-  const weekNum = Math.floor((weekStart.getTime() - new Date("2025-07-30").getTime()) / (7*24*60*60*1000));
-  const idx = ((weekNum % baseRotation.length) + baseRotation.length) % baseRotation.length;
-  const r = baseRotation[idx];
-  return { date: weekStartKey, collectTrash: r[0], trashOut: r[1], recycle: weekNum % 2 === 1, bringCansIn: r[2], refillSoap: r[3], toiletPaper: r[4] };
+  return getWeeklyRotation(date);
 }
 
 // Week number since a fixed epoch (for determining individual vs team weeks)
