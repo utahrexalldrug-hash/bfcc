@@ -111,6 +111,45 @@ const LAUNDRY_DAYS = {
 };
 
 
+// ============================================================
+// SCHOOL CALENDAR & VIDEO GAME DAY RULES
+// Video games only on Fri/Sat during school + specific days off.
+// Summer TBD. Update these dates each school year.
+// ============================================================
+const SCHOOL_CALENDAR = {
+  schoolEndDate: "2026-05-22",       // Last day of school
+  schoolStartDate: "2026-08-19",     // First day of next school year
+  daysOff: [                         // Specific days off during school year
+    "2026-03-09",
+    "2026-03-23",
+    "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10",
+  ],
+  summerRules: "unrestricted",       // "unrestricted" | "weekends_only" | "custom" — change for summer policy
+};
+
+function isVideoGameDay(date) {
+  const dk = dateToKey(date);
+  const dayNum = date.getDay(); // 0=Sun, 5=Fri, 6=Sat
+
+  // Check if it's a school day-off
+  if (SCHOOL_CALENDAR.daysOff.includes(dk)) return true;
+
+  // Check if we're in summer break
+  const endDate = new Date(SCHOOL_CALENDAR.schoolEndDate + "T00:00:00");
+  const startDate = new Date(SCHOOL_CALENDAR.schoolStartDate + "T00:00:00");
+  const checkDate = new Date(dk + "T00:00:00");
+
+  if (checkDate > endDate && checkDate < startDate) {
+    // Summer break — apply summer rules
+    if (SCHOOL_CALENDAR.summerRules === "unrestricted") return true;
+    if (SCHOOL_CALENDAR.summerRules === "weekends_only") return dayNum === 5 || dayNum === 6;
+    return true; // default unrestricted
+  }
+
+  // During school year: Friday and Saturday only
+  return dayNum === 5 || dayNum === 6;
+}
+
 const DAILY_CHORES = {
   Nicholas: { Sunday:{type:"dishes",zone:null,dinnerJob:null},Monday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Tuesday:{type:"dishes",zone:null,dinnerJob:null},Wednesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Thursday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Friday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Saturday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"} },
   Emilie: { Sunday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Monday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Tuesday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Wednesday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Thursday:{type:"dishes",zone:null,dinnerJob:null},Friday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Saturday:{type:"dishes",zone:null,dinnerJob:null} },
@@ -339,6 +378,7 @@ const Icons = {
   CloudOff: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22.61 16.95A5 5 0 0018 10h-1.26a8 8 0 00-7.05-6M5 5a8 8 0 004 15h9a5 5 0 001.7-.3" /><line x1="1" y1="1" x2="23" y2="23" /></svg>),
   Plus: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>),
   History: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>),
+  Gamepad: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="12" x2="10" y2="12" /><line x1="8" y1="10" x2="8" y2="14" /><line x1="15" y1="13" x2="15.01" y2="13" /><line x1="18" y1="11" x2="18.01" y2="11" /><path d="M17.32 5H6.68a4 4 0 00-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 003 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 019.828 16h4.344a2 2 0 011.414.586L17 18c.5.5 1 1 2 1a3 3 0 003-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0017.32 5z" /></svg>),
 };
 
 const styles = `
@@ -573,6 +613,52 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .history-score-bar-wrapper{flex:1;height:14px;background:rgba(255,255,255,0.05);border-radius:7px;overflow:hidden}
 .history-score-bar{height:100%;border-radius:7px;transition:width 0.5s ease;min-width:2px}
 .history-score-pts{font-size:0.8rem;font-weight:800;min-width:28px;text-align:right;color:var(--warning)}
+.game-unlock-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:10px;font-size:0.75rem;font-weight:800;letter-spacing:0.3px;margin-left:8px;transition:all 0.3s ease}
+.game-unlock-badge.unlocked{background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(52,211,153,0.1));color:#34d399;border:1px solid rgba(16,185,129,0.3);animation:gameUnlockGlow 2s ease-in-out infinite}
+.game-unlock-badge.locked{background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.2)}
+.game-unlock-badge.override{background:linear-gradient(135deg,rgba(245,158,11,0.2),rgba(251,191,36,0.1));color:#fbbf24;border:1px solid rgba(245,158,11,0.3)}
+.game-unlock-icon{font-size:1rem;line-height:1}
+.game-lock-icon{font-size:0.7rem;margin-left:-2px}
+@keyframes gameUnlockGlow{0%,100%{box-shadow:0 0 4px rgba(16,185,129,0.2)}50%{box-shadow:0 0 12px rgba(16,185,129,0.4)}}
+.admin-game-unlock{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);margin-bottom:8px}
+.admin-game-unlock-info{display:flex;flex-direction:column;gap:2px}
+.admin-game-unlock-stats{font-size:0.75rem;color:var(--text-muted);font-weight:600}
+.admin-unlock-toggle{padding:6px 14px;border-radius:8px;border:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:0.75rem;cursor:pointer;transition:all 0.15s}
+.admin-unlock-toggle.unlock{background:rgba(16,185,129,0.15);color:#34d399}
+.admin-unlock-toggle.lock{background:rgba(239,68,68,0.15);color:#f87171}
+.game-tab-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;border-left:4px solid}
+.game-timer-display{font-family:'Fredoka',sans-serif;font-size:3rem;font-weight:700;text-align:center;padding:16px 0;letter-spacing:2px}
+.game-timer-display.running{color:#34d399}
+.game-timer-display.paused{color:#fbbf24}
+.game-timer-display.expired{color:#f87171}
+.game-timer-display.idle{color:var(--text-muted)}
+.game-timer-bar{height:8px;border-radius:4px;background:var(--border);margin:8px 0 16px;overflow:hidden}
+.game-timer-bar-fill{height:100%;border-radius:4px;transition:width 1s linear}
+.game-timer-controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.game-timer-btn{padding:10px 20px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px}
+.game-timer-btn.start{background:linear-gradient(135deg,#10B981,#059669);color:white}
+.game-timer-btn.pause{background:linear-gradient(135deg,#F59E0B,#D97706);color:white}
+.game-timer-btn.stop{background:linear-gradient(135deg,#EF4444,#DC2626);color:white}
+.game-timer-btn:active{transform:scale(0.95)}
+.game-adjust-row{display:flex;gap:6px;justify-content:center;margin-top:8px}
+.game-adjust-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:700;font-size:0.75rem;cursor:pointer;transition:all 0.15s}
+.game-adjust-btn:hover{background:rgba(255,255,255,0.1);color:var(--text-primary)}
+.game-status-msg{text-align:center;font-size:0.85rem;font-weight:600;padding:12px;border-radius:10px;margin-bottom:12px}
+.game-status-msg.locked{background:rgba(239,68,68,0.1);color:#f87171}
+.game-status-msg.not-today{background:rgba(139,92,246,0.1);color:#a78bfa}
+.game-family-timers{margin-top:8px}
+.game-family-timer-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);margin-bottom:6px}
+.game-family-timer-name{display:flex;align-items:center;gap:8px;font-weight:700}
+.game-family-timer-status{font-size:0.8rem;font-weight:700;display:flex;align-items:center;gap:4px}
+.times-up-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;animation:timesUpFadeIn 0.3s ease}
+.times-up-emoji{font-size:5rem;animation:timesUpBounce 0.6s ease infinite alternate}
+.times-up-text{font-family:'Fredoka',sans-serif;font-size:2.5rem;font-weight:800;color:#f87171;text-align:center;text-shadow:0 0 30px rgba(239,68,68,0.5)}
+.times-up-sub{font-size:1rem;color:var(--text-secondary);font-weight:600;text-align:center}
+.times-up-pin{margin-top:16px;display:flex;gap:8px}
+.times-up-pin input{width:48px;height:56px;text-align:center;font-size:1.5rem;font-weight:800;border-radius:12px;border:2px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:'Fredoka',sans-serif}
+.times-up-pin input:focus{border-color:var(--accent);outline:none}
+@keyframes timesUpFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes timesUpBounce{from{transform:translateY(0)}to{transform:translateY(-15px)}}
 `;
 
 // ============================================================
@@ -590,6 +676,9 @@ export default function App() {
   const [prizes, setPrizes] = useState(() => loadData("fcc_prizes", {}));
   const [customEmojis, setCustomEmojis] = useState(() => loadData("fcc_customEmojis", {}));
   const [teamColors, setTeamColors] = useState(() => loadData("fcc_teamColors", {}));
+  const [gameUnlocks, setGameUnlocks] = useState(() => loadData("fcc_gameUnlocks", {}));
+  const [gameTimers, setGameTimers] = useState(() => loadData("fcc_gameTimers", {}));
+  const [timesUpMember, setTimesUpMember] = useState(null); // member name for TIMES UP overlay
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTeamNaming, setShowTeamNaming] = useState(null);
@@ -608,6 +697,8 @@ export default function App() {
   useFirebaseSync("prizes", prizes, setPrizes);
   useFirebaseSync("customEmojis", customEmojis, setCustomEmojis);
   useFirebaseSync("teamColors", teamColors, setTeamColors);
+  useFirebaseSync("gameUnlocks", gameUnlocks, setGameUnlocks);
+  useFirebaseSync("gameTimers", gameTimers, setGameTimers);
 
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
@@ -618,6 +709,8 @@ export default function App() {
   useEffect(() => { saveData("fcc_prizes", prizes); }, [prizes]);
   useEffect(() => { saveData("fcc_customEmojis", customEmojis); }, [customEmojis]);
   useEffect(() => { saveData("fcc_teamColors", teamColors); }, [teamColors]);
+  useEffect(() => { saveData("fcc_gameUnlocks", gameUnlocks); }, [gameUnlocks]);
+  useEffect(() => { saveData("fcc_gameTimers", gameTimers); }, [gameTimers]);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -676,6 +769,25 @@ export default function App() {
       return u;
     });
   }, [weekStartKey, monthKey, yearKey]);
+
+  // Date-aware version: adds points to the correct week/month/year for any date
+  const addPointsForDate = useCallback((member, delta, date) => {
+    const wsk = getWeekStartKey(date);
+    const mk = getMonthKey(date);
+    const yk = getYearKey(date);
+    setPoints(p => {
+      const u = { ...p }; delete u._empty;
+      const wk = `w_${wsk}_${member}`;
+      u[wk] = Math.max(0, (u[wk] || 0) + delta);
+      const mKey = `m_${mk}_${member}`;
+      u[mKey] = Math.max(0, (u[mKey] || 0) + delta);
+      const yKey = `y_${yk}_${member}`;
+      u[yKey] = Math.max(0, (u[yKey] || 0) + delta);
+      const ak = `a_${member}`;
+      u[ak] = Math.max(0, (u[ak] || 0) + delta);
+      return u;
+    });
+  }, []);
 
   const getPoints = useCallback((member, period) => {
     if (!points || points._empty) return 0;
@@ -749,14 +861,14 @@ export default function App() {
       const next = { ...prev }; delete next._empty;
       if (next[key]) {
         delete next[key];
-        addPoints(member, -pointValue);
+        addPointsForDate(member, -pointValue, date);
       } else {
         next[key] = true;
-        addPoints(member, pointValue);
+        addPointsForDate(member, pointValue, date);
       }
       return next;
     });
-  }, [addPoints]);
+  }, [addPointsForDate]);
 
   // Generic: get chores for any member on any date
   const getChoresForDate = useCallback((member, date) => {
@@ -910,6 +1022,147 @@ export default function App() {
     }).length;
   }, [awards, monthKey, yearKey]);
 
+  // ============================================================
+  // VIDEO GAME UNLOCK STATUS
+  // Checks previous week's chores: housekeeping 100%, dinner 90%+
+  // Parent can override via gameUnlocks Firebase doc
+  // ============================================================
+  const getVideoGameStatus = useCallback((member) => {
+    // Get previous week's date range
+    const prevWeekStart = new Date(getWeekStart(today));
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const prevWeekKey = dateToKey(prevWeekStart);
+
+    // Check for parent override
+    const overrideKey = `${prevWeekKey}_${member}`;
+    if (gameUnlocks && !gameUnlocks._empty && gameUnlocks[overrideKey]) {
+      return { unlocked: true, parentOverride: true, housekeepingPct: 100, dinnerPct: 100, gameDay: isVideoGameDay(today), choresComplete: true };
+    }
+
+    let housekeepingTotal = 0;
+    let housekeepingDone = 0;
+    let dinnerTotal = 0;
+    let dinnerDone = 0;
+
+    // Loop through each day of previous week
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(prevWeekStart);
+      d.setDate(d.getDate() + i);
+      const dk = dateToKey(d);
+      const dn = getDayName(d);
+      const daily = DAILY_CHORES[member]?.[dn];
+      if (!daily) continue;
+
+      // Housekeeping tasks (Mon-Thu for older kids)
+      if (dn !== "Sunday" && dn !== "Friday" && dn !== "Saturday") {
+        const chart = getChartAssignment(member, d);
+        const hkTask = chart.tasks[dn];
+        if (hkTask) {
+          housekeepingTotal++;
+          if (completedChores[`${dk}_${member}_hk_${dn.toLowerCase()}`]) housekeepingDone++;
+        }
+        // HK Zone
+        housekeepingTotal++;
+        if (completedChores[`${dk}_${member}_hk_zone`]) housekeepingDone++;
+      }
+
+      // Dinner jobs (only for older kids who have zone-type days)
+      if (daily.type === "zone" && daily.dinnerJob) {
+        dinnerTotal++;
+        if (completedChores[`${dk}_${member}_dinner`]) dinnerDone++;
+      }
+
+      // For younger kids, check their daily tasks
+      if (daily.type === "young") {
+        const tasks = daily.task.split("/");
+        tasks.forEach((_, idx) => {
+          housekeepingTotal++;
+          if (completedChores[`${dk}_${member}_task_${idx}`]) housekeepingDone++;
+        });
+      }
+    }
+
+    const housekeepingPct = housekeepingTotal > 0 ? Math.round((housekeepingDone / housekeepingTotal) * 100) : 100;
+    const dinnerPct = dinnerTotal > 0 ? Math.round((dinnerDone / dinnerTotal) * 100) : 100;
+
+    // Check if today is even a video game day
+    const gameDay = isVideoGameDay(today);
+
+    // Chore-based unlock: housekeeping = 100% AND dinner >= 90%
+    const choresComplete = housekeepingPct >= 100 && dinnerPct >= 90;
+
+    // Final: must be a game day AND chores complete
+    const unlocked = gameDay && choresComplete;
+
+    return { unlocked, parentOverride: false, housekeepingPct, dinnerPct, gameDay, choresComplete };
+  }, [today, completedChores, gameUnlocks]);
+
+  const toggleGameUnlock = useCallback((member) => {
+    const prevWeekStart = new Date(getWeekStart(today));
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const overrideKey = `${dateToKey(prevWeekStart)}_${member}`;
+    setGameUnlocks(prev => {
+      const u = { ...prev }; delete u._empty;
+      if (u[overrideKey]) { delete u[overrideKey]; }
+      else { u[overrideKey] = true; }
+      if (Object.keys(u).length === 0) u._empty = true;
+      return u;
+    });
+  }, [today]);
+
+  // ============================================================
+  // VIDEO GAME TIMER CONTROLS
+  // ============================================================
+  const DEFAULT_TIMER_DURATION = 7200; // 2 hours in seconds
+
+  const startTimer = useCallback((member) => {
+    const now = Date.now();
+    setGameTimers(prev => {
+      const u = { ...prev }; delete u._empty;
+      const existing = u[member];
+      // If there's a paused timer, resume it
+      if (existing && existing.pausedAt && existing.remaining > 0) {
+        u[member] = { ...existing, startedAt: now, pausedAt: null, active: true };
+      } else {
+        // Start fresh timer
+        u[member] = { startedAt: now, duration: DEFAULT_TIMER_DURATION, pausedAt: null, remaining: DEFAULT_TIMER_DURATION, active: true };
+      }
+      return u;
+    });
+  }, []);
+
+  const pauseTimer = useCallback((member) => {
+    setGameTimers(prev => {
+      const u = { ...prev }; delete u._empty;
+      const timer = u[member];
+      if (!timer || !timer.active || timer.pausedAt) return prev;
+      const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
+      const remaining = Math.max(0, timer.remaining - elapsed);
+      u[member] = { ...timer, pausedAt: Date.now(), remaining, active: remaining > 0 };
+      return u;
+    });
+  }, []);
+
+  const stopTimer = useCallback((member) => {
+    setGameTimers(prev => {
+      const u = { ...prev }; delete u._empty;
+      u[member] = { startedAt: null, duration: DEFAULT_TIMER_DURATION, pausedAt: null, remaining: 0, active: false };
+      return u;
+    });
+  }, []);
+
+  const adjustTimer = useCallback((member, deltaMinutes) => {
+    setGameTimers(prev => {
+      const u = { ...prev }; delete u._empty;
+      const timer = u[member] || { startedAt: null, duration: DEFAULT_TIMER_DURATION, pausedAt: null, remaining: DEFAULT_TIMER_DURATION, active: false };
+      const deltaSec = deltaMinutes * 60;
+      const newRemaining = Math.max(0, timer.remaining + deltaSec);
+      const newDuration = Math.max(0, timer.duration + deltaSec);
+      u[member] = { ...timer, remaining: newRemaining, duration: newDuration };
+      return u;
+    });
+  }, []);
+
   return (
     <><style>{styles}</style>
       <div className="app">
@@ -935,18 +1188,21 @@ export default function App() {
           <button className={`nav-btn ${currentTab === "week" ? "active" : ""}`} onClick={() => setCurrentTab("week")}><Icons.Calendar size={20} /> Week</button>
           <button className={`nav-btn ${currentTab === "rotation" ? "active" : ""}`} onClick={() => setCurrentTab("rotation")}><Icons.Recycle size={20} /> Rotation</button>
           <button className={`nav-btn ${currentTab === "leaderboard" ? "active" : ""}`} onClick={() => setCurrentTab("leaderboard")}><Icons.Trophy size={20} /> Points</button>
+          <button className={`nav-btn ${currentTab === "games" ? "active" : ""}`} onClick={() => setCurrentTab("games")}><Icons.Gamepad size={20} /> Games</button>
           <button className={`nav-btn ${currentTab === "history" ? "active" : ""}`} onClick={() => setCurrentTab("history")}><Icons.History size={20} /> History</button>
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
+          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
+          {currentTab === "games" && <GameView members={FAMILY_MEMBERS} getVideoGameStatus={getVideoGameStatus} getMemberEmoji={getMemberEmoji} gameTimers={gameTimers} startTimer={startTimer} pauseTimer={pauseTimer} stopTimer={stopTimer} adjustTimer={adjustTimer} isParent={isParent} toggleGameUnlock={toggleGameUnlock} setTimesUpMember={setTimesUpMember} />}
           {currentTab === "history" && <HistoryView awards={awards} points={points} teamNames={teamNames} getMemberEmoji={getMemberEmoji} today={today} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
+        {timesUpMember && <TimesUpOverlay member={timesUpMember} memberEmoji={getMemberEmoji(timesUpMember)} onDismiss={() => setTimesUpMember(null)} />}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {showAddTask && <AddTaskModal onAdd={(task) => { addCustomTask(task); setShowAddTask(false); }} onClose={() => setShowAddTask(false)} todayKey={todayKey} />}
         {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} getMemberEmoji={getMemberEmoji} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onColor={(color) => setTeamColor(showTeamNaming.teamKey, color)} onClose={() => setShowTeamNaming(null)} />}
@@ -1024,7 +1280,7 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
   );
 }
 
-function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor }) {
+function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   return (
     <div>
@@ -1039,6 +1295,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         const team = getTeamForMember(member.name);
         const teamColor = team ? getTeamColor(team.key) : null;
         const cardBorderColor = teamColor || member.color;
+        const gameStatus = getVideoGameStatus(member.name);
         return (
           <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: cardBorderColor }}>
             <div className="member-header">
@@ -1055,6 +1312,10 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                      : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
                      : streak >= 3 ? <span className="streak-fire streak-fire-1" title={`${streak}-day streak!`}>🔥 {streak}d</span>
                      : null}
+                    <span className={`game-unlock-badge ${gameStatus.unlocked ? (gameStatus.parentOverride ? "override" : "unlocked") : "locked"}`} title={gameStatus.unlocked ? (gameStatus.parentOverride ? "Unlocked by parent" : `Video games unlocked! HK: ${gameStatus.housekeepingPct}% · Dinner: ${gameStatus.dinnerPct}%`) : `Locked — HK: ${gameStatus.housekeepingPct}% · Dinner: ${gameStatus.dinnerPct}%`}>
+                      <span className="game-unlock-icon">🎮</span>
+                      <span className="game-lock-icon">{gameStatus.unlocked ? "🔓" : "🔒"}</span>
+                    </span>
                   </div>
                   <div style={{ fontSize: "0.8rem", color: allDone ? "#10B981" : "var(--text-muted)", fontWeight: 600 }}>
                     {allDone ? "All done!" : `${done}/${total} complete`}
@@ -1780,9 +2041,277 @@ function HistoryView({ awards, points, teamNames, getMemberEmoji, today }) {
 }
 
 // ============================================================
+// WEB AUDIO ALARM (generates alarm tone without external files)
+// ============================================================
+function playAlarm() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const playTone = (freq, startTime, dur) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = "square";
+      gain.gain.setValueAtTime(0.3, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + dur);
+      osc.start(startTime);
+      osc.stop(startTime + dur);
+    };
+    // Play an alarm pattern: 3 beeps, pause, repeat
+    for (let r = 0; r < 3; r++) {
+      for (let i = 0; i < 3; i++) {
+        playTone(880, ctx.currentTime + r * 1.5 + i * 0.3, 0.2);
+      }
+    }
+    setTimeout(() => ctx.close(), 5000);
+  } catch (e) { console.warn("Audio alarm failed:", e); }
+}
+
+function sendLocalNotification(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body, icon: "/icons/icon-192.png", tag: "game-timer" });
+  }
+}
+
+// ============================================================
+// TIMES UP OVERLAY
+// ============================================================
+function TimesUpOverlay({ member, memberEmoji, onDismiss }) {
+  const [pin, setPin] = useState(["", "", "", ""]);
+  const [error, setError] = useState(false);
+  const refs = [useRef(), useRef(), useRef(), useRef()];
+  useEffect(() => { refs[0].current?.focus(); playAlarm(); }, []);
+
+  const handleChange = (i, val) => {
+    if (!/^\d*$/.test(val)) return;
+    const newPin = [...pin]; newPin[i] = val.slice(-1);
+    setPin(newPin); setError(false);
+    if (val && i < 3) refs[i + 1].current?.focus();
+    const full = newPin.join("");
+    if (full.length === 4) {
+      if (full === PARENT_PIN) { onDismiss(); }
+      else { setError(true); setPin(["", "", "", ""]); setTimeout(() => refs[0].current?.focus(), 100); }
+    }
+  };
+
+  return (
+    <div className="times-up-overlay">
+      <div className="times-up-emoji">{memberEmoji} ⏰</div>
+      <div className="times-up-text">TIME'S UP!</div>
+      <div className="times-up-sub">{member}'s video game time is over</div>
+      <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 12 }}>Enter parent PIN to dismiss</div>
+      <div className="times-up-pin">
+        {pin.map((d, i) => (
+          <input key={i} ref={refs[i]} type="tel" inputMode="numeric" maxLength={1} value={d}
+            onChange={e => handleChange(i, e.target.value)}
+            onKeyDown={e => { if (e.key === "Backspace" && !d && i > 0) refs[i - 1].current?.focus(); }}
+            style={error ? { borderColor: "#EF4444" } : {}} />
+        ))}
+      </div>
+      {error && <div style={{ color: "#f87171", fontSize: "0.85rem", fontWeight: 600, marginTop: 4 }}>Wrong PIN</div>}
+    </div>
+  );
+}
+
+// ============================================================
+// GAME VIEW (🎮 Tab)
+// ============================================================
+function GameView({ members, getVideoGameStatus, getMemberEmoji, gameTimers, startTimer, pauseTimer, stopTimer, adjustTimer, isParent, toggleGameUnlock, setTimesUpMember }) {
+  const [, forceUpdate] = useState(0);
+
+  // Tick every second to update live countdowns
+  useEffect(() => {
+    const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Request notification permission on first render
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const getTimerRemaining = (member) => {
+    const timer = gameTimers?.[member];
+    if (!timer || !timer.active) return timer?.remaining || 0;
+    if (timer.pausedAt) return timer.remaining;
+    const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
+    return Math.max(0, timer.remaining - elapsed);
+  };
+
+  const getTimerState = (member) => {
+    const timer = gameTimers?.[member];
+    if (!timer || !timer.active) return "idle";
+    if (timer.pausedAt) return "paused";
+    const remaining = getTimerRemaining(member);
+    if (remaining <= 0) return "expired";
+    return "running";
+  };
+
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  // Check for expired timers and trigger TIMES UP
+  useEffect(() => {
+    members.forEach(member => {
+      const state = getTimerState(member.name);
+      const timer = gameTimers?.[member.name];
+      if (state === "expired" && timer?.active) {
+        setTimesUpMember(member.name);
+        playAlarm();
+        sendLocalNotification("Time's Up!", `${member.name}'s video game time is over!`);
+        stopTimer(member.name);
+      }
+    });
+  });
+
+  return (
+    <div>
+      <div className="card">
+        <div className="card-title" style={{ fontSize: "1.3rem" }}>🎮 Video Games</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 16 }}>
+          {isVideoGameDay(new Date()) ? "Today is a game day! Check your status below." : "Games are available on Fridays & Saturdays (and school days off)."}
+        </div>
+      </div>
+
+      {members.map(member => {
+        const gs = getVideoGameStatus(member.name);
+        const emoji = getMemberEmoji(member.name);
+        const timerState = getTimerState(member.name);
+        const remaining = getTimerRemaining(member.name);
+        const timer = gameTimers?.[member.name];
+        const duration = timer?.duration || 7200;
+        const pct = duration > 0 ? (remaining / duration) * 100 : 0;
+
+        return (
+          <div key={member.name} className="game-tab-card" style={{ borderLeftColor: member.color }}>
+            <div className="member-header" style={{ marginBottom: 8 }}>
+              <div className="member-name-row">
+                <div className="member-emoji">{emoji}</div>
+                <div>
+                  <div className="member-name" style={{ color: member.color }}>
+                    {member.name}
+                    <span className={`game-unlock-badge ${gs.unlocked ? (gs.parentOverride ? "override" : "unlocked") : "locked"}`}>
+                      <span className="game-unlock-icon">🎮</span>
+                      <span className="game-lock-icon">{gs.unlocked ? "🔓" : "🔒"}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Status messages */}
+            {!gs.gameDay && !gs.parentOverride && (
+              <div className="game-status-msg not-today">📅 Not a game day — games available on Fridays, Saturdays & days off</div>
+            )}
+            {gs.gameDay && !gs.choresComplete && !gs.parentOverride && (
+              <div className="game-status-msg locked">
+                🔒 Last week's chores incomplete — HK: {gs.housekeepingPct}% (need 100%) · Dinner: {gs.dinnerPct}% (need 90%)
+              </div>
+            )}
+
+            {/* Timer section - only show if unlocked */}
+            {gs.unlocked && (
+              <>
+                <div className={`game-timer-display ${timerState}`}>
+                  {timerState === "idle" ? formatTime(duration) : formatTime(remaining)}
+                </div>
+                {timerState !== "idle" && (
+                  <div className="game-timer-bar">
+                    <div className="game-timer-bar-fill" style={{
+                      width: `${pct}%`,
+                      background: pct > 25 ? "linear-gradient(90deg, #10B981, #34d399)" : pct > 10 ? "#F59E0B" : "#EF4444"
+                    }} />
+                  </div>
+                )}
+                <div className="game-timer-controls">
+                  {timerState === "idle" && (
+                    <button className="game-timer-btn start" onClick={() => startTimer(member.name)}>▶️ Start Timer</button>
+                  )}
+                  {timerState === "running" && (
+                    <button className="game-timer-btn pause" onClick={() => { pauseTimer(member.name); sendLocalNotification("Timer Paused", `${member.name} paused their game timer`); }}>⏸️ Pause</button>
+                  )}
+                  {timerState === "paused" && (
+                    <>
+                      <button className="game-timer-btn start" onClick={() => startTimer(member.name)}>▶️ Resume</button>
+                      <button className="game-timer-btn stop" onClick={() => stopTimer(member.name)}>⏹️ End</button>
+                    </>
+                  )}
+                  {timerState === "running" && (
+                    <button className="game-timer-btn stop" onClick={() => stopTimer(member.name)}>⏹️ End Session</button>
+                  )}
+                </div>
+                {/* Parent time adjustments */}
+                {isParent && (
+                  <div className="game-adjust-row">
+                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, -30)}>-30m</button>
+                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, -15)}>-15m</button>
+                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, 15)}>+15m</button>
+                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, 30)}>+30m</button>
+                  </div>
+                )}
+                {isParent && (
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                    <button className={`admin-unlock-toggle ${gs.unlocked ? "lock" : "unlock"}`} onClick={() => toggleGameUnlock(member.name)}>
+                      {gs.parentOverride ? "↩️ Remove Override" : gs.unlocked ? "🔒 Lock Games" : "🔓 Override Unlock"}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* If locked, parent can override */}
+            {!gs.unlocked && isParent && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                <button className="admin-unlock-toggle unlock" onClick={() => toggleGameUnlock(member.name)}>🔓 Override Unlock</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Family timer overview */}
+      <div className="card">
+        <div className="card-title">👀 Active Timers</div>
+        <div className="game-family-timers">
+          {members.map(member => {
+            const timerState = getTimerState(member.name);
+            const remaining = getTimerRemaining(member.name);
+            const emoji = getMemberEmoji(member.name);
+            return (
+              <div key={member.name} className="game-family-timer-row">
+                <div className="game-family-timer-name">
+                  <span>{emoji}</span>
+                  <span style={{ color: member.color }}>{member.name}</span>
+                </div>
+                <div className="game-family-timer-status" style={{
+                  color: timerState === "running" ? "#34d399" : timerState === "paused" ? "#fbbf24" : "var(--text-muted)"
+                }}>
+                  {timerState === "running" && <>🟢 {formatTime(remaining)}</>}
+                  {timerState === "paused" && <>⏸️ {formatTime(remaining)} paused</>}
+                  {timerState === "idle" && <>⚫ Not playing</>}
+                  {timerState === "expired" && <>🔴 Time's up</>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards }) {
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards, getVideoGameStatus, toggleGameUnlock }) {
   const [awardMsg, setAwardMsg] = useState("");
   return (
     <div>
@@ -1855,6 +2384,37 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
                 }} />
                 🎁 Mystery Box (hidden until winner revealed)
               </label>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Video Game Unlock Override */}
+      <div className="card">
+        <div className="card-title">🎮 Video Game Access</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+          Based on last week's chores. Housekeeping must be 100%, dinner jobs 90%+. Override to manually unlock/lock.
+        </div>
+        {FAMILY_MEMBERS.map(member => {
+          const gs = getVideoGameStatus(member.name);
+          return (
+            <div key={member.name} className="admin-game-unlock">
+              <div className="admin-game-unlock-info">
+                <div style={{ fontWeight: 700, color: member.color, display: "flex", alignItems: "center", gap: 6 }}>
+                  {member.emoji} {member.name}
+                  <span className={`game-unlock-badge ${gs.unlocked ? (gs.parentOverride ? "override" : "unlocked") : "locked"}`} style={{ marginLeft: 4 }}>
+                    <span className="game-unlock-icon">🎮</span>
+                    <span className="game-lock-icon">{gs.unlocked ? "🔓" : "🔒"}</span>
+                  </span>
+                </div>
+                <div className="admin-game-unlock-stats">
+                  HK: {gs.housekeepingPct}% · Dinner: {gs.dinnerPct}%
+                  {gs.parentOverride && " · Parent override"}
+                </div>
+              </div>
+              <button className={`admin-unlock-toggle ${gs.unlocked ? "lock" : "unlock"}`} onClick={() => toggleGameUnlock(member.name)}>
+                {gs.unlocked && !gs.parentOverride ? "🔒 Lock" : gs.unlocked && gs.parentOverride ? "↩️ Remove Override" : "🔓 Unlock"}
+              </button>
             </div>
           );
         })}
