@@ -314,7 +314,65 @@ function getDailyDueChores(member, date) {
 }
 
 // Calculate streak: consecutive days (ending today or yesterday) where all daily-due chores were completed
-function calculateStreak(member, completedChores, today) {
+// Optimized: uses cached streak data to avoid scanning 365 days every time.
+// cachedStreak = { count, lastDate } — if provided and recent, we only scan the gap since lastDate.
+function calculateStreak(member, completedChores, today, cachedStreak) {
+  // If we have a recent cache, try incremental update
+  if (cachedStreak && cachedStreak.lastDate && cachedStreak.count > 0) {
+    const cachedDate = new Date(cachedStreak.lastDate + "T00:00:00");
+    const todayDate = new Date(today);
+    const daysDiff = Math.round((todayDate - cachedDate) / 86400000);
+
+    // Cache is from today — return as-is (will be rechecked for today's incomplete)
+    if (daysDiff === 0) {
+      // Still verify today's status (might have completed more chores)
+      return calculateStreakFull(member, completedChores, today);
+    }
+
+    // Cache is recent (1-3 days old) — check only the gap days
+    if (daysDiff > 0 && daysDiff <= 3) {
+      let gapAllDone = true;
+      for (let i = 1; i <= daysDiff; i++) {
+        const checkDate = new Date(cachedDate);
+        checkDate.setDate(cachedDate.getDate() + i);
+        if (checkDate > todayDate) break;
+        // Skip today (still in progress)
+        if (dateToKey(checkDate) === dateToKey(todayDate)) continue;
+        const dk = dateToKey(checkDate);
+        const dueChores = getDailyDueChores(member, checkDate);
+        if (dueChores.length === 0) continue;
+        const allDone = dueChores.every(choreId => !!completedChores[`${dk}_${member}_${choreId}`]);
+        if (!allDone) { gapAllDone = false; break; }
+      }
+      if (gapAllDone) {
+        // Gap days are all complete — add them to cached count and check today
+        let extraDays = 0;
+        for (let i = 1; i <= daysDiff; i++) {
+          const checkDate = new Date(cachedDate);
+          checkDate.setDate(cachedDate.getDate() + i);
+          if (checkDate > todayDate) break;
+          if (dateToKey(checkDate) === dateToKey(todayDate)) {
+            // Check if today's chores are done
+            const dk = dateToKey(checkDate);
+            const dueChores = getDailyDueChores(member, checkDate);
+            if (dueChores.length > 0 && dueChores.every(choreId => !!completedChores[`${dk}_${member}_${choreId}`])) {
+              extraDays++;
+            }
+            // Don't break streak if today is incomplete — they still have time
+            continue;
+          }
+          extraDays++;
+        }
+        return cachedStreak.count + extraDays;
+      }
+      // Gap broken — need full recalc
+    }
+  }
+
+  return calculateStreakFull(member, completedChores, today);
+}
+
+function calculateStreakFull(member, completedChores, today) {
   let streak = 0;
   const d = new Date(today);
   for (let i = 0; i < 365; i++) {
@@ -322,11 +380,10 @@ function calculateStreak(member, completedChores, today) {
     checkDate.setDate(d.getDate() - i);
     const dk = dateToKey(checkDate);
     const dueChores = getDailyDueChores(member, checkDate);
-    if (dueChores.length === 0) continue; // skip days with no chores due (shouldn't happen but safety)
+    if (dueChores.length === 0) continue;
     const allDone = dueChores.every(choreId => !!completedChores[`${dk}_${member}_${choreId}`]);
     if (allDone) streak++;
     else {
-      // If today's chores aren't done yet, don't break — they still have time
       if (i === 0) continue;
       break;
     }
@@ -729,12 +786,36 @@ export default function App() {
   const teamWeek = isTeamWeek(today);
   const teams = teamWeek ? getTeamsForWeek(today) : null;
 
-  // Compute streaks from completedChores
+  // Compute streaks from completedChores, using cached values for optimization
   const computedStreaks = useMemo(() => {
     const s = {};
-    FAMILY_MEMBERS.forEach(m => { s[m.name] = calculateStreak(m.name, completedChores, today); });
+    FAMILY_MEMBERS.forEach(m => {
+      const cached = streaks[m.name] ? { count: streaks[m.name], lastDate: streaks._lastDate || null } : null;
+      s[m.name] = calculateStreak(m.name, completedChores, today, cached);
+    });
     return s;
   }, [completedChores, today]);
+
+  // Persist computed streaks back to Firestore for cross-device caching & instant load
+  const streakWriteRef = useRef(null);
+  useEffect(() => {
+    const todayStr = dateToKey(today);
+    let needsUpdate = false;
+    for (const m of FAMILY_MEMBERS) {
+      if ((streaks[m.name] || 0) !== (computedStreaks[m.name] || 0)) { needsUpdate = true; break; }
+    }
+    if (streaks._lastDate !== todayStr) needsUpdate = true;
+    if (needsUpdate) {
+      // Debounce writes to avoid rapid-fire updates
+      clearTimeout(streakWriteRef.current);
+      streakWriteRef.current = setTimeout(() => {
+        const updated = { _lastDate: todayStr };
+        FAMILY_MEMBERS.forEach(m => { updated[m.name] = computedStreaks[m.name] || 0; });
+        setStreaks(updated);
+      }, 500);
+    }
+    return () => clearTimeout(streakWriteRef.current);
+  }, [computedStreaks, today]);
 
   // Detect milestone hits and show popup
   useEffect(() => {
