@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { db } from "./firebase";
+import { db, storage } from "./firebase";
 import { doc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 
 // ============================================================
 // AUTO-GENERATING WEEKLY ROTATION SYSTEM
@@ -393,6 +394,29 @@ function calculateStreakFull(member, completedChores, today) {
 
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 
+// Compress an image file to a target max width and JPEG quality
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Compression failed")), "image/jpeg", quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function loadData(key, fallback) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } }
 function saveData(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
 
@@ -436,6 +460,8 @@ const Icons = {
   Plus: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>),
   History: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>),
   Gamepad: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="12" x2="10" y2="12" /><line x1="8" y1="10" x2="8" y2="14" /><line x1="15" y1="13" x2="15.01" y2="13" /><line x1="18" y1="11" x2="18.01" y2="11" /><path d="M17.32 5H6.68a4 4 0 00-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 003 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 019.828 16h4.344a2 2 0 011.414.586L17 18c.5.5 1 1 2 1a3 3 0 003-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0017.32 5z" /></svg>),
+  Camera: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>),
+  Image: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>),
 };
 
 const styles = `
@@ -716,6 +742,23 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .times-up-pin input:focus{border-color:var(--accent);outline:none}
 @keyframes timesUpFadeIn{from{opacity:0}to{opacity:1}}
 @keyframes timesUpBounce{from{transform:translateY(0)}to{transform:translateY(-15px)}}
+.chore-photo-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;flex-shrink:0;margin-left:auto}
+.chore-photo-btn:hover{background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3)}
+.chore-photo-btn.has-photo{background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.3)}
+.chore-photo-btn input{display:none}
+.chore-photo-thumb{width:32px;height:32px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid rgba(16,185,129,0.3);flex-shrink:0;margin-left:auto;transition:all 0.15s}
+.chore-photo-thumb:hover{border-color:rgba(16,185,129,0.6);transform:scale(1.05)}
+.photo-viewer-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;animation:timesUpFadeIn 0.3s ease}
+.photo-viewer-img{max-width:90%;max-height:70vh;border-radius:12px;object-fit:contain}
+.photo-viewer-info{color:var(--text-secondary);font-size:0.9rem;font-weight:600;margin-top:12px;text-align:center}
+.photo-viewer-close{position:absolute;top:20px;right:20px;width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:white;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.photo-uploading{opacity:0.5;pointer-events:none}
+.admin-photos-section{margin-top:12px}
+.admin-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:8px}
+.admin-photo-card{background:rgba(255,255,255,0.04);border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.admin-photo-card img{width:100%;height:80px;object-fit:cover;cursor:pointer}
+.admin-photo-card-info{padding:6px 8px;font-size:0.7rem;font-weight:600;color:var(--text-muted)}
+.admin-photo-card-name{color:var(--text-secondary);font-weight:700}
 `;
 
 // ============================================================
@@ -735,6 +778,9 @@ export default function App() {
   const [teamColors, setTeamColors] = useState(() => loadData("fcc_teamColors", {}));
   const [gameUnlocks, setGameUnlocks] = useState(() => loadData("fcc_gameUnlocks", {}));
   const [gameTimers, setGameTimers] = useState(() => loadData("fcc_gameTimers", {}));
+  const [chorePhotos, setChorePhotos] = useState(() => loadData("fcc_chorePhotos", {}));
+  const [photoUploading, setPhotoUploading] = useState(null); // "member_choreId" while uploading
+  const [photoViewer, setPhotoViewer] = useState(null); // { url, member, chore } for full-screen view
   const [timesUpMember, setTimesUpMember] = useState(null); // member name for TIMES UP overlay
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -756,6 +802,7 @@ export default function App() {
   useFirebaseSync("teamColors", teamColors, setTeamColors);
   useFirebaseSync("gameUnlocks", gameUnlocks, setGameUnlocks);
   useFirebaseSync("gameTimers", gameTimers, setGameTimers);
+  useFirebaseSync("chorePhotos", chorePhotos, setChorePhotos);
 
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
@@ -768,6 +815,7 @@ export default function App() {
   useEffect(() => { saveData("fcc_teamColors", teamColors); }, [teamColors]);
   useEffect(() => { saveData("fcc_gameUnlocks", gameUnlocks); }, [gameUnlocks]);
   useEffect(() => { saveData("fcc_gameTimers", gameTimers); }, [gameTimers]);
+  useEffect(() => { saveData("fcc_chorePhotos", chorePhotos); }, [chorePhotos]);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -785,6 +833,67 @@ export default function App() {
   const weekRotation = getCurrentWeekRotation(today);
   const teamWeek = isTeamWeek(today);
   const teams = teamWeek ? getTeamsForWeek(today) : null;
+
+  // ---- Chore Photo Verification ----
+  const uploadChorePhoto = useCallback(async (member, choreId, file) => {
+    const photoKey = `${todayKey}_${member}_${choreId}`;
+    setPhotoUploading(photoKey);
+    try {
+      const compressed = await compressImage(file, 800, 0.7);
+      const path = `chore-photos/${todayKey}/${member}_${choreId}.jpg`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, compressed, { contentType: "image/jpeg" });
+      const url = await getDownloadURL(fileRef);
+      setChorePhotos(prev => {
+        const u = { ...prev };
+        delete u._empty;
+        u[photoKey] = { url, path, ts: Date.now() };
+        return u;
+      });
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+    } finally {
+      setPhotoUploading(null);
+    }
+  }, [todayKey]);
+
+  const deleteChorePhoto = useCallback(async (photoKey) => {
+    const photo = chorePhotos[photoKey];
+    if (!photo) return;
+    try {
+      const fileRef = storageRef(storage, photo.path);
+      await deleteObject(fileRef);
+    } catch (err) {
+      console.warn("Could not delete from storage:", err);
+    }
+    setChorePhotos(prev => {
+      const u = { ...prev };
+      delete u[photoKey];
+      if (Object.keys(u).length === 0) u._empty = true;
+      return u;
+    });
+  }, [chorePhotos]);
+
+  // Auto-cleanup: delete photos older than 3 days on mount
+  useEffect(() => {
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const keysToDelete = [];
+    for (const [key, photo] of Object.entries(chorePhotos)) {
+      if (key === "_empty") continue;
+      if (photo.ts && (now - photo.ts) > THREE_DAYS_MS) {
+        keysToDelete.push(key);
+      }
+    }
+    if (keysToDelete.length > 0) {
+      keysToDelete.forEach(key => deleteChorePhoto(key));
+    }
+  }, []); // only on mount
+
+  const getChorePhoto = useCallback((member, choreId) => {
+    const key = `${todayKey}_${member}_${choreId}`;
+    return chorePhotos[key] || null;
+  }, [chorePhotos, todayKey]);
 
   // Compute streaks from completedChores, using cached values for optimization
   const computedStreaks = useMemo(() => {
@@ -1274,16 +1383,23 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} />}
+          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
           {currentTab === "games" && <GameView members={FAMILY_MEMBERS} getVideoGameStatus={getVideoGameStatus} getMemberEmoji={getMemberEmoji} gameTimers={gameTimers} startTimer={startTimer} pauseTimer={pauseTimer} stopTimer={stopTimer} adjustTimer={adjustTimer} isParent={isParent} toggleGameUnlock={toggleGameUnlock} setTimesUpMember={setTimesUpMember} />}
           {currentTab === "history" && <HistoryView awards={awards} points={points} teamNames={teamNames} getMemberEmoji={getMemberEmoji} today={today} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {timesUpMember && <TimesUpOverlay member={timesUpMember} memberEmoji={getMemberEmoji(timesUpMember)} onDismiss={() => setTimesUpMember(null)} />}
+        {photoViewer && (
+          <div className="photo-viewer-overlay" onClick={() => setPhotoViewer(null)}>
+            <button className="photo-viewer-close" onClick={() => setPhotoViewer(null)}><Icons.X size={20} /></button>
+            <img className="photo-viewer-img" src={photoViewer.url} alt="Chore proof" />
+            <div className="photo-viewer-info">{getMemberEmoji(photoViewer.member)} {photoViewer.member} — {photoViewer.chore}</div>
+          </div>
+        )}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {showAddTask && <AddTaskModal onAdd={(task) => { addCustomTask(task); setShowAddTask(false); }} onClose={() => setShowAddTask(false)} todayKey={todayKey} />}
         {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} getMemberEmoji={getMemberEmoji} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onColor={(color) => setTeamColor(showTeamNaming.teamKey, color)} onClose={() => setShowTeamNaming(null)} />}
@@ -1361,7 +1477,7 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
   );
 }
 
-function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus }) {
+function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   return (
     <div>
@@ -1416,12 +1532,23 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
               {chores.map((chore) => {
                 const completed = isChoreComplete(member.name, chore.id);
                 const isCustom = chore.tag === "custom";
+                const photo = getChorePhoto ? getChorePhoto(member.name, chore.id) : null;
+                const isUploading = photoUploading === `${dateToKey(new Date())}_${member.name}_${chore.id}`;
                 return (
-                  <div key={chore.id} className={`chore-item ${completed ? "completed" : ""}`} onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>
-                    <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`}>{completed && <Icons.Check size={16} color="white" />}</div>
-                    <span className="chore-text">{chore.text}</span>
+                  <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${isUploading ? "photo-uploading" : ""}`}>
+                    <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{completed && <Icons.Check size={16} color="white" />}</div>
+                    <span className="chore-text" onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{chore.text}</span>
                     {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
                     <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
+                    {completed && photo && (
+                      <img className="chore-photo-thumb" src={photo.url} alt="proof" onClick={(e) => { e.stopPropagation(); setPhotoViewer({ url: photo.url, member: member.name, chore: chore.text }); }} />
+                    )}
+                    {completed && !photo && uploadChorePhoto && (
+                      <label className={`chore-photo-btn ${photo ? "has-photo" : ""}`} title="Add photo proof" onClick={(e) => e.stopPropagation()}>
+                        <Icons.Camera size={14} color="var(--text-muted)" />
+                        <input type="file" accept="image/*" capture="environment" onChange={(e) => { if (e.target.files[0]) uploadChorePhoto(member.name, chore.id, e.target.files[0]); }} />
+                      </label>
+                    )}
                     {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
                   </div>
                 );
@@ -2392,10 +2519,44 @@ function GameView({ members, getVideoGameStatus, getMemberEmoji, gameTimers, sta
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards, getVideoGameStatus, toggleGameUnlock }) {
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards, getVideoGameStatus, toggleGameUnlock, chorePhotos, deleteChorePhoto, setPhotoViewer, getMemberEmoji }) {
   const [awardMsg, setAwardMsg] = useState("");
+
+  // Get today's photos for review
+  const todayPhotos = useMemo(() => {
+    if (!chorePhotos) return [];
+    return Object.entries(chorePhotos)
+      .filter(([k]) => k !== "_empty")
+      .map(([key, photo]) => {
+        const parts = key.split("_");
+        // key format: YYYY-MM-DD_MemberName_choreId
+        const dateStr = parts[0];
+        const member = parts.slice(1, -1).join("_"); // handle names with underscores
+        const choreId = parts[parts.length - 1];
+        return { key, ...photo, dateStr, member, choreId };
+      })
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  }, [chorePhotos]);
+
   return (
     <div>
+      {todayPhotos.length > 0 && (
+        <div className="card">
+          <div className="card-title"><Icons.Camera size={22} color="#10B981" /> Chore Photo Proof ({todayPhotos.length})</div>
+          <div className="admin-photo-grid">
+            {todayPhotos.map(p => (
+              <div key={p.key} className="admin-photo-card">
+                <img src={p.url} alt="proof" onClick={() => setPhotoViewer({ url: p.url, member: p.member, chore: p.choreId })} />
+                <div className="admin-photo-card-info">
+                  <div className="admin-photo-card-name">{getMemberEmoji(p.member)} {p.member}</div>
+                  <div>{p.choreId} · {p.dateStr}</div>
+                  <button style={{ marginTop: 4, fontSize: "0.65rem", padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#f87171", cursor: "pointer", fontWeight: 700 }} onClick={() => deleteChorePhoto(p.key)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="card">
         <div className="card-title"><Icons.Settings size={22} color="var(--accent)" /> Point Management</div>
         <div className="admin-section">
