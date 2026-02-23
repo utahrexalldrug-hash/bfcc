@@ -420,6 +420,11 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 @media(max-width:400px){.week-grid{grid-template-columns:repeat(2,1fr)}}
 .day-col{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:10px;min-width:120px}
 .day-col.today{border-color:var(--accent);background:rgba(59,130,246,0.05)}
+.day-col:hover{background:var(--bg-card-hover);border-color:var(--text-muted)}
+.day-col-selected{border-color:var(--accent)!important;background:rgba(59,130,246,0.1)!important;box-shadow:0 0 0 2px rgba(59,130,246,0.3)}
+.day-detail-panel{margin-top:20px;padding-top:16px;border-top:2px solid var(--accent)}
+.day-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.day-detail-title{font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--text-primary)}
 .day-col-header{text-align:center;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px}
 .day-name{font-weight:800;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary)}
 .day-col.today .day-name{color:var(--accent)}
@@ -703,8 +708,32 @@ export default function App() {
     return !!completedChores[`${todayKey}_${member}_${choreId}`];
   }, [completedChores, todayKey]);
 
-  const getMemberChores = useCallback((member) => {
-    const daily = DAILY_CHORES[member]?.[dayName];
+  // Date-parameterized versions for Week View day detail
+  const isChoreCompleteForDate = useCallback((member, choreId, date) => {
+    return !!completedChores[`${dateToKey(date)}_${member}_${choreId}`];
+  }, [completedChores]);
+
+  const toggleChoreForDate = useCallback((member, choreId, date, pointValue = 1) => {
+    const dk = dateToKey(date);
+    const key = `${dk}_${member}_${choreId}`;
+    setCompletedChores(prev => {
+      const next = { ...prev }; delete next._empty;
+      if (next[key]) {
+        delete next[key];
+        addPoints(member, -pointValue);
+      } else {
+        next[key] = true;
+        addPoints(member, pointValue);
+      }
+      return next;
+    });
+  }, [addPoints]);
+
+  // Generic: get chores for any member on any date
+  const getChoresForDate = useCallback((member, date) => {
+    const dn = getDayName(date);
+    const dk = dateToKey(date);
+    const daily = DAILY_CHORES[member]?.[dn];
     const chores = [];
     if (!daily) return chores;
     if (daily.type === "dishes") { chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 1 }); }
@@ -714,48 +743,57 @@ export default function App() {
     } else if (daily.type === "young") {
       daily.task.split("/").forEach((t, i) => { chores.push({ id: `task_${i}`, text: t.trim(), tag: "young", pointValue: 1 }); });
     }
-    if (weekRotation) {
-      if (weekRotation.collectTrash === member) chores.push({ id: "w_trash", text: "Collect Trash (all rooms)", tag: "weekly", pointValue: 1 });
-      if (weekRotation.trashOut === member) chores.push({ id: "w_trashout", text: `Take Trash Out${weekRotation.recycle ? " + Recycling" : ""}`, tag: "weekly", pointValue: 1 });
-      if (weekRotation.bringCansIn === member) chores.push({ id: "w_cans", text: "Bring Cans In (Thursday)", tag: "weekly", pointValue: 1 });
-      if (weekRotation.refillSoap === member) chores.push({ id: "w_soap", text: "Refill Soap", tag: "weekly", pointValue: 1 });
-      if (weekRotation.toiletPaper === member) chores.push({ id: "w_tp", text: "Refill Toilet Paper", tag: "weekly", pointValue: 1 });
+    const rot = getCurrentWeekRotation(date);
+    if (rot) {
+      if (rot.collectTrash === member) chores.push({ id: "w_trash", text: "Collect Trash (all rooms)", tag: "weekly", pointValue: 1 });
+      if (rot.trashOut === member) chores.push({ id: "w_trashout", text: `Take Trash Out${rot.recycle ? " + Recycling" : ""}`, tag: "weekly", pointValue: 1 });
+      if (rot.bringCansIn === member) chores.push({ id: "w_cans", text: "Bring Cans In (Thursday)", tag: "weekly", pointValue: 1 });
+      if (rot.refillSoap === member) chores.push({ id: "w_soap", text: "Refill Soap", tag: "weekly", pointValue: 1 });
+      if (rot.toiletPaper === member) chores.push({ id: "w_tp", text: "Refill Toilet Paper", tag: "weekly", pointValue: 1 });
     }
 
     // Housekeeping chart tasks
-    const chart = getChartAssignment(member, today);
-    if (dayName !== "Sunday" && dayName !== "Friday") {
-      if (dayName === "Saturday") {
-        // Saturday: mop (every other) + catch-up for missed tasks
-        if (isMopSaturday(today)) {
+    const chart = getChartAssignment(member, date);
+    if (dn !== "Sunday" && dn !== "Friday") {
+      if (dn === "Saturday") {
+        if (isMopSaturday(date)) {
           chores.push({ id: "hk_mop", text: "Mop kitchen & bathrooms", tag: "housekeeping", pointValue: 1 });
         }
-        // Show incomplete housekeeping tasks from the week
-        const incomplete = getIncompleteHousekeepingTasks(member, today, completedChores);
+        const incomplete = getIncompleteHousekeepingTasks(member, date, completedChores);
         incomplete.forEach(item => {
           chores.push({ id: `hk_catchup_${item.day.toLowerCase()}`, text: `Catch-up: ${item.task} (${item.day})`, tag: "housekeeping", pointValue: 1 });
         });
       } else {
-        // Mon-Thu: daily housekeeping task
-        const hkTask = chart.tasks[dayName];
+        const hkTask = chart.tasks[dn];
         if (hkTask) {
-          chores.push({ id: `hk_${dayName.toLowerCase()}`, text: hkTask, tag: "housekeeping", pointValue: 1 });
+          chores.push({ id: `hk_${dn.toLowerCase()}`, text: hkTask, tag: "housekeeping", pointValue: 1 });
         }
       }
-      // Show zone assignment as a reminder (not a checkable task, but shown for context)
-      if (dayName !== "Saturday") {
+      if (dn !== "Saturday") {
         chores.push({ id: "hk_zone", text: `HK Zone: ${chart.zone}`, tag: "housekeeping", pointValue: 1 });
       }
     }
 
     // Laundry day
-    if (LAUNDRY_DAYS[member] === dayName) {
+    if (LAUNDRY_DAYS[member] === dn) {
       chores.push({ id: "laundry", text: "Laundry Day! (wash, dry, fold, put away)", tag: "laundry", pointValue: 1 });
     }
 
-    chores.push(...getCustomTasksForMember(member));
+    // Custom tasks for this date
+    if (customTasks && !customTasks._empty) {
+      Object.entries(customTasks)
+        .filter(([key, task]) => key !== "_empty" && task && task.assignee === member && task.date === dk)
+        .forEach(([key, task]) => {
+          chores.push({ id: `custom_${key}`, taskKey: key, text: task.description, tag: "custom", pointValue: task.points || 1 });
+        });
+    }
     return chores;
-  }, [dayName, weekRotation, getCustomTasksForMember, today, completedChores]);
+  }, [completedChores, customTasks]);
+
+  // Today-specific wrapper (used by TodayView)
+  const getMemberChores = useCallback((member) => {
+    return getChoresForDate(member, today);
+  }, [getChoresForDate, today]);
 
   const getCompletionCount = useCallback((member) => {
     const chores = getMemberChores(member);
@@ -872,7 +910,7 @@ export default function App() {
         </nav>
         <main className="main">
           {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
-          {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} />}
+          {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
           {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} />}
@@ -1298,11 +1336,18 @@ function AddTaskModal({ onAdd, onClose, todayKey }) {
 // ============================================================
 // WEEK VIEW
 // ============================================================
-function WeekView({ today, weekOffset, setWeekOffset }) {
+function WeekView({ today, weekOffset, setWeekOffset, getChoresForDate, isChoreCompleteForDate, toggleChoreForDate, getMemberEmoji, getPoints, computedStreaks, isParent, deleteCustomTask, teamWeek, getTeamForMember, getTeamName, getTeamColor }) {
+  const [selectedDay, setSelectedDay] = useState(null); // Date object or null
   const weekStart = useMemo(() => { const d = getWeekStart(today); d.setDate(d.getDate() + weekOffset * 7); return d; }, [today, weekOffset]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }), [weekStart]);
   const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
   const rotation = getCurrentWeekRotation(weekStart);
+
+  // Clear selection when changing weeks
+  const prevWeekOffset = useRef(weekOffset);
+  useEffect(() => { if (prevWeekOffset.current !== weekOffset) { setSelectedDay(null); prevWeekOffset.current = weekOffset; } }, [weekOffset]);
+
+  const selectedDayKey = selectedDay ? dateToKey(selectedDay) : null;
 
   return (
     <div>
@@ -1314,12 +1359,15 @@ function WeekView({ today, weekOffset, setWeekOffset }) {
       <div className="week-grid">
         {days.map((date) => {
           const dn = getDayName(date);
-          const isToday = dateToKey(date) === dateToKey(today);
+          const dk = dateToKey(date);
+          const isToday = dk === dateToKey(today);
+          const isSelected = dk === selectedDayKey;
           return (
-            <div key={dateToKey(date)} className={`day-col ${isToday ? "today" : ""}`}>
+            <div key={dk} className={`day-col ${isToday ? "today" : ""} ${isSelected ? "day-col-selected" : ""}`} onClick={() => setSelectedDay(isSelected ? null : date)} style={{ cursor: "pointer" }}>
               <div className="day-col-header">
                 <div className="day-name">{dn.slice(0, 3)}</div>
                 <div className="day-date-num">{date.getDate()}</div>
+                {isSelected && <div style={{ fontSize: "0.6rem", color: "var(--accent)", fontWeight: 700, marginTop: 2 }}>VIEWING</div>}
               </div>
               {FAMILY_MEMBERS.map(member => {
                 const daily = DAILY_CHORES[member.name]?.[dn];
@@ -1328,7 +1376,6 @@ function WeekView({ today, weekOffset, setWeekOffset }) {
                 if (daily.type === "dishes") label = "Dishes";
                 else if (daily.type === "zone") label = daily.zone.split("/")[0];
                 else if (daily.type === "young") label = daily.task.split("/")[0];
-                // Housekeeping chart task for this day
                 const chart = getChartAssignment(member.name, date);
                 const hkTask = (dn !== "Sunday" && dn !== "Friday" && dn !== "Saturday") ? chart.tasks[dn] : null;
                 const isLaundryDay = LAUNDRY_DAYS[member.name] === dn;
@@ -1348,6 +1395,68 @@ function WeekView({ today, weekOffset, setWeekOffset }) {
           );
         })}
       </div>
+
+      {/* Day Detail Panel — like Today view but for the selected day */}
+      {selectedDay && (
+        <div className="day-detail-panel animate-in">
+          <div className="day-detail-header">
+            <div className="day-detail-title">
+              <Icons.Calendar size={20} color="var(--accent)" />
+              {selectedDay.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </div>
+            <button className="btn btn-ghost" onClick={() => setSelectedDay(null)} style={{ padding: 4 }}><Icons.X size={20} /></button>
+          </div>
+          {FAMILY_MEMBERS.map((member) => {
+            const chores = getChoresForDate(member.name, selectedDay);
+            if (chores.length === 0) return null;
+            const doneCount = chores.filter(c => isChoreCompleteForDate(member.name, c.id, selectedDay)).length;
+            const allDone = chores.length > 0 && doneCount === chores.length;
+            const emoji = getMemberEmoji(member.name);
+            const streak = computedStreaks?.[member.name] || 0;
+            const team = getTeamForMember ? getTeamForMember(member.name) : null;
+            const teamColor = team && getTeamColor ? getTeamColor(team.key) : null;
+            const cardBorderColor = teamColor || member.color;
+            return (
+              <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: cardBorderColor }}>
+                <div className="member-header">
+                  <div className="member-name-row">
+                    <div className="member-emoji">{emoji}</div>
+                    <div>
+                      <div className="member-name" style={{ color: member.color }}>
+                        {member.name}
+                        {teamWeek && team && getTeamName && <span className="team-badge-mini" style={{ background: `${teamColor || "var(--border)"}22`, color: teamColor || "var(--text-muted)", border: `1px solid ${teamColor || "var(--border)"}` }}>{getTeamName(team.key)}</span>}
+                        {streak >= 30 ? <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>
+                         : streak >= 14 ? <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>
+                         : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
+                         : streak >= 3 ? <span className="streak-fire streak-fire-1" title={`${streak}-day streak!`}>🔥 {streak}d</span>
+                         : null}
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: allDone ? "#10B981" : "var(--text-muted)", fontWeight: 600 }}>
+                        {allDone ? "All done!" : `${doneCount}/${chores.length} complete`}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="chore-list">
+                  {chores.map((chore) => {
+                    const completed = isChoreCompleteForDate(member.name, chore.id, selectedDay);
+                    const isCustom = chore.tag === "custom";
+                    return (
+                      <div key={chore.id} className={`chore-item ${completed ? "completed" : ""}`} onClick={(e) => { e.stopPropagation(); toggleChoreForDate(member.name, chore.id, selectedDay, chore.pointValue || 1); }}>
+                        <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`}>{completed && <Icons.Check size={16} color="white" />}</div>
+                        <span className="chore-text">{chore.text}</span>
+                        {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
+                        <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
+                        {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
