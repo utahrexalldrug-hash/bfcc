@@ -338,6 +338,7 @@ const Icons = {
   Cloud: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" /></svg>),
   CloudOff: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22.61 16.95A5 5 0 0018 10h-1.26a8 8 0 00-7.05-6M5 5a8 8 0 004 15h9a5 5 0 001.7-.3" /><line x1="1" y1="1" x2="23" y2="23" /></svg>),
   Plus: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>),
+  History: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>),
 };
 
 const styles = `
@@ -531,6 +532,30 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 @keyframes checkPop{0%{transform:scale(0.8)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 .check-pop{animation:checkPop 0.25s ease}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.history-hall-of-fame{display:flex;flex-direction:column;gap:8px}
+.hall-of-fame-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border-left:3px solid}
+.hall-of-fame-rank{font-size:1.2rem;width:32px;text-align:center;font-weight:800}
+.hall-of-fame-emoji{font-size:1.3rem}
+.hall-of-fame-info{flex:1}
+.hall-of-fame-name{font-family:'Fredoka',sans-serif;font-size:1rem;font-weight:600}
+.hall-of-fame-stats{display:flex;gap:10px;margin-top:2px}
+.hof-stat{font-size:0.75rem;font-weight:700}
+.hof-wins{color:#fbbf24}
+.hof-mvps{color:#a78bfa}
+.history-week-card{padding:16px}
+.history-week-card.history-current{border-color:var(--accent);box-shadow:0 0 0 1px rgba(59,130,246,0.3)}
+.history-week-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:12px;flex-wrap:wrap}
+.history-week-date{font-family:'Fredoka',sans-serif;font-size:1rem;font-weight:600;color:var(--text-primary)}
+.history-week-type{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+.history-current-badge{font-size:0.6rem;font-weight:800;padding:2px 6px;border-radius:4px;background:var(--accent);color:white;letter-spacing:0.5px}
+.history-awards{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.history-award{font-size:0.8rem;font-weight:700;display:flex;align-items:center;gap:4px}
+.history-scores{display:flex;flex-direction:column;gap:6px}
+.history-score-row{display:flex;align-items:center;gap:8px}
+.history-score-name{display:flex;align-items:center;gap:4px;min-width:110px}
+.history-score-bar-wrapper{flex:1;height:14px;background:rgba(255,255,255,0.05);border-radius:7px;overflow:hidden}
+.history-score-bar{height:100%;border-radius:7px;transition:width 0.5s ease;min-width:2px}
+.history-score-pts{font-size:0.8rem;font-weight:800;min-width:28px;text-align:right;color:var(--warning)}
 `;
 
 // ============================================================
@@ -893,6 +918,7 @@ export default function App() {
           <button className={`nav-btn ${currentTab === "week" ? "active" : ""}`} onClick={() => setCurrentTab("week")}><Icons.Calendar size={20} /> Week</button>
           <button className={`nav-btn ${currentTab === "rotation" ? "active" : ""}`} onClick={() => setCurrentTab("rotation")}><Icons.Recycle size={20} /> Rotation</button>
           <button className={`nav-btn ${currentTab === "leaderboard" ? "active" : ""}`} onClick={() => setCurrentTab("leaderboard")}><Icons.Trophy size={20} /> Points</button>
+          <button className={`nav-btn ${currentTab === "history" ? "active" : ""}`} onClick={() => setCurrentTab("history")}><Icons.History size={20} /> History</button>
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
@@ -900,6 +926,7 @@ export default function App() {
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
+          {currentTab === "history" && <HistoryView awards={awards} points={points} teamNames={teamNames} getMemberEmoji={getMemberEmoji} today={today} />}
           {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
@@ -1508,6 +1535,165 @@ function RotationView({ today, weekRotation }) {
                       <div className="weekly-task">{t.task}</div>
                       <div className="weekly-person" style={{ color: m?.color }}>{m?.emoji} {t.person}</div>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================
+// HISTORY VIEW
+// ============================================================
+function HistoryView({ awards, points, teamNames, getMemberEmoji, today }) {
+  // Parse awards to get all finalized weeks
+  const pastWeeks = useMemo(() => {
+    if (!awards || awards._empty) return [];
+    const weekMap = {};
+    for (const key of Object.keys(awards)) {
+      if (key === "_empty") continue;
+      const isWin = key.startsWith("win_");
+      const isMvp = key.startsWith("mvp_");
+      if (!isWin && !isMvp) continue;
+      const prefix = isWin ? "win_" : "mvp_";
+      const rest = key.slice(prefix.length);
+      // rest is like "2026-02-16_Nicholas" — find the last underscore that separates weekKey from name
+      const lastUnderscore = rest.lastIndexOf("_");
+      if (lastUnderscore === -1) continue;
+      const weekKey = rest.slice(0, lastUnderscore);
+      const member = rest.slice(lastUnderscore + 1);
+      if (!weekMap[weekKey]) weekMap[weekKey] = { weekKey, winner: null, mvp: null };
+      if (isWin) weekMap[weekKey].winner = member;
+      if (isMvp) weekMap[weekKey].mvp = member;
+    }
+    // Sort by week descending (most recent first)
+    return Object.values(weekMap).sort((a, b) => b.weekKey.localeCompare(a.weekKey));
+  }, [awards]);
+
+  // For each past week, get the scores from the points object
+  const getWeekScores = useCallback((weekKey) => {
+    if (!points || points._empty) return [];
+    const scores = FAMILY_MEMBERS.map(m => {
+      const key = `w_${weekKey}_${m.name}`;
+      return { name: m.name, color: m.color, points: points[key] || 0 };
+    }).sort((a, b) => b.points - a.points);
+    return scores;
+  }, [points]);
+
+  // Check if a week was a team week and get team info
+  const getWeekTeamInfo = useCallback((weekKey) => {
+    const weekDate = new Date(weekKey + "T00:00:00");
+    const wasTeamWeek = isTeamWeek(weekDate);
+    if (!wasTeamWeek) return null;
+    const teams = getTeamsForWeek(weekDate);
+    const t1Name = teamNames?.[`${weekKey}_team1`] || "Team 1";
+    const t2Name = teamNames?.[`${weekKey}_team2`] || "Team 2";
+    return { teams, t1Name, t2Name };
+  }, [teamNames]);
+
+  const formatWeekLabel = (weekKey) => {
+    const d = new Date(weekKey + "T00:00:00");
+    const end = new Date(d);
+    end.setDate(end.getDate() + 6);
+    const opts = { month: "short", day: "numeric" };
+    return `${d.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}`;
+  };
+
+  const currentWeekKey = dateToKey(getWeekStart(today));
+
+  // Build all-time stats
+  const allTimeStats = useMemo(() => {
+    const stats = {};
+    for (const m of FAMILY_MEMBERS) {
+      stats[m.name] = { wins: 0, mvps: 0 };
+    }
+    for (const week of pastWeeks) {
+      if (week.winner && stats[week.winner]) stats[week.winner].wins++;
+      if (week.mvp && stats[week.mvp]) stats[week.mvp].mvps++;
+    }
+    return Object.entries(stats)
+      .map(([name, s]) => ({ name, ...s, total: s.wins * 2 + s.mvps }))
+      .sort((a, b) => b.total - a.total || b.wins - a.wins);
+  }, [pastWeeks]);
+
+  return (
+    <div>
+      {/* All-Time Hall of Fame */}
+      <div className="card animate-in">
+        <div className="card-title"><Icons.Trophy size={22} color="#fbbf24" /> Hall of Fame</div>
+        {allTimeStats.length > 0 ? (
+          <div className="history-hall-of-fame">
+            {allTimeStats.map((s, i) => {
+              const member = FAMILY_MEMBERS.find(m => m.name === s.name);
+              return (
+                <div key={s.name} className="hall-of-fame-item" style={{ borderLeftColor: member?.color }}>
+                  <div className="hall-of-fame-rank">{i === 0 ? "\u{1F947}" : i === 1 ? "\u{1F948}" : i === 2 ? "\u{1F949}" : `#${i+1}`}</div>
+                  <div className="hall-of-fame-emoji">{getMemberEmoji(s.name)}</div>
+                  <div className="hall-of-fame-info">
+                    <div className="hall-of-fame-name" style={{ color: member?.color }}>{s.name}</div>
+                    <div className="hall-of-fame-stats">
+                      {s.wins > 0 && <span className="hof-stat hof-wins">{"\u{1F3C6}"} {s.wins} win{s.wins !== 1 ? "s" : ""}</span>}
+                      {s.mvps > 0 && <span className="hof-stat hof-mvps">{"\u2B50"} {s.mvps} MVP{s.mvps !== 1 ? "s" : ""}</span>}
+                      {s.wins === 0 && s.mvps === 0 && <span className="hof-stat" style={{ color: "var(--text-muted)" }}>No awards yet</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>No finalized weeks yet</div>
+        )}
+      </div>
+
+      {/* Week-by-week results */}
+      <div className="card-title" style={{ padding: "0 4px", marginBottom: 12 }}><Icons.History size={22} color="var(--accent)" /> Past Weeks</div>
+      {pastWeeks.length === 0 ? (
+        <div className="card"><div style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>No finalized weeks yet. Results appear here after the admin finalizes each week.</div></div>
+      ) : pastWeeks.map(week => {
+        const scores = getWeekScores(week.weekKey);
+        const teamInfo = getWeekTeamInfo(week.weekKey);
+        const isCurrent = week.weekKey === currentWeekKey;
+        const maxPts = Math.max(1, ...scores.map(s => s.points));
+        return (
+          <div key={week.weekKey} className={`card animate-in history-week-card ${isCurrent ? "history-current" : ""}`}>
+            <div className="history-week-header">
+              <div>
+                <div className="history-week-date">{formatWeekLabel(week.weekKey)}</div>
+                <div className="history-week-type">
+                  {teamInfo ? (
+                    <span className="competition-badge badge-team" style={{ fontSize: "0.65rem", padding: "2px 8px" }}>{"\u{1F46B}"} {teamInfo.t1Name} vs {teamInfo.t2Name}</span>
+                  ) : (
+                    <span className="competition-badge badge-individual" style={{ fontSize: "0.65rem", padding: "2px 8px" }}>{"\u{1F3C3}"} Individual</span>
+                  )}
+                  {isCurrent && <span className="history-current-badge">CURRENT</span>}
+                </div>
+              </div>
+              <div className="history-awards">
+                {week.winner && <div className="history-award">{"\u{1F3C6}"} {getMemberEmoji(week.winner)} {week.winner}</div>}
+                {week.mvp && <div className="history-award">{"\u2B50"} {getMemberEmoji(week.mvp)} {week.mvp}</div>}
+              </div>
+            </div>
+            {/* Score bars */}
+            <div className="history-scores">
+              {scores.map(s => {
+                const member = FAMILY_MEMBERS.find(m => m.name === s.name);
+                return (
+                  <div key={s.name} className="history-score-row">
+                    <div className="history-score-name">
+                      <span style={{ fontSize: "0.9rem" }}>{getMemberEmoji(s.name)}</span>
+                      <span style={{ color: member?.color, fontWeight: 700, fontSize: "0.8rem" }}>{s.name}</span>
+                      {s.name === week.winner && <span style={{ fontSize: "0.7rem" }}>{"\u{1F3C6}"}</span>}
+                      {s.name === week.mvp && <span style={{ fontSize: "0.7rem" }}>{"\u2B50"}</span>}
+                    </div>
+                    <div className="history-score-bar-wrapper">
+                      <div className="history-score-bar" style={{ width: `${maxPts > 0 ? (s.points / maxPts) * 100 : 0}%`, background: member?.color || "var(--accent)" }} />
+                    </div>
+                    <div className="history-score-pts">{s.points}</div>
                   </div>
                 );
               })}
