@@ -1073,7 +1073,7 @@ export default function App() {
     const daily = DAILY_CHORES[member]?.[dn];
     const chores = [];
     if (!daily) return chores;
-    if (daily.type === "dishes") { chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 1 }); }
+    if (daily.type === "dishes") { chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 }); }
     else if (daily.type === "zone") {
       chores.push({ id: "zone", text: `Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
       chores.push({ id: "dinner", text: `Dinner: ${daily.dinnerJob}`, tag: "dinner", pointValue: 1 });
