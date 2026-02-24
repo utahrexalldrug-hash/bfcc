@@ -294,8 +294,14 @@ function getDailyDueChores(member, date) {
   if (daily.type === "dishes") chores.push("dishes");
   else if (daily.type === "zone") { chores.push("zone"); chores.push("dinner"); }
   else if (daily.type === "young") { daily.task.split("/").forEach((_, i) => chores.push(`task_${i}`)); }
-  // Only include weekly chores that have a specific due day matching today
+  // Weekly rotation chores: trash/soap/TP due on Wednesday, cans due on Thursday
   const weekRotation = getCurrentWeekRotation(date);
+  if (weekRotation && dayName === "Wednesday") {
+    if (weekRotation.collectTrash === member) chores.push("w_trash");
+    if (weekRotation.trashOut === member) chores.push("w_trashout");
+    if (weekRotation.refillSoap === member) chores.push("w_soap");
+    if (weekRotation.toiletPaper === member) chores.push("w_tp");
+  }
   if (weekRotation && dayName === "Thursday") {
     if (weekRotation.bringCansIn === member) chores.push("w_cans");
   }
@@ -1076,11 +1082,28 @@ export default function App() {
     }
     const rot = getCurrentWeekRotation(date);
     if (rot) {
-      if (rot.collectTrash === member) chores.push({ id: "w_trash", text: "Collect Trash (all rooms)", tag: "weekly", pointValue: 1 });
-      if (rot.trashOut === member) chores.push({ id: "w_trashout", text: `Take Trash Out${rot.recycle ? " + Recycling" : ""}`, tag: "weekly", pointValue: 1 });
-      if (rot.bringCansIn === member) chores.push({ id: "w_cans", text: "Bring Cans In (Thursday)", tag: "weekly", pointValue: 1 });
-      if (rot.refillSoap === member) chores.push({ id: "w_soap", text: "Refill Soap", tag: "weekly", pointValue: 1 });
-      if (rot.toiletPaper === member) chores.push({ id: "w_tp", text: "Refill Toilet Paper", tag: "weekly", pointValue: 1 });
+      // Collect Trash, Take Bins Out, Refill Soap, Refill TP — Wednesday only
+      if (dn === "Wednesday") {
+        if (rot.collectTrash === member) chores.push({ id: "w_trash", text: "Collect Trash (all rooms)", tag: "weekly", pointValue: 1 });
+        if (rot.trashOut === member) chores.push({ id: "w_trashout", text: `Take Bins Out${rot.recycle ? " + Recycling" : ""}`, tag: "weekly", pointValue: 1 });
+        if (rot.refillSoap === member) chores.push({ id: "w_soap", text: "Refill Soap", tag: "weekly", pointValue: 1 });
+        if (rot.toiletPaper === member) chores.push({ id: "w_tp", text: "Refill Toilet Paper", tag: "weekly", pointValue: 1 });
+      }
+      // Bring Cans In — Thursday, carries over to Friday if not done
+      if (rot.bringCansIn === member) {
+        if (dn === "Thursday") {
+          chores.push({ id: "w_cans", text: "Bring Cans In", tag: "weekly", pointValue: 1 });
+        } else if (dn === "Friday") {
+          // Check if it was completed Thursday — if not, carry over
+          const thuDate = new Date(date);
+          thuDate.setDate(thuDate.getDate() - 1);
+          const thuKey = dateToKey(thuDate);
+          const thuDone = !!completedChores[`${thuKey}_${member}_w_cans`];
+          if (!thuDone) {
+            chores.push({ id: "w_cans", text: "Bring Cans In (carried over!)", tag: "weekly", pointValue: 1 });
+          }
+        }
+      }
     }
 
     // Housekeeping chart tasks
