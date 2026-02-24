@@ -2540,9 +2540,14 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
 
   return (
     <div>
-      {todayPhotos.length > 0 && (
-        <div className="card">
-          <div className="card-title"><Icons.Camera size={22} color="#10B981" /> Chore Photo Proof ({todayPhotos.length})</div>
+      <div className="card">
+        <div className="card-title"><Icons.Camera size={22} color="#10B981" /> Chore Photo Proof {todayPhotos.length > 0 ? `(${todayPhotos.length})` : ""}</div>
+        {todayPhotos.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "16px 0", color: "var(--text-muted)", fontSize: "0.85rem", fontWeight: 600 }}>
+            <div style={{ fontSize: "2rem", marginBottom: 8 }}>📷</div>
+            No photos yet. Kids can tap the camera icon on completed chores to add proof.
+          </div>
+        ) : (
           <div className="admin-photo-grid">
             {todayPhotos.map(p => (
               <div key={p.key} className="admin-photo-card">
@@ -2555,8 +2560,8 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
       <div className="card">
         <div className="card-title"><Icons.Settings size={22} color="var(--accent)" /> Point Management</div>
         <div className="admin-section">
