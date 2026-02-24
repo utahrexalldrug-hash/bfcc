@@ -1124,7 +1124,7 @@ export default function App() {
         }
       }
       if (dn !== "Saturday") {
-        chores.push({ id: "hk_zone", text: `HK Zone: ${chart.zone}`, tag: "housekeeping", pointValue: 1 });
+        chores.push({ id: "hk_zone", text: `Tidy Up Zone: ${chart.zone}`, tag: "housekeeping", pointValue: 1 });
       }
     }
 
