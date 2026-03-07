@@ -83,7 +83,7 @@ const HOUSEKEEPING_CHARTS = [
     name: "Chart 5",
     tasks: {
       Monday: "Clean shower door/glass",
-      Tuesday: "Dust ceiling fan blades",
+      Tuesday: "Dust shelves/surfaces",
       Wednesday: "Pick up upstairs rooms for Roborock",
       Thursday: "Wipe dishwasher",
     },
@@ -468,6 +468,7 @@ const Icons = {
   Gamepad: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="12" x2="10" y2="12" /><line x1="8" y1="10" x2="8" y2="14" /><line x1="15" y1="13" x2="15.01" y2="13" /><line x1="18" y1="11" x2="18.01" y2="11" /><path d="M17.32 5H6.68a4 4 0 00-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 003 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 019.828 16h4.344a2 2 0 011.414.586L17 18c.5.5 1 1 2 1a3 3 0 003-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0017.32 5z" /></svg>),
   Camera: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>),
   Image: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>),
+  List: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>),
 };
 
 const styles = `
@@ -581,6 +582,20 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .form-select{cursor:pointer;appearance:auto}
 .form-row{display:flex;gap:12px}.form-row .form-group{flex:1}
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.my-jobs-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.my-jobs-btn:hover{background:var(--bg-card-hover);color:var(--text-primary)}
+.my-jobs-modal{background:var(--bg-card);border-radius:20px;padding:20px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;animation:slideUp 0.25s ease}
+.my-jobs-day{margin-bottom:16px}
+.my-jobs-day-header{font-family:'Fredoka',sans-serif;font-size:0.95rem;font-weight:700;color:var(--text-primary);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.my-jobs-day-header .day-badge{font-size:0.7rem;padding:2px 8px;border-radius:6px;background:var(--bg-secondary);color:var(--text-muted);font-weight:600;text-transform:uppercase}
+.my-jobs-day-header .day-badge.today{background:var(--accent);color:white}
+.my-jobs-chore{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;font-size:0.85rem;color:var(--text-secondary);background:rgba(255,255,255,0.03)}
+.my-jobs-chore.done{opacity:0.5;text-decoration:line-through}
+.my-jobs-chore .chore-status{font-size:0.9rem;flex-shrink:0}
+.my-jobs-summary{display:flex;gap:12px;margin-bottom:16px;padding:12px;border-radius:12px;background:var(--bg-secondary)}
+.my-jobs-summary-stat{flex:1;text-align:center}
+.my-jobs-summary-stat .stat-value{font-family:'Fredoka',sans-serif;font-size:1.4rem;font-weight:700}
+.my-jobs-summary-stat .stat-label{font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;font-weight:600}
 .add-task-fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:16px;background:var(--accent);color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(59,130,246,0.4);transition:all 0.2s;z-index:50}
 .add-task-fab:hover{background:#2563eb;transform:scale(1.05)}.add-task-fab:active{transform:scale(0.95)}
 .time-tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--bg-secondary);padding:4px;border-radius:12px}
@@ -1053,14 +1068,19 @@ export default function App() {
   const toggleChoreForDate = useCallback((member, choreId, date, pointValue = 1) => {
     const dk = dateToKey(date);
     const key = `${dk}_${member}_${choreId}`;
+    // Late completion penalty: if chore date is more than 1 day before today, award 75% points
+    const now = new Date(); now.setHours(0,0,0,0);
+    const choreDate = new Date(dk + "T00:00:00");
+    const daysDiff = Math.floor((now.getTime() - choreDate.getTime()) / (24*60*60*1000));
+    const effectivePoints = daysDiff > 1 ? Math.round(pointValue * 0.75 * 100) / 100 : pointValue;
     setCompletedChores(prev => {
       const next = { ...prev }; delete next._empty;
       if (next[key]) {
         delete next[key];
-        addPointsForDate(member, -pointValue, date);
+        addPointsForDate(member, -effectivePoints, date);
       } else {
         next[key] = true;
-        addPointsForDate(member, pointValue, date);
+        addPointsForDate(member, effectivePoints, date);
       }
       return next;
     });
@@ -1406,7 +1426,7 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} />}
+          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
@@ -1500,8 +1520,34 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
   );
 }
 
-function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer }) {
+function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
+  const [jobsModal, setJobsModal] = useState(null); // member name or null
+
+  const weeklyJobsData = useMemo(() => {
+    if (!jobsModal || !getChoresForDate || !isChoreCompleteForDate) return null;
+    const weekStart = getWeekStart(today);
+    const todayKey = dateToKey(today);
+    const days = [];
+    let totalChores = 0;
+    let doneChores = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      const dk = dateToKey(d);
+      const dayName = getDayName(d);
+      const chores = getChoresForDate(jobsModal, d);
+      const choreStatuses = chores.map(c => ({
+        ...c,
+        done: isChoreCompleteForDate(jobsModal, c.id, d),
+      }));
+      totalChores += chores.length;
+      doneChores += choreStatuses.filter(c => c.done).length;
+      days.push({ date: d, dateKey: dk, dayName, chores: choreStatuses, isToday: dk === todayKey });
+    }
+    return { days, totalChores, doneChores, pct: totalChores > 0 ? Math.round((doneChores / totalChores) * 100) : 0 };
+  }, [jobsModal, getChoresForDate, isChoreCompleteForDate, today]);
+
   return (
     <div>
       <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
@@ -1542,7 +1588,12 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                   </div>
                 </div>
               </div>
-              <div className="member-points"><Icons.Star size={18} color="#F59E0B" filled />{weeklyPts}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button className="my-jobs-btn" onClick={(e) => { e.stopPropagation(); setJobsModal(member.name); }} title="View weekly jobs">
+                  <Icons.List size={14} /> My Jobs
+                </button>
+                <div className="member-points"><Icons.Star size={18} color="#F59E0B" filled />{weeklyPts}</div>
+              </div>
             </div>
             {emojiPicker === member.name && (
               <div className="emoji-grid" style={{ marginBottom: 12 }}>
@@ -1580,6 +1631,51 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
           </div>
         );
       })}
+      {jobsModal && weeklyJobsData && (
+        <div className="modal-overlay" onClick={() => setJobsModal(null)}>
+          <div className="my-jobs-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontFamily: "'Fredoka', sans-serif", fontSize: "1.2rem", fontWeight: 700 }}>
+                {getMemberEmoji(jobsModal)} {jobsModal}'s Week
+              </div>
+              <button onClick={() => setJobsModal(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "1.5rem" }}>&times;</button>
+            </div>
+            <div className="my-jobs-summary">
+              <div className="my-jobs-summary-stat">
+                <div className="stat-value" style={{ color: weeklyJobsData.pct === 100 ? "#10B981" : "var(--text-primary)" }}>{weeklyJobsData.pct}%</div>
+                <div className="stat-label">Complete</div>
+              </div>
+              <div className="my-jobs-summary-stat">
+                <div className="stat-value" style={{ color: "#10B981" }}>{weeklyJobsData.doneChores}</div>
+                <div className="stat-label">Done</div>
+              </div>
+              <div className="my-jobs-summary-stat">
+                <div className="stat-value" style={{ color: weeklyJobsData.totalChores - weeklyJobsData.doneChores > 0 ? "#EF4444" : "var(--text-muted)" }}>{weeklyJobsData.totalChores - weeklyJobsData.doneChores}</div>
+                <div className="stat-label">Remaining</div>
+              </div>
+            </div>
+            {weeklyJobsData.days.map(day => (
+              <div key={day.dateKey} className="my-jobs-day">
+                <div className="my-jobs-day-header">
+                  {day.dayName}
+                  <span className={`day-badge ${day.isToday ? "today" : ""}`}>{day.isToday ? "Today" : day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                    {day.chores.filter(c => c.done).length}/{day.chores.length}
+                  </span>
+                </div>
+                {day.chores.length === 0 && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", paddingLeft: 10 }}>No chores</div>}
+                {day.chores.map(chore => (
+                  <div key={chore.id} className={`my-jobs-chore ${chore.done ? "done" : ""}`}>
+                    <span className="chore-status">{chore.done ? "✅" : "⬜"}</span>
+                    <span style={{ flex: 1 }}>{chore.text}</span>
+                    <span className={`chore-tag tag-${chore.tag}`} style={{ fontSize: "0.65rem" }}>{chore.tag}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
