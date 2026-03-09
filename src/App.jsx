@@ -43,41 +43,45 @@ const HOUSEKEEPING_CHARTS = [
     name: "Chart 1",
     tasks: {
       Monday: "Bathroom counter/sink",
-      Tuesday: "Dust windowsills",
-      Wednesday: "Pick up bedroom + office for Roborock",
+      Tuesday: "Dust windowsills (wipe any dirty spots)",
+      Wednesday: "Pick up for Roborock, bring garbage cans in from curb",
       Thursday: "Wipe light switches",
+      Saturday: "Vacuum upstairs stairs",
     },
-    zone: "Coat closet/stairs/upstairs hallway",
+    zone: "Coat closet/stairs/upstairs hallway — pick up and put away any loose items, tell dad so he can set the vacuums loose",
   },
   { // Chart 2
     name: "Chart 2",
     tasks: {
       Monday: "Toilet",
-      Tuesday: "Dust banister/handrail",
-      Wednesday: "Pick up bedroom + family room for Roborock, vacuum top stairs",
+      Tuesday: "Dust banister/wipe down handrail (dry after wet), empty trashes",
+      Wednesday: "Pick up for Roborock",
       Thursday: "Wipe doorknobs",
+      Saturday: "Vacuum downstairs stairs",
     },
-    zone: "Office/Front hallway",
+    zone: "Office/Front hallway — pick up floor, straighten desk/piano/front hallway piece, tell dad so he can set the vacuums loose",
   },
   { // Chart 3
     name: "Chart 3",
     tasks: {
       Monday: "Tub",
-      Tuesday: "Dust pieces (TV stand, front hall piece, piano, printer table)",
-      Wednesday: "Pick up bedroom + upstairs hallway for Roborock",
-      Thursday: "Wipe microwave",
+      Tuesday: "Dust pieces (TV stand, front hall piece, piano, printer table), put garbage bags in cans",
+      Wednesday: "Pick up for Roborock",
+      Thursday: "Wipe microwave/dishwasher",
+      Saturday: "Mop kids bathroom floor",
     },
-    zone: "Kitchen",
+    zone: "Kitchen — pick up floor, countertops, tell dad so he can set the vacuums loose",
   },
   { // Chart 4
     name: "Chart 4",
     tasks: {
-      Monday: "Mirror",
-      Tuesday: "Dust baseboards",
-      Wednesday: "Pick up family room + main floor for Roborock, vacuum bottom stairs",
-      Thursday: "Wipe oven",
+      Monday: "Mirror/Refill toilet paper (all bathrooms)/refill soaps (whole house)",
+      Tuesday: "Dust baseboards, take garbage cans to the curb",
+      Wednesday: "Pick up for Roborock",
+      Thursday: "Wipe oven/fridge",
+      Saturday: "Mop main level bathroom floor",
     },
-    zone: "Family Room",
+    zone: "Family Room — pick up floor, clean off TV piece, tell dad so he can set the vacuums loose",
   },
   { // Chart 5
     name: "Chart 5",
@@ -86,8 +90,9 @@ const HOUSEKEEPING_CHARTS = [
       Tuesday: "Dust shelves/surfaces",
       Wednesday: "Pick up upstairs rooms for Roborock",
       Thursday: "Wipe dishwasher",
+      Saturday: "Pick up basement so vacuum can run",
     },
-    zone: "Bathroom(s)",
+    zone: "Bathroom(s) — pick up and wipe down, tell dad so he can set the vacuums loose",
   },
   { // Chart 6
     name: "Chart 6",
@@ -96,8 +101,9 @@ const HOUSEKEEPING_CHARTS = [
       Tuesday: "Dust shelves/bookcase",
       Wednesday: "Pick up entry/mudroom for Roborock",
       Thursday: "Wipe fridge",
+      Saturday: "Pick up basement so vacuum can run",
     },
-    zone: "Laundry area/garage entry",
+    zone: "Laundry area/garage entry — pick up and straighten, tell dad so he can set the vacuums loose",
   },
 ];
 
@@ -306,12 +312,18 @@ function getDailyDueChores(member, date) {
     if (weekRotation.bringCansIn === member) chores.push("w_cans");
   }
   // Housekeeping chart tasks
-  if (dayName !== "Sunday" && dayName !== "Friday" && dayName !== "Saturday") {
+  if (dayName !== "Sunday" && dayName !== "Friday") {
     const chart = getChartAssignment(member, date);
-    if (chart.tasks[dayName]) {
-      chores.push(`hk_${dayName.toLowerCase()}`);
+    if (dayName === "Saturday") {
+      if (chart.tasks["Saturday"]) {
+        chores.push("hk_saturday");
+      }
+    } else {
+      if (chart.tasks[dayName]) {
+        chores.push(`hk_${dayName.toLowerCase()}`);
+      }
+      chores.push("hk_zone");
     }
-    chores.push("hk_zone");
   }
   // Laundry
   if (LAUNDRY_DAYS[member] === dayName) {
@@ -1132,6 +1144,11 @@ export default function App() {
       if (dn === "Saturday") {
         if (isMopSaturday(date)) {
           chores.push({ id: "hk_mop", text: "Mop kitchen & bathrooms", tag: "housekeeping", pointValue: 1 });
+        }
+        // Saturday chart task (stairs, bathroom mopping, etc.)
+        const satTask = chart.tasks["Saturday"];
+        if (satTask) {
+          chores.push({ id: "hk_saturday", text: satTask, tag: "housekeeping", pointValue: 1 });
         }
         const incomplete = getIncompleteHousekeepingTasks(member, date, completedChores);
         incomplete.forEach(item => {
