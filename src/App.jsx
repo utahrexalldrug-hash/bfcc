@@ -278,15 +278,19 @@ function getMonthKey(date) { return `${date.getFullYear()}-${String(date.getMont
 function getYearKey(date) { return `${date.getFullYear()}`; }
 
 // Get daily chores that are due TODAY for a member (excludes weekly chores without specific due days)
-function getDailyDueChores(member, date) {
+// Single source of truth: what chore IDs are due for a member on a given date.
+// Used by both UI rendering (getChoresForDate decorates these with text/tags) and
+// by streak math. KEEP THIS IN SYNC with getChoresForDate inside App.
+function getDailyDueChores(member, date, customTasks, completedChores) {
   const dayName = getDayName(date);
+  const dk = dateToKey(date);
   const daily = DAILY_CHORES[member]?.[dayName];
   const chores = [];
   if (!daily) return chores;
   if (daily.type === "dishes") chores.push("dishes");
   else if (daily.type === "zone") { chores.push("zone"); chores.push("dinner"); }
   else if (daily.type === "young") { daily.task.split("/").forEach((_, i) => chores.push(`task_${i}`)); }
-  // Weekly rotation chores: trash/soap/TP due on Wednesday, cans due on Thursday
+  // Weekly rotation
   const weekRotation = getCurrentWeekRotation(date);
   if (weekRotation && dayName === "Wednesday") {
     if (weekRotation.collectTrash === member) chores.push("w_trash");
@@ -294,101 +298,70 @@ function getDailyDueChores(member, date) {
     if (weekRotation.refillSoap === member) chores.push("w_soap");
     if (weekRotation.toiletPaper === member) chores.push("w_tp");
   }
-  if (weekRotation && dayName === "Thursday") {
-    if (weekRotation.bringCansIn === member) chores.push("w_cans");
+  // Bring Cans In: Thursday primary, carries to Friday if not done Thursday
+  if (weekRotation && weekRotation.bringCansIn === member) {
+    if (dayName === "Thursday") chores.push("w_cans");
+    else if (dayName === "Friday" && completedChores) {
+      const thuDate = new Date(date); thuDate.setDate(thuDate.getDate() - 1);
+      const thuKey = dateToKey(thuDate);
+      if (!completedChores[`${thuKey}_${member}_w_cans`]) chores.push("w_cans");
+    }
   }
-  // Housekeeping chart tasks
+  // Housekeeping
   if (dayName !== "Sunday" && dayName !== "Friday") {
     const chart = getChartAssignment(member, date);
     if (dayName === "Saturday") {
-      if (chart.tasks["Saturday"]) {
-        chores.push("hk_saturday");
-      }
+      if (isMopSaturday(date)) chores.push("hk_mop");
+      if (chart.tasks["Saturday"]) chores.push("hk_saturday");
     } else {
-      if (chart.tasks[dayName]) {
-        chores.push(`hk_${dayName.toLowerCase()}`);
-      }
+      if (chart.tasks[dayName]) chores.push(`hk_${dayName.toLowerCase()}`);
       chores.push("hk_zone");
     }
   }
   // Laundry
-  if (LAUNDRY_DAYS[member] === dayName) {
-    chores.push("laundry");
+  if (LAUNDRY_DAYS[member] === dayName) chores.push("laundry");
+  // Custom tasks assigned for this date
+  if (customTasks && !customTasks._empty) {
+    Object.entries(customTasks).forEach(([k, t]) => {
+      if (k !== "_empty" && t && t.assignee === member && t.date === dk) {
+        chores.push(`custom_${k}`);
+      }
+    });
   }
   return chores;
 }
 
-// Calculate streak: consecutive days (ending today or yesterday) where all daily-due chores were completed
-// Optimized: uses cached streak data to avoid scanning 365 days every time.
-// cachedStreak = { count, lastDate } — if provided and recent, we only scan the gap since lastDate.
-function calculateStreak(member, completedChores, today, cachedStreak) {
-  // If we have a recent cache, try incremental update
-  if (cachedStreak && cachedStreak.lastDate && cachedStreak.count > 0) {
-    const cachedDate = new Date(cachedStreak.lastDate + "T00:00:00");
-    const todayDate = new Date(today);
-    const daysDiff = Math.round((todayDate - cachedDate) / 86400000);
-
-    // Cache is from today — return as-is (will be rechecked for today's incomplete)
-    if (daysDiff === 0) {
-      // Still verify today's status (might have completed more chores)
-      return calculateStreakFull(member, completedChores, today);
-    }
-
-    // Cache is recent (1-3 days old) — check only the gap days
-    if (daysDiff > 0 && daysDiff <= 3) {
-      let gapAllDone = true;
-      for (let i = 1; i <= daysDiff; i++) {
-        const checkDate = new Date(cachedDate);
-        checkDate.setDate(cachedDate.getDate() + i);
-        if (checkDate > todayDate) break;
-        // Skip today (still in progress)
-        if (dateToKey(checkDate) === dateToKey(todayDate)) continue;
-        const dk = dateToKey(checkDate);
-        const dueChores = getDailyDueChores(member, checkDate);
-        if (dueChores.length === 0) continue;
-        const allDone = dueChores.every(choreId => !!completedChores[`${dk}_${member}_${choreId}`]);
-        if (!allDone) { gapAllDone = false; break; }
-      }
-      if (gapAllDone) {
-        // Gap days are all complete — add them to cached count and check today
-        let extraDays = 0;
-        for (let i = 1; i <= daysDiff; i++) {
-          const checkDate = new Date(cachedDate);
-          checkDate.setDate(cachedDate.getDate() + i);
-          if (checkDate > todayDate) break;
-          if (dateToKey(checkDate) === dateToKey(todayDate)) {
-            // Check if today's chores are done
-            const dk = dateToKey(checkDate);
-            const dueChores = getDailyDueChores(member, checkDate);
-            if (dueChores.length > 0 && dueChores.every(choreId => !!completedChores[`${dk}_${member}_${choreId}`])) {
-              extraDays++;
-            }
-            // Don't break streak if today is incomplete — they still have time
-            continue;
-          }
-          extraDays++;
-        }
-        return cachedStreak.count + extraDays;
-      }
-      // Gap broken — need full recalc
-    }
+// A chore counts toward streak only if completed on the same calendar day it was due.
+// completedChores values can be `true` (legacy) or `{ts, pts}`. `true` is treated as
+// on-time for grandfathering; new completions use the timestamp object.
+function isCompletedOnTime(record, dueDateKey) {
+  if (!record) return false;
+  if (record === true) return true; // legacy
+  if (typeof record === "object" && record.ts) {
+    // Convert ts to America/Denver date key
+    const d = new Date(record.ts);
+    const tsKey = d.toLocaleDateString("en-CA", { timeZone: "America/Denver" });
+    return tsKey === dueDateKey;
   }
-
-  return calculateStreakFull(member, completedChores, today);
+  return false;
 }
 
-function calculateStreakFull(member, completedChores, today) {
+// Bounded full recalc. No cache — runs in <5ms for 90 days × 5 kids.
+// Streak = consecutive days ending today (or yesterday if today not yet done) where
+// every due chore was completed on-day.
+function calculateStreak(member, completedChores, today, customTasks) {
   let streak = 0;
   const d = new Date(today);
-  for (let i = 0; i < 365; i++) {
+  for (let i = 0; i < 90; i++) {
     const checkDate = new Date(d);
     checkDate.setDate(d.getDate() - i);
     const dk = dateToKey(checkDate);
-    const dueChores = getDailyDueChores(member, checkDate);
+    const dueChores = getDailyDueChores(member, checkDate, customTasks, completedChores);
     if (dueChores.length === 0) continue;
-    const allDone = dueChores.every(choreId => !!completedChores[`${dk}_${member}_${choreId}`]);
-    if (allDone) streak++;
+    const allOnTime = dueChores.every(choreId => isCompletedOnTime(completedChores[`${dk}_${member}_${choreId}`], dk));
+    if (allOnTime) streak++;
     else {
+      // Today not done? Don't break the streak — kid still has time
       if (i === 0) continue;
       break;
     }
@@ -801,6 +774,8 @@ export default function App() {
   const [photoUploading, setPhotoUploading] = useState(null); // "member_choreId" while uploading
   const [photoViewer, setPhotoViewer] = useState(null); // { url, member, chore } for full-screen view
   const [timesUpMember, setTimesUpMember] = useState(null); // member name for TIMES UP overlay
+  const [memberPins, setMemberPins] = useState(() => loadData("fcc_memberPins", {})); // {Nicholas:"1234",...}
+  const [pinPrompt, setPinPrompt] = useState(null); // { member, action } when waiting on kid PIN
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showTeamNaming, setShowTeamNaming] = useState(null);
@@ -822,7 +797,9 @@ export default function App() {
   useFirebaseSync("gameUnlocks", gameUnlocks, setGameUnlocks);
   useFirebaseSync("gameTimers", gameTimers, setGameTimers);
   useFirebaseSync("chorePhotos", chorePhotos, setChorePhotos);
+  useFirebaseSync("memberPins", memberPins, setMemberPins);
 
+  useEffect(() => { saveData("fcc_memberPins", memberPins); }, [memberPins]);
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
   useEffect(() => { saveData("fcc_streaks", streaks); }, [streaks]);
@@ -914,15 +891,15 @@ export default function App() {
     return chorePhotos[key] || null;
   }, [chorePhotos, todayKey]);
 
-  // Compute streaks from completedChores, using cached values for optimization
+  // Compute streaks fresh each render (bounded 90-day scan, <5ms for 5 kids).
+  // No cache — was causing drift. Source of truth = completedChores timestamps.
   const computedStreaks = useMemo(() => {
     const s = {};
     FAMILY_MEMBERS.forEach(m => {
-      const cached = streaks[m.name] ? { count: streaks[m.name], lastDate: streaks._lastDate || null } : null;
-      s[m.name] = calculateStreak(m.name, completedChores, today, cached);
+      s[m.name] = calculateStreak(m.name, completedChores, today, customTasks);
     });
     return s;
-  }, [completedChores, today]);
+  }, [completedChores, today, customTasks]);
 
   // Persist computed streaks back to Firestore for cross-device caching & instant load
   const streakWriteRef = useRef(null);
@@ -1014,45 +991,48 @@ export default function App() {
       .map(([key, task]) => ({ id: `custom_${key}`, taskKey: key, text: task.description, tag: "custom", pointValue: task.points || 1 }));
   }, [customTasks, todayKey]);
 
-  const toggleChore = useCallback((member, choreId, pointValue = 1) => {
-    const key = `${todayKey}_${member}_${choreId}`;
-    setCompletedChores(prev => {
-      const next = { ...prev }; delete next._empty;
-      if (next[key]) {
-        delete next[key];
-        addPoints(member, -pointValue);
-      } else {
-        next[key] = true;
-        addPoints(member, pointValue);
-        // Check if this is a team captain's first chore of the week
-        if (teamWeek && teams) {
-          const isT1Captain = teams.team1.captain === member;
-          const isT2Captain = teams.team2.captain === member;
-          if (isT1Captain || isT2Captain) {
-            const tk = isT1Captain ? "team1" : "team2";
-            const nameKey = `${weekStartKey}_${tk}`;
-            if (!teamNames[nameKey] && !teamNames._empty) {
-              // Check if they have any other completions this week
-              // Check all 7 days of the current week for any completions by this captain
-              const ws = getWeekStart(today);
-              const weekDayKeys = Array.from({ length: 7 }, (_, i) => {
-                const d = new Date(ws); d.setDate(d.getDate() + i); return dateToKey(d);
-              });
-              const hasOtherCompletions = Object.keys(prev).some(k => {
-                return weekDayKeys.some(dk => k.startsWith(dk)) && k.includes(`_${member}_`);
-              });
-              if (!hasOtherCompletions) {
-                setTimeout(() => setShowTeamNaming({ teamKey: tk, captain: member, nameKey }), 300);
-              }
-            }
-          } else if (isT1Captain === false && isT2Captain === false) {
-            // not a captain, skip
-          }
-        }
+  // PIN gate: returns true if the action should proceed immediately, false if it
+  // queued a PIN prompt that will run it after success. Parents bypass. Kids with
+  // no PIN set also bypass (parent hasn't configured yet — soft rollout).
+  const PIN_CACHE_MS = 5 * 60 * 1000;
+  const pinGate = useCallback((member, action) => {
+    if (isParent) { action(); return true; }
+    const expected = memberPins?.[member];
+    if (!expected || expected === true || (typeof expected === "object")) { action(); return true; }
+    // Check cache
+    try {
+      const raw = sessionStorage.getItem(`fcc_pinCache_${member}`);
+      if (raw) {
+        const { ts } = JSON.parse(raw);
+        if (Date.now() - ts < PIN_CACHE_MS) { action(); return true; }
       }
-      return next;
-    });
-  }, [todayKey, today, addPoints, teamWeek, teams, weekStartKey, teamNames]);
+    } catch {}
+    setPinPrompt({ member, action });
+    return false;
+  }, [isParent, memberPins]);
+
+  // Toggle chore for TODAY. Stores {ts, pts} so we know when it was done and
+  // how many points to refund on uncheck (fixes the late-penalty asymmetry bug).
+  const toggleChore = useCallback((member, choreId, pointValue = 1) => {
+    const doToggle = () => {
+      const key = `${todayKey}_${member}_${choreId}`;
+      setCompletedChores(prev => {
+        const next = { ...prev }; delete next._empty;
+        const existing = next[key];
+        if (existing) {
+          // Refund exactly what was awarded (legacy `true` → use current pointValue)
+          const refund = (existing === true) ? pointValue : (existing.pts ?? pointValue);
+          delete next[key];
+          addPoints(member, -refund);
+        } else {
+          next[key] = { ts: Date.now(), pts: pointValue };
+          addPoints(member, pointValue);
+        }
+        return next;
+      });
+    };
+    pinGate(member, doToggle);
+  }, [todayKey, addPoints, pinGate]);
 
   const isChoreComplete = useCallback((member, choreId) => {
     return !!completedChores[`${todayKey}_${member}_${choreId}`];
@@ -1063,26 +1043,32 @@ export default function App() {
     return !!completedChores[`${dateToKey(date)}_${member}_${choreId}`];
   }, [completedChores]);
 
+  // Toggle a chore for any date. Late penalty applies only at toggle-ON time;
+  // toggle-OFF refunds exactly what was awarded (read from stored record).
   const toggleChoreForDate = useCallback((member, choreId, date, pointValue = 1) => {
-    const dk = dateToKey(date);
-    const key = `${dk}_${member}_${choreId}`;
-    // Late completion penalty: if chore date is more than 1 day before today, award 75% points
-    const now = new Date(); now.setHours(0,0,0,0);
-    const choreDate = new Date(dk + "T00:00:00");
-    const daysDiff = Math.floor((now.getTime() - choreDate.getTime()) / (24*60*60*1000));
-    const effectivePoints = daysDiff > 1 ? Math.round(pointValue * 0.75 * 100) / 100 : pointValue;
-    setCompletedChores(prev => {
-      const next = { ...prev }; delete next._empty;
-      if (next[key]) {
-        delete next[key];
-        addPointsForDate(member, -effectivePoints, date);
-      } else {
-        next[key] = true;
-        addPointsForDate(member, effectivePoints, date);
-      }
-      return next;
-    });
-  }, [addPointsForDate]);
+    const doToggle = () => {
+      const dk = dateToKey(date);
+      const key = `${dk}_${member}_${choreId}`;
+      const now = new Date(); now.setHours(0,0,0,0);
+      const choreDate = new Date(dk + "T00:00:00");
+      const daysDiff = Math.floor((now.getTime() - choreDate.getTime()) / (24*60*60*1000));
+      const effectivePoints = daysDiff > 1 ? Math.round(pointValue * 0.75 * 100) / 100 : pointValue;
+      setCompletedChores(prev => {
+        const next = { ...prev }; delete next._empty;
+        const existing = next[key];
+        if (existing) {
+          const refund = (existing === true) ? effectivePoints : (existing.pts ?? effectivePoints);
+          delete next[key];
+          addPointsForDate(member, -refund, date);
+        } else {
+          next[key] = { ts: Date.now(), pts: effectivePoints };
+          addPointsForDate(member, effectivePoints, date);
+        }
+        return next;
+      });
+    };
+    pinGate(member, doToggle);
+  }, [addPointsForDate, pinGate]);
 
   // Generic: get chores for any member on any date
   const getChoresForDate = useCallback((member, date) => {
@@ -1431,10 +1417,29 @@ export default function App() {
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
           {currentTab === "games" && <GameView members={FAMILY_MEMBERS} getVideoGameStatus={getVideoGameStatus} getMemberEmoji={getMemberEmoji} gameTimers={gameTimers} startTimer={startTimer} pauseTimer={pauseTimer} stopTimer={stopTimer} adjustTimer={adjustTimer} isParent={isParent} toggleGameUnlock={toggleGameUnlock} setTimesUpMember={setTimesUpMember} />}
           {currentTab === "history" && <HistoryView awards={awards} points={points} teamNames={teamNames} getMemberEmoji={getMemberEmoji} today={today} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} memberPins={memberPins} setMemberPins={setMemberPins} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
+        {pinPrompt && (() => {
+          const m = FAMILY_MEMBERS.find(f => f.name === pinPrompt.member);
+          const expected = memberPins?.[pinPrompt.member];
+          return (
+            <KidPinDialog
+              member={pinPrompt.member}
+              memberEmoji={getMemberEmoji(pinPrompt.member)}
+              memberColor={m?.color}
+              expectedPin={expected}
+              onSuccess={() => {
+                try { sessionStorage.setItem(`fcc_pinCache_${pinPrompt.member}`, JSON.stringify({ ts: Date.now() })); } catch {}
+                const a = pinPrompt.action;
+                setPinPrompt(null);
+                if (a) a();
+              }}
+              onClose={() => setPinPrompt(null)}
+            />
+          );
+        })()}
         {showAddTask && <AddTaskModal onAdd={(task) => { addCustomTask(task); setShowAddTask(false); }} onClose={() => setShowAddTask(false)} todayKey={todayKey} />}
         {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} getMemberEmoji={getMemberEmoji} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onColor={(color) => setTeamColor(showTeamNaming.teamKey, color)} onClose={() => setShowTeamNaming(null)} />}
         {milestone && (
@@ -2530,7 +2535,7 @@ function GameView({ members, getVideoGameStatus, getMemberEmoji, gameTimers, sta
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards, getVideoGameStatus, toggleGameUnlock, chorePhotos, deleteChorePhoto, setPhotoViewer, getMemberEmoji }) {
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards, getVideoGameStatus, toggleGameUnlock, chorePhotos, deleteChorePhoto, setPhotoViewer, getMemberEmoji, memberPins, setMemberPins }) {
   const [awardMsg, setAwardMsg] = useState("");
 
   // Get today's photos for review
@@ -2575,6 +2580,43 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
 
   return (
     <div>
+      {/* Kid PINs */}
+      <div className="card">
+        <div className="card-title"><Icons.Lock size={22} color="var(--accent)" /> Kid PINs</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+          Set a 3- or 4-digit PIN for each kid. They'll enter it to check or uncheck a chore (cached 5 min per device). Leave blank to disable for that kid.
+        </div>
+        {FAMILY_MEMBERS.map(member => {
+          const currentPin = memberPins?.[member.name] || "";
+          return (
+            <div key={member.name} className="admin-row">
+              <label style={{ color: member.color, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "1.2rem" }}>{member.emoji}</span>
+                {member.name}
+              </label>
+              <input
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                placeholder="set PIN"
+                value={currentPin}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                  setMemberPins(prev => {
+                    const u = { ...prev }; delete u._empty;
+                    if (val.length === 0) delete u[member.name];
+                    else u[member.name] = val;
+                    if (Object.keys(u).length === 0) u._empty = true;
+                    return u;
+                  });
+                }}
+                style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontFamily: "monospace", fontSize: "1rem", textAlign: "center", letterSpacing: "0.2em" }}
+              />
+            </div>
+          );
+        })}
+      </div>
       <div className="card">
         <div className="card-title"><Icons.Settings size={22} color="var(--accent)" /> Point Management</div>
         <div className="admin-section">
@@ -2745,7 +2787,7 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
 }
 
 // ============================================================
-// PIN DIALOG
+// PIN DIALOG (parent)
 // ============================================================
 function PinDialog({ onSuccess, onClose }) {
   const [pin, setPin] = useState(["", "", "", ""]);
@@ -2773,6 +2815,45 @@ function PinDialog({ onSuccess, onClose }) {
         </div>
         {error && <div className="pin-error">Incorrect PIN</div>}
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// KID PIN DIALOG — required to check/uncheck a chore (per-kid PIN, 5-min cache)
+// ============================================================
+function KidPinDialog({ member, memberEmoji, memberColor, expectedPin, onSuccess, onClose }) {
+  const maxLen = String(expectedPin || "").length || 4;
+  const [pin, setPin] = useState(Array(maxLen).fill(""));
+  const [error, setError] = useState(false);
+  const refs = useRef(Array(maxLen).fill(null).map(() => null));
+  useEffect(() => { setTimeout(() => refs.current[0]?.focus(), 50); }, []);
+  const handleChange = (i, val) => {
+    if (!/^\d*$/.test(val)) return;
+    const newPin = [...pin]; newPin[i] = val.slice(-1);
+    setPin(newPin); setError(false);
+    if (val && i < maxLen - 1) refs.current[i + 1]?.focus();
+    const full = newPin.join("");
+    if (full.length === maxLen) {
+      if (full === String(expectedPin)) onSuccess();
+      else { setError(true); setTimeout(() => { setPin(Array(maxLen).fill("")); refs.current[0]?.focus(); }, 600); }
+    }
+  };
+  return (
+    <div className="pin-overlay" onClick={onClose}>
+      <div className="pin-dialog" onClick={e => e.stopPropagation()} style={{ borderTop: `4px solid ${memberColor || "var(--accent)"}` }}>
+        <div style={{ fontSize: "2.5rem", marginBottom: 4 }}>{memberEmoji}</div>
+        <div className="pin-title" style={{ color: memberColor }}>{member}&apos;s PIN</div>
+        <div className="pin-subtitle">Enter your {maxLen}-digit PIN to confirm</div>
+        <div className="pin-input">
+          {pin.map((d, i) => (
+            <input key={i} ref={el => refs.current[i] = el} type="tel" inputMode="numeric" className="pin-digit" value={d} onChange={e => handleChange(i, e.target.value)} onKeyDown={e => { if (e.key === "Backspace" && !pin[i] && i > 0) refs.current[i-1]?.focus(); }} maxLength={1} />
+          ))}
+        </div>
+        {error && <div className="pin-error">Wrong PIN — try again</div>}
+        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 8 }}>PIN saved for 5 minutes on this device</div>
+        <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 8 }}>Cancel</button>
       </div>
     </div>
   );
