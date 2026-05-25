@@ -1480,6 +1480,7 @@ export default function App() {
 // TODAY VIEW
 // ============================================================
 function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
+  const [expanded, setExpanded] = useState(false);
   const TIERS = [
     { min: 0, label: "No streak", icon: "", next: 3 },
     { min: 3, label: "Warming up", icon: "🔥", next: 7 },
@@ -1499,10 +1500,21 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
 
   const anyStreaks = streakData.some(s => s.streak >= 1);
   if (!anyStreaks) return null;
+  const activeCount = streakData.filter(s => s.streak >= 1).length;
+  const topStreak = streakData[0]?.streak || 0;
 
   return (
     <div className="card animate-in streak-spotlight">
-      <div className="card-title"><Icons.Fire size={22} color="#fb923c" /> Streak Tracker</div>
+      <div className="card-title" onClick={() => setExpanded(!expanded)} style={{ cursor: "pointer", justifyContent: "space-between", marginBottom: expanded ? 14 : 0 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Icons.Fire size={20} color="#fb923c" /> Streak Tracker
+          <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 400 }}>· {activeCount} active · top {topStreak}d</span>
+        </span>
+        <div style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+        </div>
+      </div>
+      {expanded && (
       <div className="streak-grid">
         {streakData.map(s => {
           if (s.streak < 1) return null;
@@ -1531,6 +1543,7 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
@@ -2882,8 +2895,7 @@ function KidPinDialog({ member, memberEmoji, memberColor, expectedPin, onSuccess
   };
   return (
     <div className="pin-overlay" onClick={onClose}>
-      <div className="pin-dialog" onClick={e => e.stopPropagation()}
-style={{ borderTop: `4px solid ${memberColor || "var(--accent)"}` }}>
+      <div className="pin-dialog" onClick={e => e.stopPropagation()} style={{ borderTop: `4px solid ${memberColor || "var(--accent)"}` }}>
         <div style={{ fontSize: "2.5rem", marginBottom: 4 }}>{memberEmoji}</div>
         <div className="pin-title" style={{ color: memberColor }}>{member}&apos;s PIN</div>
         <div className="pin-subtitle">Enter your {maxLen}-digit PIN to confirm</div>
