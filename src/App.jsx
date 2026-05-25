@@ -444,13 +444,13 @@ const Icons = {
 
 const styles = `
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap');
-:root{--bg-primary:#0f1724;--bg-secondary:#1a2332;--bg-card:#1e2a3a;--bg-card-hover:#243242;--text-primary:#f0f4f8;--text-secondary:#8899aa;--text-muted:#5a6a7a;--border:#2a3a4a;--accent:#3B82F6;--success:#10B981;--warning:#F59E0B;--danger:#EF4444}
+:root{--bg-primary:#0d111a;--bg-secondary:#131a26;--bg-card:#161e2c;--bg-card-hover:#1b243a;--text-primary:#f0f4f8;--text-secondary:#8899aa;--text-muted:#5a6a7a;--border:#222d44;--accent:#3B82F6;--success:#10B981;--warning:#F59E0B;--danger:#EF4444}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
 .app{min-height:100vh;display:flex;flex-direction:column}
-.header{background:linear-gradient(135deg,#1a2332 0%,#0f1724 100%);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header{background:var(--bg-primary);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .header-left{display:flex;align-items:center;gap:12px}
-.header-logo{font-family:'Fredoka',sans-serif;font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header-logo{font-family:'Fredoka',sans-serif;font-size:1.4rem;font-weight:600;color:var(--text-primary)}
 .header-date{font-size:0.9rem;color:var(--text-secondary);font-weight:600}
 .header-right{display:flex;align-items:center;gap:8px}
 .sync-indicator{display:flex;align-items:center;gap:4px;font-size:0.7rem;font-weight:600;padding:4px 8px;border-radius:8px}
@@ -459,16 +459,35 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .nav-btn{flex:1;min-width:80px;padding:12px 8px;background:none;border:none;color:var(--text-muted);font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s;border-bottom:3px solid transparent;text-transform:uppercase;letter-spacing:0.5px}
 .nav-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(59,130,246,0.05)}
 .nav-btn:hover{color:var(--text-primary);background:rgba(255,255,255,0.03)}
-.main{flex:1;padding:16px;max-width:1200px;width:100%;margin:0 auto}
-.card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;transition:all 0.2s}
-.card-title{font-family:'Fredoka',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;border-left:4px solid;transition:all 0.15s}
-.member-card:active{transform:scale(0.99)}
-.member-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.member-name-row{display:flex;align-items:center;gap:10px}
-.member-emoji{font-size:1.5rem;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,0.05)}
-.member-name{font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:600}
-.member-points{display:flex;align-items:center;gap:4px;font-weight:700;font-size:1.1rem;color:var(--warning)}
+.main{flex:1;padding:16px;max-width:1400px;width:100%;margin:0 auto}
+.section-label{color:var(--text-muted);font-size:0.7rem;letter-spacing:0.6px;font-weight:600;text-transform:uppercase;margin-bottom:6px}
+.section-title{font-family:'Fredoka',sans-serif;font-weight:500;font-size:1.5rem;color:var(--text-primary);margin-bottom:16px}
+@media(min-width:768px){.today-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.today-grid .member-card{margin-bottom:0}}
+@media(min-width:1100px){.today-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.day-list{display:flex;flex-direction:column;gap:6px}
+.day-row{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.day-row:hover{background:var(--bg-card-hover)}
+.day-row.today{border-color:var(--accent);background:rgba(59,130,246,0.06)}
+.day-row.selected{background:rgba(59,130,246,0.10);border-color:var(--accent);box-shadow:0 0 0 2px rgba(59,130,246,0.25)}
+.day-row-label{font-size:0.7rem;color:var(--text-muted);letter-spacing:0.5px;font-weight:600;text-transform:uppercase}
+.day-row.today .day-row-label{color:#60a5fa}
+.day-row-status{font-size:0.85rem;font-weight:500;color:var(--text-primary)}
+.day-row-dots{display:flex;gap:4px}
+.day-dot{width:9px;height:9px;border-radius:50%;border:1.5px solid;box-sizing:border-box}
+.day-dot.done{border-color:transparent}
+.day-dot.missed{background:transparent !important;opacity:0.45}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;transition:all 0.2s}
+.card-title{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;transition:all 0.15s;border-left:none}
+.member-card:active{transform:scale(0.995)}
+.member-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
+.member-name-row{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.member-emoji{font-size:1.05rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0}
+.member-name{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:500;color:var(--text-primary)}
+.member-meta{font-size:0.72rem;color:var(--text-muted);font-weight:500;margin-top:1px}
+.member-points{display:flex;align-items:center;gap:4px;font-weight:500;font-size:1rem;color:var(--text-primary)}
+.member-progress{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:8px}
+.member-progress-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
 .chore-list{display:flex;flex-direction:column;gap:8px}
 .chore-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
 .chore-item:hover{background:rgba(255,255,255,0.06)}
@@ -1544,9 +1563,15 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
     return { days, totalChores, doneChores, pct: totalChores > 0 ? Math.round((doneChores / totalChores) * 100) : 0 };
   }, [jobsModal, getChoresForDate, isChoreCompleteForDate, today]);
 
+  const headerDate = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }).toUpperCase();
   return (
     <div>
+      <div style={{ marginBottom: 18 }}>
+        <div className="section-label">{headerDate}</div>
+        <div className="section-title">Today</div>
+      </div>
       <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
+      <div className="today-grid">
       {members.map((member) => {
         const chores = getMemberChores(member.name);
         const { done, total } = getCompletionCount(member.name);
@@ -1554,42 +1579,42 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         const weeklyPts = getPoints(member.name, "weekly");
         const streak = computedStreaks?.[member.name] || 0;
         const emoji = getMemberEmoji(member.name);
-        const team = getTeamForMember(member.name);
-        const teamColor = team ? getTeamColor(team.key) : null;
-        const cardBorderColor = teamColor || member.color;
         const gameStatus = getVideoGameStatus(member.name);
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         return (
-          <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: cardBorderColor }}>
+          <div key={member.name} className="member-card animate-in">
             <div className="member-header">
               <div className="member-name-row">
                 <button className="emoji-picker-btn" onClick={(e) => { e.stopPropagation(); setEmojiPicker(emojiPicker === member.name ? null : member.name); }}>
-                  <div className="member-emoji">{emoji}</div>
+                  <div className="member-emoji" style={{ background: member.color }}>{emoji}</div>
                 </button>
-                <div>
-                  <div className="member-name" style={{ color: member.color }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="member-name">
                     {member.name}
-                    {teamWeek && team && <span className="team-badge-mini" style={{ background: `${teamColor || "var(--border)"}22`, color: teamColor || "var(--text-muted)", border: `1px solid ${teamColor || "var(--border)"}` }}>{getTeamName(team.key)}</span>}
                     {streak >= 30 ? <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>
                      : streak >= 14 ? <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>
                      : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
                      : streak >= 3 ? <span className="streak-fire streak-fire-1" title={`${streak}-day streak!`}>🔥 {streak}d</span>
                      : null}
-                    <span className={`game-unlock-badge ${gameStatus.unlocked ? (gameStatus.parentOverride ? "override" : "unlocked") : "locked"}`} title={gameStatus.unlocked ? (gameStatus.parentOverride ? "Unlocked by parent" : `Video games unlocked! HK: ${gameStatus.housekeepingPct}% · Dinner: ${gameStatus.dinnerPct}%`) : `Locked — HK: ${gameStatus.housekeepingPct}% · Dinner: ${gameStatus.dinnerPct}%`}>
+                    <span className={`game-unlock-badge ${gameStatus.unlocked ? (gameStatus.parentOverride ? "override" : "unlocked") : "locked"}`} title={gameStatus.unlocked ? (gameStatus.parentOverride ? "Unlocked by parent" : `Video games unlocked!`) : `Locked — HK: ${gameStatus.housekeepingPct}% · Dinner: ${gameStatus.dinnerPct}%`}>
                       <span className="game-unlock-icon">🎮</span>
                       <span className="game-lock-icon">{gameStatus.unlocked ? "🔓" : "🔒"}</span>
                     </span>
                   </div>
-                  <div style={{ fontSize: "0.8rem", color: allDone ? "#10B981" : "var(--text-muted)", fontWeight: 600 }}>
-                    {allDone ? "All done!" : `${done}/${total} complete`}
+                  <div className="member-meta" style={{ color: allDone ? "#34d399" : "var(--text-muted)" }}>
+                    {allDone ? "All done" : `${done} of ${total} done`}
                   </div>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <button className="my-jobs-btn" onClick={(e) => { e.stopPropagation(); setJobsModal(member.name); }} title="View weekly jobs">
-                  <Icons.List size={14} /> My Jobs
+                  <Icons.List size={14} />
                 </button>
-                <div className="member-points"><Icons.Star size={18} color="#F59E0B" filled />{weeklyPts}</div>
+                <div className="member-points">{weeklyPts}</div>
               </div>
+            </div>
+            <div className="member-progress">
+              <div className="member-progress-fill" style={{ width: `${pct}%`, background: member.color }} />
             </div>
             {emojiPicker === member.name && (
               <div className="emoji-grid" style={{ marginBottom: 12 }}>
@@ -1616,6 +1641,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
           </div>
         );
       })}
+      </div>
       {jobsModal && weeklyJobsData && (
         <div className="modal-overlay" onClick={() => setJobsModal(null)}>
           <div className="my-jobs-modal" onClick={e => e.stopPropagation()}>
@@ -2015,41 +2041,43 @@ function WeekView({ today, weekOffset, setWeekOffset, getChoresForDate, isChoreC
         <span className="week-label">{weekLabel}</span>
         <button className="week-nav-btn" onClick={() => setWeekOffset(o => o + 1)}><Icons.ChevronRight size={20} /></button>
       </div>
-      <div className="week-grid">
+      <div className="day-list">
         {days.map((date) => {
           const dn = getDayName(date);
           const dk = dateToKey(date);
           const isToday = dk === dateToKey(today);
           const isSelected = dk === selectedDayKey;
+          // Per-kid status dot: outline ring if missed/incomplete, solid if all due chores done
+          const kidStatus = FAMILY_MEMBERS.map(member => {
+            const chores = getChoresForDate(member.name, date);
+            if (chores.length === 0) return { member, state: "none" };
+            const doneCount = chores.filter(c => isChoreCompleteForDate(member.name, c.id, date)).length;
+            const allDone = doneCount === chores.length;
+            return { member, state: allDone ? "done" : (isToday || date > today ? "pending" : "missed") };
+          });
+          const summary = (() => {
+            const total = kidStatus.filter(k => k.state !== "none").length;
+            const done = kidStatus.filter(k => k.state === "done").length;
+            if (isToday) return done === total && total > 0 ? "Today · all done" : "Today · in progress";
+            if (date > today) return "Upcoming";
+            return `${done} of ${total} done`;
+          })();
           return (
-            <div key={dk} className={`day-col ${isToday ? "today" : ""} ${isSelected ? "day-col-selected" : ""}`} onClick={() => setSelectedDay(isSelected ? null : date)} style={{ cursor: "pointer" }}>
-              <div className="day-col-header">
-                <div className="day-name">{dn.slice(0, 3)}</div>
-                <div className="day-date-num">{date.getDate()}</div>
-                {isSelected && <div style={{ fontSize: "0.6rem", color: "var(--accent)", fontWeight: 700, marginTop: 2 }}>VIEWING</div>}
+            <div key={dk} className={`day-row ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}`} onClick={() => setSelectedDay(isSelected ? null : date)}>
+              <div>
+                <div className="day-row-label">{dn.slice(0, 3).toUpperCase()} · {date.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}{isToday ? " · TODAY" : ""}</div>
+                <div className="day-row-status">{summary}</div>
               </div>
-              {FAMILY_MEMBERS.map(member => {
-                const daily = DAILY_CHORES[member.name]?.[dn];
-                if (!daily) return null;
-                let label = "";
-                if (daily.type === "dishes") label = "Dishes";
-                else if (daily.type === "zone") label = daily.zone.split("/")[0];
-                else if (daily.type === "young") label = daily.task.split("/")[0];
-                const chart = getChartAssignment(member.name, date);
-                const hkTask = (dn !== "Sunday" && dn !== "Friday" && dn !== "Saturday") ? chart.tasks[dn] : null;
-                const isLaundryDay = LAUNDRY_DAYS[member.name] === dn;
-                return (
-                  <div key={member.name} className="day-member">
-                    <div className="day-member-dot" style={{ background: member.color }} />
-                    <div>
-                      <div style={{ fontSize: "0.78rem", fontWeight: 700 }}>{member.name}</div>
-                      <div className="day-member-chore">{label}</div>
-                      {hkTask && <div className="day-member-chore" style={{ color: "#2dd4bf" }}>{hkTask.length > 25 ? hkTask.slice(0, 25) + "..." : hkTask}</div>}
-                      {isLaundryDay && <div className="day-member-chore" style={{ color: "#c084fc" }}>🧺 Laundry</div>}
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="day-row-dots">
+                {kidStatus.filter(k => k.state !== "none").map(k => (
+                  <div
+                    key={k.member.name}
+                    className={`day-dot ${k.state === "done" ? "done" : ""} ${k.state === "missed" ? "missed" : ""}`}
+                    style={{ background: k.state === "done" ? k.member.color : "transparent", borderColor: k.member.color }}
+                    title={`${k.member.name}: ${k.state}`}
+                  />
+                ))}
+              </div>
             </div>
           );
         })}
