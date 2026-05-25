@@ -10,11 +10,11 @@ import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll }
 // loops back to the start — no manual updates needed.
 // ============================================================
 const ROTATION_EPOCH_SUNDAY = new Date("2025-07-27"); // Sunday of first rotation week
-const ROT_COLLECT_TRASH = ["Emilie","Carter","Cole","Emilie","Carter","Cole","Emilie","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole"];
-const ROT_TRASH_OUT = ["Carter","Cole","Emilie","Carter","Cole","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter","Cole","Nicholas","Emilie","Carter"];
-const ROT_BRING_CANS = ["Cole","Emilie","Finn","Liam","Emilie","Carter","Finn","Emilie","Carter","Nicholas","Emilie","Carter","Cole","Finn","Nicholas","Emilie","Carter","Cole","Liam","Finn","Carter","Nicholas","Emilie","Carter","Cole","Finn","Nicholas","Emilie","Carter","Cole","Liam"];
-const ROT_REFILL_SOAP = ["Finn","Liam","Carter","Finn","Liam","Finn","Liam","Finn","Cole","Liam","Finn","Liam","Finn","Cole","Finn","Liam","Finn","Liam","Emilie","Cole","Finn","Liam","Finn","Liam","Carter","Cole","Finn","Liam","Liam","Finn","Finn"];
-const ROT_TOILET_PAPER = ["Liam","Finn","Liam","Cole","Finn","Liam","Cole","Liam","Liam","Finn","Liam","Finn","Liam","Liam","Emilie","Finn","Liam","Finn","Finn","Emilie","Liam","Cole","Liam","Finn","Liam","Finn","Liam","Liam","Finn","Liam","Liam"];
+const ROT_COLLECT_TRASH = ["Nicholas","Carter","Cole","Carter","Carter","Cole","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole"];
+const ROT_TRASH_OUT = ["Carter","Cole","Nicholas","Carter","Cole","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter"];
+const ROT_BRING_CANS = ["Cole","Nicholas","Finn","Liam","Carter","Carter","Finn","Cole","Carter","Nicholas","Nicholas","Carter","Cole","Finn","Nicholas","Carter","Carter","Cole","Liam","Finn","Carter","Nicholas","Cole","Carter","Cole","Finn","Nicholas","Nicholas","Carter","Cole","Liam"];
+const ROT_REFILL_SOAP = ["Finn","Liam","Carter","Finn","Liam","Finn","Liam","Finn","Cole","Liam","Finn","Liam","Finn","Cole","Finn","Liam","Finn","Liam","Nicholas","Cole","Finn","Liam","Finn","Liam","Carter","Cole","Finn","Liam","Liam","Finn","Finn"];
+const ROT_TOILET_PAPER = ["Liam","Finn","Liam","Cole","Finn","Liam","Cole","Liam","Liam","Finn","Liam","Finn","Liam","Liam","Nicholas","Finn","Liam","Finn","Finn","Carter","Liam","Cole","Liam","Finn","Liam","Finn","Liam","Liam","Finn","Liam","Liam"];
 const ROT_LEN = 31;
 
 function getWeeklyRotation(date) {
@@ -43,8 +43,8 @@ const HOUSEKEEPING_CHARTS = [
     name: "Chart 1",
     tasks: {
       Monday: "Bathroom counter/sink",
-      Tuesday: "Dust windowsills (wipe any dirty spots)",
-      Wednesday: "Pick up for Roborock, bring garbage cans in from curb",
+      Tuesday: "Dust windowsills / shelves / bookcase",
+      Wednesday: "Pick up upstairs hallway for Roborock, bring garbage cans in from curb",
       Thursday: "Wipe light switches",
       Saturday: "Vacuum upstairs stairs",
     },
@@ -55,8 +55,8 @@ const HOUSEKEEPING_CHARTS = [
     tasks: {
       Monday: "Toilet",
       Tuesday: "Dust banister/wipe down handrail (dry after wet), empty trashes",
-      Wednesday: "Pick up for Roborock",
-      Thursday: "Wipe doorknobs",
+      Wednesday: "Pick up front hallway for Roborock",
+      Thursday: "Wipe doorknobs / fridge",
       Saturday: "Vacuum downstairs stairs",
     },
     zone: "Office/Front hallway — pick up floor, straighten desk/piano/front hallway piece, tell dad so he can set the vacuums loose",
@@ -66,7 +66,7 @@ const HOUSEKEEPING_CHARTS = [
     tasks: {
       Monday: "Tub",
       Tuesday: "Dust pieces (TV stand, front hall piece, piano, printer table), put garbage bags in cans",
-      Wednesday: "Pick up for Roborock",
+      Wednesday: "Pick up kitchen for Roborock",
       Thursday: "Wipe microwave/dishwasher",
       Saturday: "Mop kids bathroom floor",
     },
@@ -77,33 +77,22 @@ const HOUSEKEEPING_CHARTS = [
     tasks: {
       Monday: "Mirror/Refill toilet paper (all bathrooms)/refill soaps (whole house)",
       Tuesday: "Dust baseboards, take garbage cans to the curb",
-      Wednesday: "Pick up for Roborock",
+      Wednesday: "Pick up family room for Roborock",
       Thursday: "Wipe oven/fridge",
       Saturday: "Mop main level bathroom floor",
     },
-    zone: "Family Room — pick up floor, clean off TV piece, tell dad so he can set the vacuums loose",
+    zone: "Family Room + laundry area/garage entry — pick up floor, clean off TV piece, straighten laundry/garage entry, tell dad so he can set the vacuums loose",
   },
   { // Chart 5
     name: "Chart 5",
     tasks: {
-      Monday: "Clean shower door/glass",
+      Monday: "Clean floor / wipe bathroom cabinets",
       Tuesday: "Dust shelves/surfaces",
-      Wednesday: "Pick up upstairs rooms for Roborock",
+      Wednesday: "Move chairs for Roborock",
       Thursday: "Wipe dishwasher",
       Saturday: "Pick up basement so vacuum can run",
     },
     zone: "Bathroom(s) — pick up and wipe down, tell dad so he can set the vacuums loose",
-  },
-  { // Chart 6
-    name: "Chart 6",
-    tasks: {
-      Monday: "Wipe bathroom cabinets/shelves",
-      Tuesday: "Dust shelves/bookcase",
-      Wednesday: "Pick up entry/mudroom for Roborock",
-      Thursday: "Wipe fridge",
-      Saturday: "Pick up basement so vacuum can run",
-    },
-    zone: "Laundry area/garage entry — pick up and straighten, tell dad so he can set the vacuums loose",
   },
 ];
 
@@ -114,7 +103,6 @@ const LAUNDRY_DAYS = {
   Cole: "Wednesday",
   Finn: "Thursday",
   Liam: "Friday",
-  Emilie: "Saturday",
 };
 
 
@@ -159,7 +147,6 @@ function isVideoGameDay(date) {
 
 const DAILY_CHORES = {
   Nicholas: { Sunday:{type:"dishes",zone:null,dinnerJob:null},Monday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Tuesday:{type:"dishes",zone:null,dinnerJob:null},Wednesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Thursday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Friday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Saturday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"} },
-  Emilie: { Sunday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Monday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Tuesday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Wednesday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Thursday:{type:"dishes",zone:null,dinnerJob:null},Friday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Saturday:{type:"dishes",zone:null,dinnerJob:null} },
   Carter: { Sunday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Monday:{type:"dishes",zone:null,dinnerJob:null},Tuesday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Wednesday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Thursday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Friday:{type:"dishes",zone:null,dinnerJob:null},Saturday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"} },
   Cole: { Sunday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Monday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Tuesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Wednesday:{type:"dishes",zone:null,dinnerJob:null},Thursday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Friday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Saturday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"} },
   Finn: { Sunday:{type:"young",task:"Set Table/Stairs"},Monday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Tuesday:{type:"young",task:"Set Table/Stairs"},Wednesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Thursday:{type:"young",task:"Set Table/Stairs"},Friday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Saturday:{type:"young",task:"Set Table/Stairs"} },
@@ -168,7 +155,6 @@ const DAILY_CHORES = {
 
 const FAMILY_MEMBERS = [
   { name: "Nicholas", color: "#E85D4A", emoji: "\u{1F985}", group: "older" },
-  { name: "Emilie", color: "#D4518A", emoji: "\u{1F338}", group: "older" },
   { name: "Carter", color: "#3B82F6", emoji: "\u26A1", group: "older" },
   { name: "Cole", color: "#10B981", emoji: "\u{1F3AF}", group: "older" },
   { name: "Finn", color: "#F59E0B", emoji: "\u{1F31F}", group: "younger" },
@@ -215,14 +201,14 @@ function getWeekNumber(date) {
 }
 
 function isTeamWeek(date) {
-  return getWeekNumber(date) % 2 === 1; // odd weeks = team weeks
+  return false; // teams retired May 2026 — everyone competes individually
 }
 
 // Get the housekeeping chart assigned to a member for a given date's week
 function getChartAssignment(memberName, date) {
   const weekNum = getWeekNumber(date);
   const memberIndex = FAMILY_MEMBERS.findIndex(m => m.name === memberName);
-  const chartIndex = ((memberIndex + weekNum) % 6 + 6) % 6;
+  const chartIndex = ((memberIndex + weekNum) % 5 + 5) % 5;
   return HOUSEKEEPING_CHARTS[chartIndex];
 }
 
@@ -1278,13 +1264,12 @@ export default function App() {
   // Parent can override via gameUnlocks Firebase doc
   // ============================================================
   const getVideoGameStatus = useCallback((member) => {
-    // Get previous week's date range
-    const prevWeekStart = new Date(getWeekStart(today));
-    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-    const prevWeekKey = dateToKey(prevWeekStart);
+    // Unlock for Fri/Sat games is based on THIS week's Mon-Thu chores.
+    const weekStart = new Date(getWeekStart(today));  // Sunday of this week
+    const weekKey = dateToKey(weekStart);
 
     // Check for parent override
-    const overrideKey = `${prevWeekKey}_${member}`;
+    const overrideKey = `${weekKey}_${member}`;
     if (gameUnlocks && !gameUnlocks._empty && gameUnlocks[overrideKey]) {
       return { unlocked: true, parentOverride: true, housekeepingPct: 100, dinnerPct: 100, gameDay: isVideoGameDay(today), choresComplete: true };
     }
@@ -1294,35 +1279,33 @@ export default function App() {
     let dinnerTotal = 0;
     let dinnerDone = 0;
 
-    // Loop through each day of previous week
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(prevWeekStart);
+    // Loop Mon-Thu of this week (offset 1..4 from Sunday weekStart)
+    for (let i = 1; i <= 4; i++) {
+      const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
       const dk = dateToKey(d);
       const dn = getDayName(d);
       const daily = DAILY_CHORES[member]?.[dn];
       if (!daily) continue;
 
-      // Housekeeping tasks (Mon-Thu for older kids)
-      if (dn !== "Sunday" && dn !== "Friday" && dn !== "Saturday") {
-        const chart = getChartAssignment(member, d);
-        const hkTask = chart.tasks[dn];
-        if (hkTask) {
-          housekeepingTotal++;
-          if (completedChores[`${dk}_${member}_hk_${dn.toLowerCase()}`]) housekeepingDone++;
-        }
-        // HK Zone
+      // Housekeeping task for that weekday
+      const chart = getChartAssignment(member, d);
+      const hkTask = chart.tasks[dn];
+      if (hkTask) {
         housekeepingTotal++;
-        if (completedChores[`${dk}_${member}_hk_zone`]) housekeepingDone++;
+        if (completedChores[`${dk}_${member}_hk_${dn.toLowerCase()}`]) housekeepingDone++;
       }
+      // HK Zone (Mon-Thu always include zone tidy)
+      housekeepingTotal++;
+      if (completedChores[`${dk}_${member}_hk_zone`]) housekeepingDone++;
 
-      // Dinner jobs (only for older kids who have zone-type days)
+      // Dinner job for older kids on zone-type days
       if (daily.type === "zone" && daily.dinnerJob) {
         dinnerTotal++;
         if (completedChores[`${dk}_${member}_dinner`]) dinnerDone++;
       }
 
-      // For younger kids, check their daily tasks
+      // Younger kids: their two daily tasks count as housekeeping equivalent
       if (daily.type === "young") {
         const tasks = daily.task.split("/");
         tasks.forEach((_, idx) => {
@@ -1348,9 +1331,8 @@ export default function App() {
   }, [today, completedChores, gameUnlocks]);
 
   const toggleGameUnlock = useCallback((member) => {
-    const prevWeekStart = new Date(getWeekStart(today));
-    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-    const overrideKey = `${dateToKey(prevWeekStart)}_${member}`;
+    const weekStart = new Date(getWeekStart(today));
+    const overrideKey = `${dateToKey(weekStart)}_${member}`;
     setGameUnlocks(prev => {
       const u = { ...prev }; delete u._empty;
       if (u[overrideKey]) { delete u[overrideKey]; }
@@ -1452,14 +1434,6 @@ export default function App() {
           {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
-        {timesUpMember && <TimesUpOverlay member={timesUpMember} memberEmoji={getMemberEmoji(timesUpMember)} onDismiss={() => setTimesUpMember(null)} />}
-        {photoViewer && (
-          <div className="photo-viewer-overlay" onClick={() => setPhotoViewer(null)}>
-            <button className="photo-viewer-close" onClick={() => setPhotoViewer(null)}><Icons.X size={20} /></button>
-            <img className="photo-viewer-img" src={photoViewer.url} alt="Chore proof" />
-            <div className="photo-viewer-info">{getMemberEmoji(photoViewer.member)} {photoViewer.member} — {photoViewer.chore}</div>
-          </div>
-        )}
         {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {showAddTask && <AddTaskModal onAdd={(task) => { addCustomTask(task); setShowAddTask(false); }} onClose={() => setShowAddTask(false)} todayKey={todayKey} />}
         {showTeamNaming && <TeamNamingModal teamKey={showTeamNaming.teamKey} captain={showTeamNaming.captain} nameKey={showTeamNaming.nameKey} getMemberEmoji={getMemberEmoji} onName={(nk, name) => { setTeamName(nk, name); setShowTeamNaming(null); }} onColor={(color) => setTeamColor(showTeamNaming.teamKey, color)} onClose={() => setShowTeamNaming(null)} />}
@@ -1623,23 +1597,12 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
               {chores.map((chore) => {
                 const completed = isChoreComplete(member.name, chore.id);
                 const isCustom = chore.tag === "custom";
-                const photo = getChorePhoto ? getChorePhoto(member.name, chore.id) : null;
-                const isUploading = photoUploading === `${dateToKey(new Date())}_${member.name}_${chore.id}`;
                 return (
-                  <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${isUploading ? "photo-uploading" : ""}`}>
+                  <div key={chore.id} className={`chore-item ${completed ? "completed" : ""}`}>
                     <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{completed && <Icons.Check size={16} color="white" />}</div>
                     <span className="chore-text" onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{chore.text}</span>
                     {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
                     <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
-                    {completed && photo && (
-                      <img className="chore-photo-thumb" src={photo.url} alt="proof" onClick={(e) => { e.stopPropagation(); setPhotoViewer({ url: photo.url, member: member.name, chore: chore.text }); }} />
-                    )}
-                    {completed && !photo && uploadChorePhoto && (
-                      <label className={`chore-photo-btn ${photo ? "has-photo" : ""}`} title="Add photo proof" onClick={(e) => e.stopPropagation()}>
-                        <Icons.Camera size={14} color="var(--text-muted)" />
-                        <input type="file" accept="image/*" capture="environment" onChange={(e) => { if (e.target.files[0]) uploadChorePhoto(member.name, chore.id, e.target.files[0]); }} />
-                      </label>
-                    )}
                     {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
                   </div>
                 );
@@ -1892,8 +1855,6 @@ function PrizeDisplay({ prizes, setPrizes, weekStartKey, period, awards, teamWee
   const PRIZE_TYPES = [
     { key: "weekly", label: "Weekly Winner", icon: "🏆" },
     { key: "monthly", label: "Monthly Winner", icon: "📅" },
-    ...(teamWeek ? [{ key: "team", label: "Winning Team", icon: "👫" }] : []),
-    { key: "mvp", label: "MVP", icon: "⭐" },
   ];
 
   const isFinalized = Object.keys(awards || {}).some(k => k.startsWith(`win_${weekStartKey}_`));
@@ -2502,20 +2463,6 @@ function GameView({ members, getVideoGameStatus, getMemberEmoji, gameTimers, sta
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
-  // Check for expired timers and trigger TIMES UP
-  useEffect(() => {
-    members.forEach(member => {
-      const state = getTimerState(member.name);
-      const timer = gameTimers?.[member.name];
-      if (state === "expired" && timer?.active) {
-        setTimesUpMember(member.name);
-        playAlarm();
-        sendLocalNotification("Time's Up!", `${member.name}'s video game time is over!`);
-        stopTimer(member.name);
-      }
-    });
-  });
-
   return (
     <div>
       <div className="card">
@@ -2557,97 +2504,25 @@ function GameView({ members, getVideoGameStatus, getMemberEmoji, gameTimers, sta
             )}
             {gs.gameDay && !gs.choresComplete && !gs.parentOverride && (
               <div className="game-status-msg locked">
-                🔒 Last week's chores incomplete — HK: {gs.housekeepingPct}% (need 100%) · Dinner: {gs.dinnerPct}% (need 90%)
+                🔒 This week's Mon-Thu chores incomplete — HK: {gs.housekeepingPct}% (need 100%) · Dinner: {gs.dinnerPct}% (need 90%)
               </div>
             )}
-
-            {/* Timer section - only show if unlocked */}
             {gs.unlocked && (
-              <>
-                <div className={`game-timer-display ${timerState}`}>
-                  {timerState === "idle" ? formatTime(duration) : formatTime(remaining)}
-                </div>
-                {timerState !== "idle" && (
-                  <div className="game-timer-bar">
-                    <div className="game-timer-bar-fill" style={{
-                      width: `${pct}%`,
-                      background: pct > 25 ? "linear-gradient(90deg, #10B981, #34d399)" : pct > 10 ? "#F59E0B" : "#EF4444"
-                    }} />
-                  </div>
-                )}
-                <div className="game-timer-controls">
-                  {timerState === "idle" && (
-                    <button className="game-timer-btn start" onClick={() => startTimer(member.name)}>▶️ Start Timer</button>
-                  )}
-                  {timerState === "running" && (
-                    <button className="game-timer-btn pause" onClick={() => { pauseTimer(member.name); sendLocalNotification("Timer Paused", `${member.name} paused their game timer`); }}>⏸️ Pause</button>
-                  )}
-                  {timerState === "paused" && (
-                    <>
-                      <button className="game-timer-btn start" onClick={() => startTimer(member.name)}>▶️ Resume</button>
-                      <button className="game-timer-btn stop" onClick={() => stopTimer(member.name)}>⏹️ End</button>
-                    </>
-                  )}
-                  {timerState === "running" && (
-                    <button className="game-timer-btn stop" onClick={() => stopTimer(member.name)}>⏹️ End Session</button>
-                  )}
-                </div>
-                {/* Parent time adjustments */}
-                {isParent && (
-                  <div className="game-adjust-row">
-                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, -30)}>-30m</button>
-                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, -15)}>-15m</button>
-                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, 15)}>+15m</button>
-                    <button className="game-adjust-btn" onClick={() => adjustTimer(member.name, 30)}>+30m</button>
-                  </div>
-                )}
-                {isParent && (
-                  <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                    <button className={`admin-unlock-toggle ${gs.unlocked ? "lock" : "unlock"}`} onClick={() => toggleGameUnlock(member.name)}>
-                      {gs.parentOverride ? "↩️ Remove Override" : gs.unlocked ? "🔒 Lock Games" : "🔓 Override Unlock"}
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* If locked, parent can override */}
-            {!gs.unlocked && isParent && (
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                <button className="admin-unlock-toggle unlock" onClick={() => toggleGameUnlock(member.name)}>🔓 Override Unlock</button>
+              <div className="game-status-msg" style={{ color: "#34d399" }}>
+                ✅ Unlocked! {gs.parentOverride ? "(Parent override)" : ""}
               </div>
             )}
+            {isParent && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                <button className={`admin-unlock-toggle ${gs.unlocked ? "lock" : "unlock"}`} onClick={() => toggleGameUnlock(member.name)}>
+                  {gs.parentOverride ? "↩️ Remove Override" : gs.unlocked ? "🔒 Lock Games" : "🔓 Override Unlock"}
+                </button>
+              </div>
+            )}
+
           </div>
         );
       })}
-
-      {/* Family timer overview */}
-      <div className="card">
-        <div className="card-title">👀 Active Timers</div>
-        <div className="game-family-timers">
-          {members.map(member => {
-            const timerState = getTimerState(member.name);
-            const remaining = getTimerRemaining(member.name);
-            const emoji = getMemberEmoji(member.name);
-            return (
-              <div key={member.name} className="game-family-timer-row">
-                <div className="game-family-timer-name">
-                  <span>{emoji}</span>
-                  <span style={{ color: member.color }}>{member.name}</span>
-                </div>
-                <div className="game-family-timer-status" style={{
-                  color: timerState === "running" ? "#34d399" : timerState === "paused" ? "#fbbf24" : "var(--text-muted)"
-                }}>
-                  {timerState === "running" && <>🟢 {formatTime(remaining)}</>}
-                  {timerState === "paused" && <>⏸️ {formatTime(remaining)} paused</>}
-                  {timerState === "idle" && <>⚫ Not playing</>}
-                  {timerState === "expired" && <>🔴 Time's up</>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
@@ -2674,30 +2549,32 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
       .sort((a, b) => (b.ts || 0) - (a.ts || 0));
   }, [chorePhotos]);
 
+  // Download a JSON snapshot of all key Firestore docs. Called before destructive resets.
+  const downloadBackup = useCallback(() => {
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      appVersion: "FamilyHQ",
+      points: points || {},
+      completedChores: completedChores || {},
+      streaks: streaks || {},
+      awards: awards || {},
+      customTasks: customTasks || {},
+      prizes: prizes || {},
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    a.download = `familyhq-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [points, completedChores, streaks, awards, customTasks, prizes]);
+
   return (
     <div>
-      <div className="card">
-        <div className="card-title"><Icons.Camera size={22} color="#10B981" /> Chore Photo Proof {todayPhotos.length > 0 ? `(${todayPhotos.length})` : ""}</div>
-        {todayPhotos.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "16px 0", color: "var(--text-muted)", fontSize: "0.85rem", fontWeight: 600 }}>
-            <div style={{ fontSize: "2rem", marginBottom: 8 }}>📷</div>
-            No photos yet. Kids can tap the camera icon on completed chores to add proof.
-          </div>
-        ) : (
-          <div className="admin-photo-grid">
-            {todayPhotos.map(p => (
-              <div key={p.key} className="admin-photo-card">
-                <img src={p.url} alt="proof" onClick={() => setPhotoViewer({ url: p.url, member: p.member, chore: p.choreId })} />
-                <div className="admin-photo-card-info">
-                  <div className="admin-photo-card-name">{getMemberEmoji(p.member)} {p.member}</div>
-                  <div>{p.choreId} · {p.dateStr}</div>
-                  <button style={{ marginTop: 4, fontSize: "0.65rem", padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#f87171", cursor: "pointer", fontWeight: 700 }} onClick={() => deleteChorePhoto(p.key)}>Delete</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       <div className="card">
         <div className="card-title"><Icons.Settings size={22} color="var(--accent)" /> Point Management</div>
         <div className="admin-section">
@@ -2748,8 +2625,6 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
         {[
           { key: "weekly", label: "Weekly Winner Prize", icon: "🏆" },
           { key: "monthly", label: "Monthly Winner Prize", icon: "📅" },
-          { key: "team", label: "Winning Team Prize", icon: "👫" },
-          { key: "mvp", label: "MVP Prize", icon: "⭐" },
         ].map(({ key, label, icon }) => {
           const pk = `${key}_${weekStartKey}`;
           const current = prizes?.[pk] || {};
@@ -2807,12 +2682,12 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
       <div className="card">
         <div className="card-title"><Icons.Trophy size={22} color="var(--warning)" /> Finalize Week</div>
         <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
-          Record this week's 1st place winner and MVP (team weeks). Do this at the end of each week before points reset.
+          Record this week's 1st place winner. Do this at the end of each week before points reset.
         </div>
         <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
           const result = recordWeekAwards();
           if (result === "already") setAwardMsg("Awards already recorded for this week!");
-          else setAwardMsg("✅ Awards recorded! Winner and MVP saved.");
+          else setAwardMsg("✅ Awards recorded! Winner saved.");
           setTimeout(() => setAwardMsg(""), 3000);
         }}>🏆 Record This Week's Awards</button>
         {awardMsg && <div style={{ marginTop: 8, fontSize: "0.85rem", fontWeight: 600, color: awardMsg.startsWith("✅") ? "var(--success)" : "var(--warning)", textAlign: "center" }}>{awardMsg}</div>}
@@ -2821,9 +2696,16 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
       {/* Reset Actions */}
       <div className="card">
         <div className="card-title"><Icons.Trash size={22} color="var(--danger)" /> Reset Data</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+          Every reset below downloads a JSON backup first so you can restore later if needed.
+        </div>
         <div className="admin-section">
+          <button className="btn" style={{ width: "100%", justifyContent: "center", marginBottom: 12, background: "rgba(59,130,246,0.15)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.3)" }} onClick={() => {
+            downloadBackup();
+          }}>📥 Download Backup Now</button>
           <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => {
-            if (confirm("Reset ALL weekly points to 0?")) {
+            if (confirm("Reset ALL weekly points to 0? A backup will download first.")) {
+              downloadBackup();
               setPoints(p => {
                 const u = { ...p };
                 Object.keys(u).forEach(k => { if (k.startsWith("w_")) delete u[k]; });
@@ -2833,7 +2715,8 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
             }
           }}>Reset Weekly Points</button>
           <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => {
-            if (confirm("Clear today's completed chores?")) {
+            if (confirm("Clear today's completed chores? A backup will download first.")) {
+              downloadBackup();
               const todayKey = dateToKey(getToday());
               setCompletedChores(p => {
                 const u = {};
@@ -2844,12 +2727,14 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
             }
           }}>Clear Today's Completions</button>
           <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => {
-            if (confirm("Reset ALL awards (wins & MVPs)? This cannot be undone!")) {
+            if (confirm("Reset ALL awards? A backup will download first. This cannot be undone!")) {
+              downloadBackup();
               setAwards({ _empty: true });
             }
-          }}>Reset All Awards (Wins & MVPs)</button>
+          }}>Reset All Awards</button>
           <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center" }} onClick={() => {
-            if (confirm("Reset ALL data? This cannot be undone!")) {
+            if (confirm("Reset ALL data? A backup will download first. This cannot be undone!")) {
+              downloadBackup();
               setPoints({ _empty: true }); setCompletedChores({ _empty: true }); setStreaks({ _empty: true }); setAwards({ _empty: true });
             }
           }}>Reset Everything</button>
