@@ -519,10 +519,10 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .leaderboard-bar{height:4px;border-radius:2px;background:var(--border);margin-top:6px}
 .leaderboard-bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease}
 .streak-badge{display:inline-flex;align-items:center;gap:3px;font-size:0.8rem;font-weight:700;color:#fb923c;padding:2px 8px;border-radius:12px;background:rgba(251,146,60,0.1)}
-.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.week-nav-btn{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);padding:8px 12px;cursor:pointer;display:flex;align-items:center;transition:all 0.15s}
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
+.week-nav-btn{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);width:40px;height:40px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;padding:0}
 .week-nav-btn:hover{background:var(--bg-card-hover)}
-.week-label{font-family:'Fredoka',sans-serif;font-size:1.1rem;font-weight:600}
+.week-label{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:500;text-align:center;flex:1}
 .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;overflow-x:auto}
 @media(max-width:700px){.week-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:400px){.week-grid{grid-template-columns:repeat(2,1fr)}}
@@ -1538,6 +1538,12 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
 function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   const [jobsModal, setJobsModal] = useState(null); // member name or null
+  const [expanded, setExpanded] = useState(() => new Set()); // collapsed by default
+  const toggleExpanded = (name) => setExpanded(prev => {
+    const next = new Set(prev);
+    if (next.has(name)) next.delete(name); else next.add(name);
+    return next;
+  });
 
   const weeklyJobsData = useMemo(() => {
     if (!jobsModal || !getChoresForDate || !isChoreCompleteForDate) return null;
@@ -1581,9 +1587,10 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         const emoji = getMemberEmoji(member.name);
         const gameStatus = getVideoGameStatus(member.name);
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        const isExpanded = expanded.has(member.name);
         return (
           <div key={member.name} className="member-card animate-in">
-            <div className="member-header">
+            <div className="member-header" onClick={() => toggleExpanded(member.name)} style={{ cursor: "pointer" }}>
               <div className="member-name-row">
                 <button className="emoji-picker-btn" onClick={(e) => { e.stopPropagation(); setEmojiPicker(emojiPicker === member.name ? null : member.name); }}>
                   <div className="member-emoji" style={{ background: member.color }}>{emoji}</div>
@@ -1611,6 +1618,9 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                   <Icons.List size={14} />
                 </button>
                 <div className="member-points">{weeklyPts}</div>
+                <div className="expand-chevron" style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                </div>
               </div>
             </div>
             <div className="member-progress">
@@ -1623,7 +1633,8 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                 ))}
               </div>
             )}
-            <div className="chore-list">
+            {isExpanded && (
+            <div className="chore-list" style={{ marginTop: 10 }}>
               {chores.map((chore) => {
                 const completed = isChoreComplete(member.name, chore.id);
                 const isCustom = chore.tag === "custom";
@@ -1638,6 +1649,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                 );
               })}
             </div>
+            )}
           </div>
         );
       })}
@@ -2870,7 +2882,8 @@ function KidPinDialog({ member, memberEmoji, memberColor, expectedPin, onSuccess
   };
   return (
     <div className="pin-overlay" onClick={onClose}>
-      <div className="pin-dialog" onClick={e => e.stopPropagation()} style={{ borderTop: `4px solid ${memberColor || "var(--accent)"}` }}>
+      <div className="pin-dialog" onClick={e => e.stopPropagation()}
+style={{ borderTop: `4px solid ${memberColor || "var(--accent)"}` }}>
         <div style={{ fontSize: "2.5rem", marginBottom: 4 }}>{memberEmoji}</div>
         <div className="pin-title" style={{ color: memberColor }}>{member}&apos;s PIN</div>
         <div className="pin-subtitle">Enter your {maxLen}-digit PIN to confirm</div>
