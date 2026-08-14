@@ -687,7 +687,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .my-jobs-chore.priority:not(.done){background:rgba(245,158,11,0.12);border-left:3px solid #f59e0b;font-weight:700;color:#fcd34d}
 @media(prefers-reduced-motion:reduce){.chore-item.priority,.must-do-alert{animation:none}}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
-/* --- "Dishes tonight" hero banner --- */
+/* --- "Dishes today" hero banner --- */
 .dishes-banner{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:16px;border-radius:16px;background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.06));border:1px solid rgba(59,130,246,0.4);border-left:5px solid var(--accent)}
 .dishes-banner.done{background:linear-gradient(135deg,rgba(16,185,129,0.16),rgba(16,185,129,0.05));border-color:rgba(16,185,129,0.4);border-left-color:var(--success)}
 .dishes-banner.none{background:var(--bg-card);border-color:var(--border);border-left-color:var(--text-muted);opacity:0.75}
@@ -1826,7 +1826,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         <div className="section-title">Today</div>
       </div>
       {(() => {
-        // Who's on dishes tonight — the single most-argued-about job in the house,
+        // Who's on dishes today — the single most-argued-about job in the house,
         // so it gets top billing above everything else.
         const onDishes = members.filter(m => getMemberChores(m.name).some(c => c.id === "dishes"));
         const allDishesDone = onDishes.length > 0 && onDishes.every(m => isChoreComplete(m.name, "dishes"));
@@ -1835,8 +1835,8 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
             <div className="dishes-banner none">
               <div className="dishes-banner-icon">🍽️</div>
               <div className="dishes-banner-body">
-                <div className="dishes-banner-label">Dishes tonight</div>
-                <div className="dishes-banner-none-text">Nobody — night off</div>
+                <div className="dishes-banner-label">Dishes today</div>
+                <div className="dishes-banner-none-text">Nobody today — day off</div>
               </div>
             </div>
           );
@@ -1845,7 +1845,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
           <div className={`dishes-banner ${allDishesDone ? "done" : ""}`}>
             <div className="dishes-banner-icon">{allDishesDone ? "✨" : "🍽️"}</div>
             <div className="dishes-banner-body">
-              <div className="dishes-banner-label">Dishes tonight</div>
+              <div className="dishes-banner-label">Dishes today</div>
               <div className="dishes-banner-names">
                 {onDishes.map(m => {
                   const done = isChoreComplete(m.name, "dishes");
