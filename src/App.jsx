@@ -687,7 +687,28 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .my-jobs-chore.priority:not(.done){background:rgba(245,158,11,0.12);border-left:3px solid #f59e0b;font-weight:700;color:#fcd34d}
 @media(prefers-reduced-motion:reduce){.chore-item.priority,.must-do-alert{animation:none}}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
-/* --- Daily routine cards (morning / bedtime) --- */
+/* --- "Dishes tonight" hero banner --- */
+.dishes-banner{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:16px;border-radius:16px;background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.06));border:1px solid rgba(59,130,246,0.4);border-left:5px solid var(--accent)}
+.dishes-banner.done{background:linear-gradient(135deg,rgba(16,185,129,0.16),rgba(16,185,129,0.05));border-color:rgba(16,185,129,0.4);border-left-color:var(--success)}
+.dishes-banner.none{background:var(--bg-card);border-color:var(--border);border-left-color:var(--text-muted);opacity:0.75}
+.dishes-banner-icon{font-size:1.9rem;line-height:1;flex-shrink:0}
+.dishes-banner-body{flex:1;min-width:0}
+.dishes-banner-label{font-size:0.68rem;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px}
+.dishes-banner-names{display:flex;flex-wrap:wrap;gap:7px}
+.dishes-kid{display:inline-flex;align-items:center;gap:6px;padding:5px 13px 5px 9px;border-radius:999px;font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.25)}
+.dishes-kid.done{background:rgba(16,185,129,0.2);color:#34d399;text-shadow:none}
+.dishes-kid-emoji{font-size:1.1rem}
+.dishes-kid-check{font-weight:900}
+.dishes-banner-none-text{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:500;color:var(--text-secondary)}
+.dishes-banner-status{font-size:0.7rem;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#34d399;flex-shrink:0}
+.dishes-chip{font-size:0.6rem;font-weight:900;letter-spacing:0.6px;padding:3px 7px;border-radius:6px;background:var(--accent);color:#fff;white-space:nowrap;margin-left:2px}
+.dishes-chip.done{background:rgba(16,185,129,0.2);color:#34d399}
+/* --- Routine summary chips on the collapsed card --- */
+.routine-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.routine-chip{font-size:0.68rem;font-weight:800;padding:2px 7px;border-radius:6px;background:rgba(56,189,248,0.13);color:#38bdf8;white-space:nowrap}
+.routine-chip.done{background:rgba(16,185,129,0.15);color:#34d399}
+/* --- Daily routine sections (morning / bedtime), nested in the card --- */
+.member-card .routine-card{margin-top:10px}
 .member-stack{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
 .today-grid .member-stack{margin-bottom:0}
 .routine-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;border-left:3px solid rgba(56,189,248,0.5)}
@@ -1804,11 +1825,50 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         <div className="section-label">{headerDate}</div>
         <div className="section-title">Today</div>
       </div>
+      {(() => {
+        // Who's on dishes tonight — the single most-argued-about job in the house,
+        // so it gets top billing above everything else.
+        const onDishes = members.filter(m => getMemberChores(m.name).some(c => c.id === "dishes"));
+        const allDishesDone = onDishes.length > 0 && onDishes.every(m => isChoreComplete(m.name, "dishes"));
+        if (onDishes.length === 0) {
+          return (
+            <div className="dishes-banner none">
+              <div className="dishes-banner-icon">🍽️</div>
+              <div className="dishes-banner-body">
+                <div className="dishes-banner-label">Dishes tonight</div>
+                <div className="dishes-banner-none-text">Nobody — night off</div>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className={`dishes-banner ${allDishesDone ? "done" : ""}`}>
+            <div className="dishes-banner-icon">{allDishesDone ? "✨" : "🍽️"}</div>
+            <div className="dishes-banner-body">
+              <div className="dishes-banner-label">Dishes tonight</div>
+              <div className="dishes-banner-names">
+                {onDishes.map(m => {
+                  const done = isChoreComplete(m.name, "dishes");
+                  return (
+                    <span key={m.name} className={`dishes-kid ${done ? "done" : ""}`} style={{ background: done ? undefined : m.color }}>
+                      <span className="dishes-kid-emoji">{getMemberEmoji(m.name)}</span>
+                      {m.name}
+                      {done && <span className="dishes-kid-check">✓</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+            {allDishesDone && <div className="dishes-banner-status">Done</div>}
+          </div>
+        );
+      })()}
       <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
       <div className="today-grid">
       {members.map((member) => {
         const allChores = getMemberChores(member.name);
-        // Routine items live in their own cards below, not in the main chore list.
+        // Routine items render as their own sections inside the expanded card,
+        // not mixed into the main chore list.
         const chores = allChores.filter(c => !c.routine);
         const routineGroups = [];
         allChores.filter(c => c.routine).forEach(c => {
@@ -1838,6 +1898,11 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="member-name">
                     {member.name}
+                    {chores.some(c => c.id === "dishes") && (
+                      <span className={`dishes-chip ${isChoreComplete(member.name, "dishes") ? "done" : ""}`}>
+                        🍽️ DISHES
+                      </span>
+                    )}
                     {streak >= 30 ? <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>
                      : streak >= 14 ? <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>
                      : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
@@ -1851,6 +1916,18 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                   <div className="member-meta" style={{ color: allDone ? "#34d399" : "var(--text-muted)" }}>
                     {allDone ? "All done" : `${done} of ${total} done`}
                   </div>
+                  {routineGroups.length > 0 && !isExpanded && (
+                    <div className="routine-chips">
+                      {routineGroups.map(rg => {
+                        const d = rg.items.filter(it => isChoreComplete(member.name, it.id)).length;
+                        return (
+                          <span key={rg.key} className={`routine-chip ${d === rg.items.length ? "done" : ""}`}>
+                            {rg.icon} {rg.label} {d}/{rg.items.length}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   {priorityOpen.length > 0 && (
                     <div className="must-do-alert">
                       <span className="must-do-alert-icon">⚠</span>
@@ -1902,8 +1979,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
               {chores.length === 0 && <div className="chore-empty">Nothing assigned today</div>}
             </div>
             )}
-          </div>
-          {routineGroups.map((rg) => {
+            {isExpanded && routineGroups.map((rg) => {
             const rKey = `${member.name}::${rg.key}`;
             const rOpen = expanded.has(rKey);
             const rDone = rg.items.filter(it => isChoreComplete(member.name, it.id)).length;
@@ -1946,6 +2022,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
               </div>
             );
           })}
+          </div>
           </div>
         );
       })}
