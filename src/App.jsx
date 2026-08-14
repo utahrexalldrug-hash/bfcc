@@ -145,13 +145,177 @@ function isVideoGameDay(date) {
   return dayNum === 5 || dayNum === 6;
 }
 
-const DAILY_CHORES = {
-  Nicholas: { Sunday:{type:"dishes",zone:null,dinnerJob:null},Monday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Tuesday:{type:"dishes",zone:null,dinnerJob:null},Wednesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Thursday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Friday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Saturday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"} },
+// ============================================================
+// LEGACY DAILY CHORES (dates before SCHEDULE_V2_START)
+// Kept verbatim so historical completions and streaks still resolve against the
+// schedule that was actually in force on those days. Do not edit — edit the v2
+// tables below instead.
+// ============================================================
+const LEGACY_DAILY_CHORES = {
+  Nicholas: { Sunday:{type:"none",zone:null,dinnerJob:null},Monday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Tuesday:{type:"none",zone:null,dinnerJob:null},Wednesday:{type:"dishes",zone:null,dinnerJob:null},Thursday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Friday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Saturday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"} },
   Carter: { Sunday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Monday:{type:"dishes",zone:null,dinnerJob:null},Tuesday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Wednesday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Thursday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Friday:{type:"dishes",zone:null,dinnerJob:null},Saturday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"} },
-  Cole: { Sunday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Monday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Tuesday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Wednesday:{type:"dishes",zone:null,dinnerJob:null},Thursday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Friday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Saturday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"} },
-  Finn: { Sunday:{type:"young",task:"Set Table/Stairs"},Monday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Tuesday:{type:"young",task:"Set Table/Stairs"},Wednesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Thursday:{type:"young",task:"Set Table/Stairs"},Friday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Saturday:{type:"young",task:"Set Table/Stairs"} },
-  Liam: { Sunday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Monday:{type:"young",task:"Set Table/Stairs"},Tuesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Wednesday:{type:"young",task:"Set Table/Stairs"},Thursday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Friday:{type:"young",task:"Set Table/Stairs"},Saturday:{type:"young",task:"Help with Dishes/Upstairs Hallway"} },
+  Cole: { Sunday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Monday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Tuesday:{type:"dishes",zone:null,dinnerJob:null},Wednesday:{type:"none",zone:null,dinnerJob:null},Thursday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Friday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Saturday:{type:"dishes",zone:null,dinnerJob:null} },
+  Finn: { Sunday:{type:"young",task:"Set Table/Stairs"},Monday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Tuesday:{type:"young",task:"Set Table/Stairs"},Wednesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Thursday:{type:"young",task:"Load Dishes"},Friday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Saturday:{type:"young",task:"Set Table/Stairs"} },
+  Liam: { Sunday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Monday:{type:"young",task:"Set Table/Stairs"},Tuesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Wednesday:{type:"young",task:"Set Table/Stairs"},Thursday:{type:"young",task:"Load Dishes"},Friday:{type:"young",task:"Set Table/Stairs"},Saturday:{type:"young",task:"Help with Dishes/Upstairs Hallway"} },
 };
+
+// ============================================================
+// SCHEDULE v2 — dinner jobs, dishes and zones are now three INDEPENDENT
+// rotations. Previously the dinner job rode along with the cleaning zone, so
+// any kid on dishes silently lost his dinner job — which left the nightly trash
+// uncovered 5 nights a week. Effective SCHEDULE_V2_START; earlier dates still
+// resolve against LEGACY_DAILY_CHORES so history and streaks stay intact.
+// ============================================================
+const SCHEDULE_V2_START = "2026-08-14"; // live today — school starts Aug 19
+
+// Who loads the dishes each night.
+const DISH_DUTY = {
+  Sunday: [], Monday: ["Carter"], Tuesday: ["Cole"], Wednesday: ["Nicholas"],
+  Thursday: ["Finn", "Liam"], Friday: ["Carter"], Saturday: ["Cole"],
+};
+
+// The four nightly dinner jobs. Every job is filled every night.
+// Thursday: Finn and Liam are both on dishes, so Carter sets the table.
+const DINNER_JOB_IDS = {
+  "Clear Table": "dinner_clear",
+  "Take Out Trash": "dinner_trash",
+  "Floor Pickup": "dinner_floor",
+  "Set Table": "dinner_table",
+};
+const DINNER_JOBS = {
+  Sunday:    { "Clear Table": "Carter",   "Take Out Trash": "Cole",     "Floor Pickup": "Nicholas", "Set Table": "Finn" },
+  Monday:    { "Clear Table": "Nicholas", "Take Out Trash": "Cole",     "Floor Pickup": "Finn",     "Set Table": "Liam" },
+  Tuesday:   { "Clear Table": "Liam",     "Take Out Trash": "Carter",   "Floor Pickup": "Nicholas", "Set Table": "Finn" },
+  Wednesday: { "Clear Table": "Finn",     "Take Out Trash": "Carter",   "Floor Pickup": "Cole",     "Set Table": "Liam" },
+  Thursday:  { "Clear Table": "Cole",     "Take Out Trash": "Nicholas", "Floor Pickup": "Carter",   "Set Table": "Carter" },
+  Friday:    { "Clear Table": "Nicholas", "Take Out Trash": "Cole",     "Floor Pickup": "Liam",     "Set Table": "Finn" },
+  Saturday:  { "Clear Table": "Finn",     "Take Out Trash": "Nicholas", "Floor Pickup": "Carter",   "Set Table": "Liam" },
+};
+
+// Cleaning zones now rotate on their own, so every zone is covered all 7 nights
+// regardless of who has dishes.
+const ZONE_KIDS = ["Nicholas", "Carter", "Cole"];
+const ZONE_NAMES = ["Office/Front Hall", "Family Room/Vacuum", "Kitchen Floor"];
+const YOUNG_ZONE_KIDS = ["Finn", "Liam"];
+const YOUNG_ZONE_NAMES = ["Stairs", "Upstairs Hallway"];
+
+function getZoneForDate(member, date) {
+  const oi = ZONE_KIDS.indexOf(member);
+  if (oi >= 0) return ZONE_NAMES[(oi + date.getDay()) % ZONE_NAMES.length];
+  const yi = YOUNG_ZONE_KIDS.indexOf(member);
+  if (yi >= 0) return YOUNG_ZONE_NAMES[(yi + date.getDay()) % YOUNG_ZONE_NAMES.length];
+  return null;
+}
+
+function getDinnerJobsFor(member, dayName) {
+  const table = DINNER_JOBS[dayName] || {};
+  return Object.entries(table)
+    .filter(([, who]) => who === member)
+    .map(([job]) => ({ job, id: DINNER_JOB_IDS[job] }));
+}
+
+// Normalized daily assignment for a member on a date. Handles the legacy
+// schedule for pre-cutover dates so old streaks don't retroactively break.
+function getDailyAssignment(member, date) {
+  const dn = getDayName(date);
+  if (dateToKey(date) < SCHEDULE_V2_START) {
+    const d = LEGACY_DAILY_CHORES[member]?.[dn];
+    if (!d) return null;
+    if (d.type === "dishes") return { legacy: true, dishes: true, dinnerJobs: [], zone: null, youngTasks: [] };
+    if (d.type === "zone")   return { legacy: true, dishes: false, dinnerJobs: d.dinnerJob ? [{ job: d.dinnerJob, id: "dinner" }] : [], zone: d.zone, youngTasks: [] };
+    if (d.type === "young")  return { legacy: true, dishes: false, dinnerJobs: [], zone: null, youngTasks: d.task.split("/").map(s => s.trim()) };
+    return { legacy: true, dishes: false, dinnerJobs: [], zone: null, youngTasks: [] };
+  }
+  return {
+    legacy: false,
+    dishes: (DISH_DUTY[dn] || []).includes(member),
+    dinnerJobs: getDinnerJobsFor(member, dn),
+    zone: getZoneForDate(member, date),
+    youngTasks: [],
+  };
+}
+
+// ============================================================
+// PRIORITY ("no-miss") CHORES
+// These are the weekly rotation jobs that only come around once a week — if
+// they're skipped nobody else picks them up and the whole house notices. They
+// get a MUST DO badge, sort to the top of the list, and surface on the collapsed
+// card header so a kid can't miss one without opening their card.
+// ============================================================
+const PRIORITY_CHORE_IDS = new Set([
+  "w_trash",     // Collect Trash (all rooms) — Wednesday
+  "w_trashout",  // Take Bins Out — Wednesday
+  "w_soap",      // Refill Soap — Wednesday
+  "w_tp",        // Refill Toilet Paper — Wednesday
+  "w_cans",      // Bring Cans In — Thursday (carries to Friday)
+]);
+function isPriorityChore(choreId) { return PRIORITY_CHORE_IDS.has(choreId); }
+
+// ============================================================
+// DAILY ROUTINES (morning / bedtime checklists)
+// All-or-nothing: individual items are worth 0 points; completing every item
+// in a routine awards ROUTINE_BONUS. Unchecking any item takes the bonus back.
+// Item chore IDs are `rt_<key>_<index>` — the bonus record is `rt_<key>_bonus`.
+// ============================================================
+const ROUTINE_MEMBERS = ["Finn", "Liam"];
+const ROUTINE_BONUS = 2;
+// Routine items only count as "due" (for streaks) on or after this date, so
+// turning routines on doesn't retroactively break existing streaks.
+const ROUTINES_START = "2026-08-14";
+
+const ROUTINES = [
+  {
+    key: "morning",
+    label: "Morning",
+    icon: "☀️",
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    items: ["Get Dressed", "Get Lunch", "Get Shoes", "Pack Backpack"],
+  },
+  {
+    key: "night",
+    label: "Bedtime",
+    icon: "\u{1F319}",
+    days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+    items: ["Get Jammied", "Brush Teeth", "Set Out Clothes for Tomorrow"],
+  },
+  {
+    key: "night",
+    label: "Bedtime",
+    icon: "\u{1F319}",
+    days: ["Friday", "Saturday"],
+    items: ["Get Jammied", "Brush Teeth"],
+  },
+];
+
+// Returns [{key, label, icon, bonus, items:[{id,text}]}] for a member on a date.
+function getRoutinesForDate(member, date) {
+  if (!ROUTINE_MEMBERS.includes(member)) return [];
+  if (dateToKey(date) < ROUTINES_START) return [];
+  const dn = getDayName(date);
+  return ROUTINES.filter(r => r.days.includes(dn)).map(r => ({
+    key: r.key,
+    label: r.label,
+    icon: r.icon,
+    bonus: ROUTINE_BONUS,
+    items: r.items.map((text, i) => ({ id: `rt_${r.key}_${i}`, text })),
+  }));
+}
+
+// Given a chore ID, find the routine it belongs to (or null).
+function getRoutineForItemId(member, date, choreId) {
+  if (typeof choreId !== "string" || !choreId.startsWith("rt_")) return null;
+  return getRoutinesForDate(member, date).find(r => r.items.some(it => it.id === choreId)) || null;
+}
+
+// ============================================================
+// DAILY PRACTICE — piano, every day
+// ============================================================
+const PIANO_MEMBERS = ["Cole", "Liam"];
+const PIANO_START = "2026-08-14"; // same grandfathering rule as routines
+
+function hasPianoOnDate(member, date) {
+  return PIANO_MEMBERS.includes(member) && dateToKey(date) >= PIANO_START;
+}
 
 const FAMILY_MEMBERS = [
   { name: "Nicholas", color: "#E85D4A", emoji: "\u{1F985}", group: "older" },
@@ -284,12 +448,17 @@ function getYearKey(date) { return `${date.getFullYear()}`; }
 function getDailyDueChores(member, date, customTasks, completedChores) {
   const dayName = getDayName(date);
   const dk = dateToKey(date);
-  const daily = DAILY_CHORES[member]?.[dayName];
+  const daily = getDailyAssignment(member, date);
   const chores = [];
   if (!daily) return chores;
-  if (daily.type === "dishes") chores.push("dishes");
-  else if (daily.type === "zone") { chores.push("zone"); chores.push("dinner"); }
-  else if (daily.type === "young") { daily.task.split("/").forEach((_, i) => chores.push(`task_${i}`)); }
+  if (daily.dishes) chores.push("dishes");
+  if (daily.zone) chores.push("zone");
+  daily.dinnerJobs.forEach(dj => chores.push(dj.id));
+  daily.youngTasks.forEach((_, i) => chores.push(`task_${i}`));
+  // Daily routines (morning / bedtime) — every item counts toward the streak
+  getRoutinesForDate(member, date).forEach(r => r.items.forEach(it => chores.push(it.id)));
+  // Daily piano practice
+  if (hasPianoOnDate(member, date)) chores.push("piano");
   // Weekly rotation
   const weekRotation = getCurrentWeekRotation(date);
   if (weekRotation && dayName === "Wednesday") {
@@ -479,6 +648,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;transition:all 0.2s}
 .card-title{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;transition:all 0.15s;border-left:none}
+.member-stack .member-card{margin-bottom:0}
+@media(min-width:768px){.today-grid .member-stack{align-self:start}}
 .member-card:active{transform:scale(0.995)}
 .member-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
 .member-name-row{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
@@ -499,6 +670,35 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .tag-dishes{background:rgba(59,130,246,0.15);color:#60a5fa}.tag-zone{background:rgba(16,185,129,0.15);color:#34d399}
 .tag-dinner{background:rgba(245,158,11,0.15);color:#fbbf24}.tag-weekly{background:rgba(139,92,246,0.15);color:#a78bfa}
 .tag-young{background:rgba(236,72,153,0.15);color:#f472b6}.tag-custom{background:rgba(251,146,60,0.15);color:#fb923c}.tag-housekeeping{background:rgba(20,184,166,0.15);color:#2dd4bf}.tag-laundry{background:rgba(168,85,247,0.15);color:#c084fc}
+.tag-practice{background:rgba(217,70,239,0.15);color:#e879f9}.tag-routine{background:rgba(56,189,248,0.15);color:#38bdf8}
+/* --- Priority "no-miss" chores (weekly rotation jobs) --- */
+.chore-item.priority{background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.45);border-left:4px solid #f59e0b;box-shadow:0 0 0 0 rgba(245,158,11,0.5);animation:mustDoPulse 2.4s ease-in-out infinite}
+.chore-item.priority:hover{background:rgba(245,158,11,0.16)}
+.chore-item.priority .chore-text{color:#fcd34d}
+.chore-item.priority .chore-checkbox{border-color:#f59e0b}
+.chore-item.priority.completed{animation:none;box-shadow:none;background:rgba(255,255,255,0.03);border-color:var(--border);border-left-color:rgba(16,185,129,0.6)}
+.chore-item.priority.completed .chore-text{color:var(--text-primary)}
+@keyframes mustDoPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.35)}50%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}
+.must-do-badge{font-size:0.62rem;font-weight:900;letter-spacing:0.6px;padding:3px 7px;border-radius:6px;background:#f59e0b;color:#1a1205;white-space:nowrap;flex-shrink:0}
+.chore-item.completed .must-do-badge{background:rgba(245,158,11,0.25);color:#fbbf24}
+.must-do-alert{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 8px;border-radius:7px;background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.4);max-width:100%;animation:mustDoPulse 2.4s ease-in-out infinite}
+.must-do-alert-icon{font-size:0.75rem;flex-shrink:0}
+.must-do-alert-text{font-size:0.72rem;font-weight:800;color:#fbbf24;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.my-jobs-chore.priority:not(.done){background:rgba(245,158,11,0.12);border-left:3px solid #f59e0b;font-weight:700;color:#fcd34d}
+@media(prefers-reduced-motion:reduce){.chore-item.priority,.must-do-alert{animation:none}}
+.chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
+/* --- Daily routine cards (morning / bedtime) --- */
+.member-stack{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.today-grid .member-stack{margin-bottom:0}
+.routine-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;border-left:3px solid rgba(56,189,248,0.5)}
+.routine-card.complete{border-left-color:#10B981;background:rgba(16,185,129,0.05)}
+.routine-header{display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.routine-icon{font-size:1.2rem;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.routine-title{font-family:'Fredoka',sans-serif;font-weight:600;font-size:0.95rem}
+.routine-meta{font-size:0.75rem;color:var(--text-muted);margin-top:1px}
+.routine-bonus-chip{font-size:0.7rem;font-weight:800;padding:3px 7px;border-radius:6px;background:rgba(255,255,255,0.06);color:var(--text-muted);flex-shrink:0}
+.routine-bonus-chip.earned{background:rgba(16,185,129,0.15);color:#34d399}
+.routine-card .member-progress{margin-top:8px}
 .chore-points-badge{font-size:0.7rem;font-weight:800;color:var(--warning);padding:2px 6px;border-radius:6px;background:rgba(245,158,11,0.1);margin-right:4px;white-space:nowrap}
 .chore-delete-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);transition:color 0.15s;flex-shrink:0;display:flex;align-items:center}
 .chore-delete-btn:hover{color:#f87171}
@@ -1030,29 +1230,6 @@ export default function App() {
     return false;
   }, [isParent, memberPins]);
 
-  // Toggle chore for TODAY. Stores {ts, pts} so we know when it was done and
-  // how many points to refund on uncheck (fixes the late-penalty asymmetry bug).
-  const toggleChore = useCallback((member, choreId, pointValue = 1) => {
-    const doToggle = () => {
-      const key = `${todayKey}_${member}_${choreId}`;
-      setCompletedChores(prev => {
-        const next = { ...prev }; delete next._empty;
-        const existing = next[key];
-        if (existing) {
-          // Refund exactly what was awarded (legacy `true` → use current pointValue)
-          const refund = (existing === true) ? pointValue : (existing.pts ?? pointValue);
-          delete next[key];
-          addPoints(member, -refund);
-        } else {
-          next[key] = { ts: Date.now(), pts: pointValue };
-          addPoints(member, pointValue);
-        }
-        return next;
-      });
-    };
-    pinGate(member, doToggle);
-  }, [todayKey, addPoints, pinGate]);
-
   const isChoreComplete = useCallback((member, choreId) => {
     return !!completedChores[`${todayKey}_${member}_${choreId}`];
   }, [completedChores, todayKey]);
@@ -1071,37 +1248,74 @@ export default function App() {
       const now = new Date(); now.setHours(0,0,0,0);
       const choreDate = new Date(dk + "T00:00:00");
       const daysDiff = Math.floor((now.getTime() - choreDate.getTime()) / (24*60*60*1000));
-      const effectivePoints = daysDiff > 1 ? Math.round(pointValue * 0.75 * 100) / 100 : pointValue;
+      const lateFactor = daysDiff > 1 ? 0.75 : 1;
+      const effectivePoints = Math.round(pointValue * lateFactor * 100) / 100;
+      // If this is a routine item, the points are all-or-nothing at the routine level.
+      const routine = getRoutineForItemId(member, date, choreId);
       setCompletedChores(prev => {
         const next = { ...prev }; delete next._empty;
+        const wasRoutineDone = routine ? routine.items.every(it => !!next[`${dk}_${member}_${it.id}`]) : false;
         const existing = next[key];
+        let delta = 0;
         if (existing) {
           const refund = (existing === true) ? effectivePoints : (existing.pts ?? effectivePoints);
           delete next[key];
-          addPointsForDate(member, -refund, date);
+          delta -= refund;
         } else {
           next[key] = { ts: Date.now(), pts: effectivePoints };
-          addPointsForDate(member, effectivePoints, date);
+          delta += effectivePoints;
         }
+        if (routine) {
+          const isRoutineDone = routine.items.every(it => !!next[`${dk}_${member}_${it.id}`]);
+          const bonusKey = `${dk}_${member}_rt_${routine.key}_bonus`;
+          if (isRoutineDone && !wasRoutineDone) {
+            const bonus = Math.round(routine.bonus * lateFactor * 100) / 100;
+            next[bonusKey] = { ts: Date.now(), pts: bonus };
+            delta += bonus;
+          } else if (!isRoutineDone && wasRoutineDone) {
+            const rec = next[bonusKey];
+            const refund = !rec ? routine.bonus : (rec === true ? routine.bonus : (rec.pts ?? routine.bonus));
+            delete next[bonusKey];
+            delta -= refund;
+          }
+        }
+        if (delta !== 0) addPointsForDate(member, delta, date);
         return next;
       });
     };
     pinGate(member, doToggle);
   }, [addPointsForDate, pinGate]);
 
+  // Toggle chore for TODAY. Same path as any other date (daysDiff is 0, so no
+  // late penalty) — one implementation means UI and streak math can't drift.
+  const toggleChore = useCallback((member, choreId, pointValue = 1) => {
+    toggleChoreForDate(member, choreId, today, pointValue);
+  }, [toggleChoreForDate, today]);
+
   // Generic: get chores for any member on any date
   const getChoresForDate = useCallback((member, date) => {
     const dn = getDayName(date);
     const dk = dateToKey(date);
-    const daily = DAILY_CHORES[member]?.[dn];
+    const daily = getDailyAssignment(member, date);
     const chores = [];
     if (!daily) return chores;
-    if (daily.type === "dishes") { chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 }); }
-    else if (daily.type === "zone") {
-      chores.push({ id: "zone", text: `Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
-      chores.push({ id: "dinner", text: `Dinner: ${daily.dinnerJob}`, tag: "dinner", pointValue: 1 });
-    } else if (daily.type === "young") {
-      daily.task.split("/").forEach((t, i) => { chores.push({ id: `task_${i}`, text: t.trim(), tag: "young", pointValue: 1 }); });
+    if (daily.dishes) chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 });
+    if (daily.zone) chores.push({ id: "zone", text: `Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
+    daily.dinnerJobs.forEach(dj => {
+      chores.push({ id: dj.id, text: `Dinner: ${dj.job}`, tag: "dinner", pointValue: 1 });
+    });
+    daily.youngTasks.forEach((t, i) => { chores.push({ id: `task_${i}`, text: t, tag: "young", pointValue: 1 }); });
+    // Daily routines — items are 0 pts each; the routine bonus is awarded when
+    // every item is checked (see toggleChoreForDate). `routine` marks the key so
+    // TodayView can pull them out into their own cards.
+    getRoutinesForDate(member, date).forEach(r => {
+      r.items.forEach(it => {
+        chores.push({ id: it.id, text: it.text, tag: "routine", pointValue: 0, routine: r.key, routineLabel: r.label, routineIcon: r.icon, routineBonus: r.bonus });
+      });
+    });
+    // Daily piano practice
+    if (hasPianoOnDate(member, date)) {
+      chores.push({ id: "piano", text: "Practice Piano", tag: "practice", pointValue: 1 });
     }
     const rot = getCurrentWeekRotation(date);
     if (rot) {
@@ -1169,6 +1383,9 @@ export default function App() {
           chores.push({ id: `custom_${key}`, taskKey: key, text: task.description, tag: "custom", pointValue: task.points || 1 });
         });
     }
+    // Flag the once-a-week no-miss jobs and float them to the top of the list.
+    chores.forEach(c => { if (isPriorityChore(c.id)) c.priority = true; });
+    chores.sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0));
     return chores;
   }, [completedChores, customTasks]);
 
@@ -1290,7 +1507,7 @@ export default function App() {
       d.setDate(d.getDate() + i);
       const dk = dateToKey(d);
       const dn = getDayName(d);
-      const daily = DAILY_CHORES[member]?.[dn];
+      const daily = getDailyAssignment(member, d);
       if (!daily) continue;
 
       // Housekeeping task for that weekday
@@ -1304,20 +1521,18 @@ export default function App() {
       housekeepingTotal++;
       if (completedChores[`${dk}_${member}_hk_zone`]) housekeepingDone++;
 
-      // Dinner job for older kids on zone-type days
-      if (daily.type === "zone" && daily.dinnerJob) {
+      // Dinner jobs — every kid now has at least one every night (v2), so this
+      // is a real gate rather than something that silently vanished on dishes days.
+      daily.dinnerJobs.forEach(dj => {
         dinnerTotal++;
-        if (completedChores[`${dk}_${member}_dinner`]) dinnerDone++;
-      }
+        if (completedChores[`${dk}_${member}_${dj.id}`]) dinnerDone++;
+      });
 
-      // Younger kids: their two daily tasks count as housekeeping equivalent
-      if (daily.type === "young") {
-        const tasks = daily.task.split("/");
-        tasks.forEach((_, idx) => {
-          housekeepingTotal++;
-          if (completedChores[`${dk}_${member}_task_${idx}`]) housekeepingDone++;
-        });
-      }
+      // Legacy younger-kid tasks count as housekeeping equivalent
+      daily.youngTasks.forEach((_, idx) => {
+        housekeepingTotal++;
+        if (completedChores[`${dk}_${member}_task_${idx}`]) housekeepingDone++;
+      });
     }
 
     const housekeepingPct = housekeepingTotal > 0 ? Math.round((housekeepingDone / housekeepingTotal) * 100) : 100;
@@ -1592,9 +1807,20 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
       <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
       <div className="today-grid">
       {members.map((member) => {
-        const chores = getMemberChores(member.name);
-        const { done, total } = getCompletionCount(member.name);
+        const allChores = getMemberChores(member.name);
+        // Routine items live in their own cards below, not in the main chore list.
+        const chores = allChores.filter(c => !c.routine);
+        const routineGroups = [];
+        allChores.filter(c => c.routine).forEach(c => {
+          let g = routineGroups.find(r => r.key === c.routine);
+          if (!g) { g = { key: c.routine, label: c.routineLabel, icon: c.routineIcon, bonus: c.routineBonus, items: [] }; routineGroups.push(g); }
+          g.items.push(c);
+        });
+        const done = chores.filter(c => isChoreComplete(member.name, c.id)).length;
+        const total = chores.length;
         const allDone = total > 0 && done === total;
+        // No-miss jobs still outstanding — shown on the collapsed header.
+        const priorityOpen = chores.filter(c => c.priority && !isChoreComplete(member.name, c.id));
         const weeklyPts = getPoints(member.name, "weekly");
         const streak = computedStreaks?.[member.name] || 0;
         const emoji = getMemberEmoji(member.name);
@@ -1602,7 +1828,8 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         const isExpanded = expanded.has(member.name);
         return (
-          <div key={member.name} className="member-card animate-in">
+          <div key={member.name} className="member-stack">
+          <div className="member-card animate-in">
             <div className="member-header" onClick={() => toggleExpanded(member.name)} style={{ cursor: "pointer" }}>
               <div className="member-name-row">
                 <button className="emoji-picker-btn" onClick={(e) => { e.stopPropagation(); setEmojiPicker(emojiPicker === member.name ? null : member.name); }}>
@@ -1624,6 +1851,16 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                   <div className="member-meta" style={{ color: allDone ? "#34d399" : "var(--text-muted)" }}>
                     {allDone ? "All done" : `${done} of ${total} done`}
                   </div>
+                  {priorityOpen.length > 0 && (
+                    <div className="must-do-alert">
+                      <span className="must-do-alert-icon">⚠</span>
+                      <span className="must-do-alert-text">
+                        {priorityOpen.length === 1
+                          ? priorityOpen[0].text
+                          : `${priorityOpen.length} must-do jobs today`}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1652,17 +1889,63 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                 const completed = isChoreComplete(member.name, chore.id);
                 const isCustom = chore.tag === "custom";
                 return (
-                  <div key={chore.id} className={`chore-item ${completed ? "completed" : ""}`}>
+                  <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${chore.priority ? "priority" : ""}`}>
                     <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{completed && <Icons.Check size={16} color="white" />}</div>
                     <span className="chore-text" onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{chore.text}</span>
                     {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
+                    {chore.priority && <span className="must-do-badge">⚠ MUST DO</span>}
                     <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
                     {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
                   </div>
                 );
               })}
+              {chores.length === 0 && <div className="chore-empty">Nothing assigned today</div>}
             </div>
             )}
+          </div>
+          {routineGroups.map((rg) => {
+            const rKey = `${member.name}::${rg.key}`;
+            const rOpen = expanded.has(rKey);
+            const rDone = rg.items.filter(it => isChoreComplete(member.name, it.id)).length;
+            const rTotal = rg.items.length;
+            const rComplete = rDone === rTotal;
+            const rPct = rTotal > 0 ? Math.round((rDone / rTotal) * 100) : 0;
+            return (
+              <div key={rg.key} className={`routine-card ${rComplete ? "complete" : ""}`}>
+                <div className="routine-header" onClick={() => toggleExpanded(rKey)}>
+                  <div className="routine-icon">{rg.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="routine-title">{rg.label}</div>
+                    <div className="routine-meta">
+                      {rComplete
+                        ? <span style={{ color: "#34d399" }}>Complete · +{rg.bonus} pts earned</span>
+                        : <span>{rDone} of {rTotal} · +{rg.bonus} pts when all done</span>}
+                    </div>
+                  </div>
+                  <div className={`routine-bonus-chip ${rComplete ? "earned" : ""}`}>+{rg.bonus}</div>
+                  <div className="expand-chevron" style={{ transform: rOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
+                </div>
+                <div className="member-progress">
+                  <div className="member-progress-fill" style={{ width: `${rPct}%`, background: rComplete ? "#10B981" : member.color }} />
+                </div>
+                {rOpen && (
+                  <div className="chore-list" style={{ marginTop: 10 }}>
+                    {rg.items.map((item) => {
+                      const completed = isChoreComplete(member.name, item.id);
+                      return (
+                        <div key={item.id} className={`chore-item ${completed ? "completed" : ""}`}>
+                          <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} onClick={() => toggleChore(member.name, item.id, item.pointValue ?? 0)}>{completed && <Icons.Check size={16} color="white" />}</div>
+                          <span className="chore-text" onClick={() => toggleChore(member.name, item.id, item.pointValue ?? 0)}>{item.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           </div>
         );
       })}
@@ -1701,8 +1984,8 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                 </div>
                 {day.chores.length === 0 && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", paddingLeft: 10 }}>No chores</div>}
                 {day.chores.map(chore => (
-                  <div key={chore.id} className={`my-jobs-chore ${chore.done ? "done" : ""}`}>
-                    <span className="chore-status">{chore.done ? "✅" : "⬜"}</span>
+                  <div key={chore.id} className={`my-jobs-chore ${chore.done ? "done" : ""} ${chore.priority ? "priority" : ""}`}>
+                    <span className="chore-status">{chore.done ? "✅" : chore.priority ? "⚠️" : "⬜"}</span>
                     <span style={{ flex: 1 }}>{chore.text}</span>
                     <span className={`chore-tag tag-${chore.tag}`} style={{ fontSize: "0.65rem" }}>{chore.tag}</span>
                   </div>
@@ -2154,10 +2437,11 @@ function WeekView({ today, weekOffset, setWeekOffset, getChoresForDate, isChoreC
                     const completed = isChoreCompleteForDate(member.name, chore.id, selectedDay);
                     const isCustom = chore.tag === "custom";
                     return (
-                      <div key={chore.id} className={`chore-item ${completed ? "completed" : ""}`} onClick={(e) => { e.stopPropagation(); toggleChoreForDate(member.name, chore.id, selectedDay, chore.pointValue || 1); }}>
+                      <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${chore.priority ? "priority" : ""}`} onClick={(e) => { e.stopPropagation(); toggleChoreForDate(member.name, chore.id, selectedDay, chore.pointValue ?? 1); }}>
                         <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`}>{completed && <Icons.Check size={16} color="white" />}</div>
                         <span className="chore-text">{chore.text}</span>
                         {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
+                        {chore.priority && <span className="must-do-badge">⚠ MUST DO</span>}
                         <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
                         {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
                       </div>
