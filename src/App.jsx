@@ -344,6 +344,18 @@ function getRoutineForItemId(member, date, choreId) {
 }
 
 // ============================================================
+// SATURDAY MORNING — find church clothes for Sunday
+// Nicholas handles his own; the other four get the reminder.
+// ============================================================
+const CHURCH_CLOTHES_KIDS = ["Carter", "Cole", "Finn", "Liam"];
+
+function hasChurchClothesOnDate(member, date) {
+  return CHURCH_CLOTHES_KIDS.includes(member)
+    && date.getDay() === 6 // Saturday
+    && dateToKey(date) >= SCHEDULE_V2_START;
+}
+
+// ============================================================
 // DAILY PRACTICE — piano, every day
 // ============================================================
 const PIANO_MEMBERS = ["Cole", "Liam"];
@@ -496,6 +508,8 @@ function getDailyDueChores(member, date, customTasks, completedChores) {
   daily.youngTasks.forEach((_, i) => chores.push(`task_${i}`));
   // Daily routines (morning / bedtime) — every item counts toward the streak
   getRoutinesForDate(member, date).forEach(r => r.items.forEach(it => chores.push(it.id)));
+  // Saturday morning: find church clothes for Sunday
+  if (hasChurchClothesOnDate(member, date)) chores.push("church_clothes");
   // Daily piano practice
   if (hasPianoOnDate(member, date)) chores.push("piano");
   // Weekly rotation
@@ -710,6 +724,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .tag-dinner{background:rgba(245,158,11,0.15);color:#fbbf24}.tag-weekly{background:rgba(139,92,246,0.15);color:#a78bfa}
 .tag-young{background:rgba(236,72,153,0.15);color:#f472b6}.tag-custom{background:rgba(251,146,60,0.15);color:#fb923c}.tag-housekeeping{background:rgba(20,184,166,0.15);color:#2dd4bf}.tag-laundry{background:rgba(168,85,247,0.15);color:#c084fc}
 .tag-practice{background:rgba(217,70,239,0.15);color:#e879f9}.tag-routine{background:rgba(56,189,248,0.15);color:#38bdf8}
+.tag-church{background:rgba(99,102,241,0.16);color:#a5b4fc}
 /* --- Priority "no-miss" chores (weekly rotation jobs) --- */
 .chore-item.priority{background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.45);border-left:4px solid #f59e0b;box-shadow:0 0 0 0 rgba(245,158,11,0.5);animation:mustDoPulse 2.4s ease-in-out infinite}
 .chore-item.priority:hover{background:rgba(245,158,11,0.16)}
@@ -1377,6 +1392,10 @@ export default function App() {
         chores.push({ id: it.id, text: it.text, tag: "routine", pointValue: 0, routine: r.key, routineLabel: r.label, routineIcon: r.icon, routineBonus: r.bonus });
       });
     });
+    // Saturday morning: find church clothes for Sunday
+    if (hasChurchClothesOnDate(member, date)) {
+      chores.push({ id: "church_clothes", text: "Find Church Clothes for Sunday (morning)", tag: "church", pointValue: 1 });
+    }
     // Daily piano practice
     if (hasPianoOnDate(member, date)) {
       chores.push({ id: "piano", text: "Practice Piano", tag: "practice", pointValue: 1 });
