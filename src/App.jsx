@@ -168,11 +168,39 @@ const LEGACY_DAILY_CHORES = {
 // ============================================================
 const SCHEDULE_V2_START = "2026-08-14"; // live today — school starts Aug 19
 
-// Who loads the dishes each night.
+// Who's on dishes each day. Sunday rotates through every kid week by week
+// (see SUNDAY_DISH_ROTATION) so nobody permanently owns or dodges it.
 const DISH_DUTY = {
-  Sunday: [], Monday: ["Carter"], Tuesday: ["Cole"], Wednesday: ["Nicholas"],
+  Monday: ["Carter"], Tuesday: ["Cole"], Wednesday: ["Nicholas"],
   Thursday: ["Finn", "Liam"], Friday: ["Carter"], Saturday: ["Cole"],
 };
+const SUNDAY_DISH_ROTATION = ["Nicholas", "Carter", "Cole", "Finn", "Liam"];
+
+function getDishDutyFor(date) {
+  const dn = getDayName(date);
+  if (dn === "Sunday") {
+    const wk = getWeekNumber(date);
+    const i = ((wk % SUNDAY_DISH_ROTATION.length) + SUNDAY_DISH_ROTATION.length) % SUNDAY_DISH_ROTATION.length;
+    return [SUNDAY_DISH_ROTATION[i]];
+  }
+  return DISH_DUTY[dn] || [];
+}
+
+// Dishes is two halves: unload in the morning, load in the evening. On school
+// days they're labelled by time of day; on weekends it's just both jobs.
+// 1 point each, so the day is still worth the same 2 points it always was.
+const DISH_TASKS = [
+  { id: "dishes_unload", school: "Unload Dishwasher (morning)", weekend: "Unload Dishwasher" },
+  { id: "dishes_load",   school: "Load Dishwasher (evening)",   weekend: "Load Dishwasher" },
+];
+function isSchoolDayForDishes(date) {
+  const d = date.getDay();
+  return d >= 1 && d <= 5; // Mon-Fri
+}
+function getDishChores(date) {
+  const school = isSchoolDayForDishes(date);
+  return DISH_TASKS.map(t => ({ id: t.id, text: school ? t.school : t.weekend }));
+}
 
 // The four nightly dinner jobs. Every job is filled every night.
 // Thursday: Finn and Liam are both on dishes, so Carter sets the table.
@@ -181,6 +209,14 @@ const DINNER_JOB_IDS = {
   "Take Out Trash": "dinner_trash",
   "Floor Pickup": "dinner_floor",
   "Set Table": "dinner_table",
+};
+// What the kids actually read. Keys above stay stable so the rotation tables
+// below don't have to change when we reword a job.
+const DINNER_JOB_LABELS = {
+  "Clear Table": "Clear Table, Clear & Wipe Down Countertops",
+  "Take Out Trash": "Take Out Trash",
+  "Floor Pickup": "Floor Pickup",
+  "Set Table": "Set Table",
 };
 const DINNER_JOBS = {
   Sunday:    { "Clear Table": "Carter",   "Take Out Trash": "Cole",     "Floor Pickup": "Nicholas", "Set Table": "Finn" },
@@ -228,7 +264,7 @@ function getDailyAssignment(member, date) {
   }
   return {
     legacy: false,
-    dishes: (DISH_DUTY[dn] || []).includes(member),
+    dishes: getDishDutyFor(date).includes(member),
     dinnerJobs: getDinnerJobsFor(member, dn),
     zone: getZoneForDate(member, date),
     youngTasks: [],
@@ -451,7 +487,10 @@ function getDailyDueChores(member, date, customTasks, completedChores) {
   const daily = getDailyAssignment(member, date);
   const chores = [];
   if (!daily) return chores;
-  if (daily.dishes) chores.push("dishes");
+  if (daily.dishes) {
+    if (daily.legacy) chores.push("dishes");
+    else getDishChores(date).forEach(t => chores.push(t.id));
+  }
   if (daily.zone) chores.push("zone");
   daily.dinnerJobs.forEach(dj => chores.push(dj.id));
   daily.youngTasks.forEach((_, i) => chores.push(`task_${i}`));
@@ -699,6 +738,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .dishes-kid.done{background:rgba(16,185,129,0.2);color:#34d399;text-shadow:none}
 .dishes-kid-emoji{font-size:1.1rem}
 .dishes-kid-check{font-weight:900}
+.dishes-kid-count{font-size:0.78rem;font-weight:800;opacity:0.85}
 .dishes-banner-none-text{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:500;color:var(--text-secondary)}
 .dishes-banner-status{font-size:0.7rem;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#34d399;flex-shrink:0}
 .dishes-chip{font-size:0.6rem;font-weight:900;letter-spacing:0.6px;padding:3px 7px;border-radius:6px;background:var(--accent);color:#fff;white-space:nowrap;margin-left:2px}
@@ -1320,10 +1360,13 @@ export default function App() {
     const daily = getDailyAssignment(member, date);
     const chores = [];
     if (!daily) return chores;
-    if (daily.dishes) chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 });
+    if (daily.dishes) {
+      if (daily.legacy) chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 });
+      else getDishChores(date).forEach(t => chores.push({ id: t.id, text: t.text, tag: "dishes", pointValue: 1 }));
+    }
     if (daily.zone) chores.push({ id: "zone", text: `Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
     daily.dinnerJobs.forEach(dj => {
-      chores.push({ id: dj.id, text: `Dinner: ${dj.job}`, tag: "dinner", pointValue: 1 });
+      chores.push({ id: dj.id, text: `Dinner: ${DINNER_JOB_LABELS[dj.job] || dj.job}`, tag: "dinner", pointValue: 1 });
     });
     daily.youngTasks.forEach((t, i) => { chores.push({ id: `task_${i}`, text: t, tag: "young", pointValue: 1 }); });
     // Daily routines — items are 0 pts each; the routine bonus is awarded when
@@ -1828,8 +1871,10 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
       {(() => {
         // Who's on dishes today — the single most-argued-about job in the house,
         // so it gets top billing above everything else.
-        const onDishes = members.filter(m => getMemberChores(m.name).some(c => c.id === "dishes"));
-        const allDishesDone = onDishes.length > 0 && onDishes.every(m => isChoreComplete(m.name, "dishes"));
+        const isDishChore = (c) => c.id === "dishes" || c.id.startsWith("dishes_");
+        const onDishes = members.filter(m => getMemberChores(m.name).some(isDishChore));
+        const allDishesDone = onDishes.length > 0 && onDishes.every(m =>
+          getMemberChores(m.name).filter(isDishChore).every(c => isChoreComplete(m.name, c.id)));
         if (onDishes.length === 0) {
           return (
             <div className="dishes-banner none">
@@ -1848,12 +1893,16 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
               <div className="dishes-banner-label">Dishes today</div>
               <div className="dishes-banner-names">
                 {onDishes.map(m => {
-                  const done = isChoreComplete(m.name, "dishes");
+                  const dishChores = getMemberChores(m.name).filter(isDishChore);
+                  const doneCount = dishChores.filter(c => isChoreComplete(m.name, c.id)).length;
+                  const done = doneCount === dishChores.length;
                   return (
                     <span key={m.name} className={`dishes-kid ${done ? "done" : ""}`} style={{ background: done ? undefined : m.color }}>
                       <span className="dishes-kid-emoji">{getMemberEmoji(m.name)}</span>
                       {m.name}
-                      {done && <span className="dishes-kid-check">✓</span>}
+                      {done
+                        ? <span className="dishes-kid-check">✓</span>
+                        : dishChores.length > 1 && <span className="dishes-kid-count">{doneCount}/{dishChores.length}</span>}
                     </span>
                   );
                 })}
@@ -1898,8 +1947,8 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="member-name">
                     {member.name}
-                    {chores.some(c => c.id === "dishes") && (
-                      <span className={`dishes-chip ${isChoreComplete(member.name, "dishes") ? "done" : ""}`}>
+                    {chores.some(c => c.id === "dishes" || c.id.startsWith("dishes_")) && (
+                      <span className={`dishes-chip ${chores.filter(c => c.id === "dishes" || c.id.startsWith("dishes_")).every(c => isChoreComplete(member.name, c.id)) ? "done" : ""}`}>
                         🍽️ DISHES
                       </span>
                     )}
