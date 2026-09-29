@@ -1,4 +1,4 @@
-const CACHE_NAME = 'family-hq-v1';
+const CACHE_NAME = 'family-hq-v2';
 
 // Install: cache the app shell
 self.addEventListener('install', (event) => {
@@ -9,6 +9,8 @@ self.addEventListener('install', (event) => {
         '/index.html',
         '/icon-192.png',
         '/icon-512.png',
+        '/icon.svg',
+        '/apple-touch-icon.png',
       ]);
     })
   );

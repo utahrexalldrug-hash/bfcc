@@ -8,6 +8,7 @@ import {
   isTeamWeek, getChartAssignment, isMopSaturday, getIncompleteHousekeepingTasks, getWeekStartKey, getMonthKey,
   getYearKey, calculateStreak, STREAK_MILESTONES,
 } from "./schedule";
+import { LogoMark, LaunchSplash, shouldShowSplash } from "./Logo";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 
 // ============================================================
@@ -284,7 +285,10 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .app{min-height:100vh;display:flex;flex-direction:column}
 .header{background:var(--bg-primary);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .header-left{display:flex;align-items:center;gap:12px}
-.header-logo{font-family:'Fredoka',sans-serif;font-size:1.4rem;font-weight:600;color:var(--text-primary)}
+.header-logo{font-family:'Fredoka',sans-serif;font-size:1.4rem;font-weight:600;color:var(--text-primary);display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.header-logo .hq-logo{flex-shrink:0;border-radius:8px}
+@media (max-width:560px){.header{padding:12px 14px}.header-date{display:none}.sync-label{display:none}.header-logo{font-size:1.3rem}}
+.header-logo-hq{margin-left:-4px;background:linear-gradient(90deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;background-clip:text;color:transparent}
 .header-date{font-size:0.9rem;color:var(--text-secondary);font-weight:600}
 .header-right{display:flex;align-items:center;gap:8px}
 .sync-indicator{display:flex;align-items:center;gap:4px;font-size:0.7rem;font-weight:600;padding:4px 8px;border-radius:8px}
@@ -707,6 +711,7 @@ export default function App() {
   const [isParent, setIsParent] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [milestone, setMilestone] = useState(null); // { member, streak }
+  const [showSplash, setShowSplash] = useState(() => shouldShowSplash());
   const prevStreaksRef = useRef({});
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -1337,16 +1342,17 @@ export default function App() {
 
   return (
     <><style>{styles}</style>
+      {showSplash && <LaunchSplash onDone={() => setShowSplash(false)} />}
       <div className="app">
         <header className="header">
           <div className="header-left">
-            <span className="header-logo">Family HQ</span>
+            <span className="header-logo"><LogoMark size={34} />Family <span className="header-logo-hq">HQ</span></span>
             <span className="header-date">{formatDate(today)}</span>
           </div>
           <div className="header-right">
             <div className={`sync-indicator ${isOnline ? "sync-online" : "sync-offline"}`}>
               {isOnline ? <Icons.Cloud size={14} /> : <Icons.CloudOff size={14} />}
-              {isOnline ? "Synced" : "Offline"}
+              <span className="sync-label">{isOnline ? "Synced" : "Offline"}</span>
             </div>
             {isParent ? (
               <button className="btn btn-ghost" onClick={() => setIsParent(false)} style={{ fontSize: "0.8rem" }}><Icons.Lock size={16} /> Lock</button>

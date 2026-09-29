@@ -181,8 +181,11 @@ export const HOUSEKEEPING_CHART_VERSIONS = [
   { start: "2025-07-27", charts: HOUSEKEEPING_CHARTS_V1 },
   {
     start: "2026-09-29",
-    note: "Chart 5: dropped Thursday 'Wipe dishwasher' — Chart 3 already wipes it the same day",
-    charts: editCharts(HOUSEKEEPING_CHARTS_V1, { "Chart 5": { tasks: { Thursday: null } } }),
+    note: "Chart 5 Thursday: 'Wipe dishwasher' (Chart 3 already does it) replaced by laundry/garage entry, moved out of Chart 4's Tidy Up so Chart 4 is just the Family Room",
+    charts: editCharts(HOUSEKEEPING_CHARTS_V1, {
+      "Chart 4": { zone: "Family Room — pick up floor, clean off TV piece, tell dad so he can set the vacuums loose" },
+      "Chart 5": { tasks: { Thursday: "Straighten laundry area & garage entry" } },
+    }),
   },
 ];
 

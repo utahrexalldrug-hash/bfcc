@@ -7,20 +7,24 @@
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0f1724" />
+    <meta name="theme-color" content="#0d111a" />
     <meta name="description" content="Gamified chore management for the whole family" />
 
     <!-- iOS PWA support -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Family HQ" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/icon-192.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
 
     <!-- Prevent zoom on input focus (iOS) -->
     <meta name="format-detection" content="telephone=no" />
+
+    <!-- Dark from the first paint so there's no white flash before the launch animation -->
+    <style>html,body{background:#0b0f18;margin:0}</style>
   </head>
   <body>
     <div id="root"></div>
