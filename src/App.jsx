@@ -384,11 +384,6 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .date-night-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
 .date-night-date{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;color-scheme:dark}
 .date-night-btn{background:#0d9488;border-color:#0d9488}
-.dinner-duty{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)}
-.dinner-duty-item{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap}
-.dinner-duty-label{font-size:0.68rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted)}
-.dinner-duty-kid{display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 7px;border-radius:999px;font-family:'Fredoka',sans-serif;font-size:0.92rem;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.25)}
-.dinner-duty-kid.done{background:rgba(16,185,129,0.22);color:#6ee7b7;text-shadow:none}
 .work-bar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;width:100%;margin-top:10px;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--text-primary);font-family:inherit;text-align:left;cursor:pointer}
 .work-bar.done{border-color:rgba(16,185,129,0.4)}
 .work-bar-label{font-size:0.68rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted)}
@@ -412,6 +407,18 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .work-entry-when{color:var(--text-muted);font-weight:700;min-width:84px;font-size:0.8rem}
 .work-entry-what{flex:1;min-width:0}
 .work-entry-mins{font-weight:800;white-space:nowrap}
+.duty-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.duty-col{min-width:0;display:flex;flex-direction:column;gap:7px}
+.duty-label{font-size:0.68rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.duty-chips{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;max-width:210px}
+.duty-chip{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;min-width:0;padding:5px 10px;border-radius:999px;font-family:'Fredoka',sans-serif;font-size:1.02rem;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.25);white-space:nowrap}
+.duty-chip-name{overflow:hidden;text-overflow:ellipsis}
+.duty-chip.done{background:rgba(16,185,129,0.22);color:#6ee7b7;text-shadow:none}
+.duty-chip-count{font-size:0.75rem;font-weight:800;opacity:0.85}
+.duty-chip-check{font-weight:900}
+.duty-none{font-family:'Fredoka',sans-serif;font-size:1rem;color:var(--text-secondary);padding:5px 0}
+@media (max-width:560px){.dishes-banner{padding:12px}.dishes-banner .dishes-banner-icon,.dishes-banner .dishes-banner-status{display:none}.duty-grid{gap:8px}.duty-label{font-size:0.6rem;letter-spacing:0.6px}.duty-chip{font-size:0.95rem;padding:5px 6px;gap:3px}.duty-chip-emoji{display:none}}
+@media (max-width:400px){.duty-chip{font-size:0.88rem;padding:4px 4px}.duty-chip-count{font-size:0.68rem}}
 .chore-done-toggle{background:none;border:none;color:var(--success);font-size:0.8rem;font-weight:700;text-align:left;padding:6px 2px 2px;cursor:pointer;font-family:inherit}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
 /* --- "Dishes today" hero banner --- */
@@ -1488,70 +1495,45 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
         <div className="section-title">Today</div>
       </div>
       {(() => {
-        // Who's on dishes today — the single most-argued-about job in the house,
-        // so it gets top billing above everything else.
+        // Tonight's three "whose turn is it" jobs — dishes, clear table, trash —
+        // side by side in equal columns so everyone can see them at a glance.
         const isDishChore = (c) => c.id === "dishes" || c.id.startsWith("dishes_");
-        const onDishes = members.filter(m => getMemberChores(m.name).some(isDishChore));
-        const allDishesDone = onDishes.length > 0 && onDishes.every(m =>
-          getMemberChores(m.name).filter(isDishChore).every(c => isChoreComplete(m.name, c.id)));
-        // Tonight's other two "whose turn is it" dinner jobs, right under dishes.
-        const DUTY_JOBS = [{ id: "dinner_clear", label: "Clear Table", icon: "🧽" }, { id: "dinner_trash", label: "Take Out Trash", icon: "🗑️" }];
-        const duty = DUTY_JOBS
-          .map(j => ({ ...j, kids: members.filter(m => getMemberChores(m.name).some(c => c.id === j.id)) }))
-          .filter(j => j.kids.length > 0);
-        const dutyRow = duty.length > 0 && (
-          <div className="dinner-duty">
-            {duty.map(j => (
-              <span key={j.id} className="dinner-duty-item">
-                <span className="dinner-duty-label">{j.icon} {j.label}</span>
-                {j.kids.map(m => {
-                  const done = isChoreComplete(m.name, j.id);
-                  return (
-                    <span key={m.name} className={`dinner-duty-kid ${done ? "done" : ""}`} style={done ? undefined : { background: m.color }}>
-                      {getMemberEmoji(m.name)} {m.name}{done && <span className="dishes-kid-check"> ✓</span>}
-                    </span>
-                  );
-                })}
-              </span>
-            ))}
-          </div>
-        );
-        if (onDishes.length === 0) {
-          return (
-            <div className="dishes-banner none">
-              <div className="dishes-banner-icon">🍽️</div>
-              <div className="dishes-banner-body">
-                <div className="dishes-banner-label">Dishes today</div>
-                <div className="dishes-banner-none-text">Nobody today — day off</div>
-                {dutyRow}
-              </div>
-            </div>
-          );
-        }
+        const COLUMNS = [
+          { key: "dishes", label: "Dishes", icon: "🍽️", match: isDishChore },
+          { key: "clear", label: "Clear Table", icon: "🧽", match: c => c.id === "dinner_clear" },
+          { key: "trash", label: "Trash", icon: "🗑️", match: c => c.id === "dinner_trash" },
+        ].map(col => ({
+          ...col,
+          kids: members.map(m => {
+            const jobs = getMemberChores(m.name).filter(col.match);
+            if (!jobs.length) return null;
+            const doneCount = jobs.filter(c => isChoreComplete(m.name, c.id)).length;
+            return { m, total: jobs.length, doneCount, done: doneCount === jobs.length };
+          }).filter(Boolean),
+        }));
+        const assigned = COLUMNS.flatMap(c => c.kids);
+        const allDone = assigned.length > 0 && assigned.every(k => k.done);
         return (
-          <div className={`dishes-banner ${allDishesDone ? "done" : ""}`}>
-            <div className="dishes-banner-icon">{allDishesDone ? "✨" : "🍽️"}</div>
-            <div className="dishes-banner-body">
-              <div className="dishes-banner-label">Dishes today</div>
-              <div className="dishes-banner-names">
-                {onDishes.map(m => {
-                  const dishChores = getMemberChores(m.name).filter(isDishChore);
-                  const doneCount = dishChores.filter(c => isChoreComplete(m.name, c.id)).length;
-                  const done = doneCount === dishChores.length;
-                  return (
-                    <span key={m.name} className={`dishes-kid ${done ? "done" : ""}`} style={{ background: done ? undefined : m.color }}>
-                      <span className="dishes-kid-emoji">{getMemberEmoji(m.name)}</span>
-                      {m.name}
-                      {done
-                        ? <span className="dishes-kid-check">✓</span>
-                        : dishChores.length > 1 && <span className="dishes-kid-count">{doneCount}/{dishChores.length}</span>}
-                    </span>
-                  );
-                })}
-              </div>
-              {dutyRow}
+          <div className={`dishes-banner ${allDone ? "done" : ""}`}>
+            <div className="dishes-banner-icon">{allDone ? "✨" : "🍽️"}</div>
+            <div className="duty-grid">
+              {COLUMNS.map(col => (
+                <div key={col.key} className="duty-col">
+                  <div className="duty-label">{col.icon} {col.label}</div>
+                  <div className="duty-chips">
+                    {col.kids.length === 0 && <span className="duty-none">{col.key === "dishes" ? "Day off" : "—"}</span>}
+                    {col.kids.map(({ m, total, doneCount, done }) => (
+                      <span key={m.name} className={`duty-chip ${done ? "done" : ""}`} style={done ? undefined : { background: m.color }}>
+                        <span className="duty-chip-emoji">{getMemberEmoji(m.name)}</span>
+                        <span className="duty-chip-name">{m.name}</span>
+                        {done ? <span className="duty-chip-check">✓</span> : total > 1 && <span className="duty-chip-count">{doneCount}/{total}</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-            {allDishesDone && <div className="dishes-banner-status">Done</div>}
+            {allDone && <div className="dishes-banner-status">Done</div>}
           </div>
         );
       })()}
