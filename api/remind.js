@@ -6,7 +6,7 @@
 // has jobs left today — e.g. "Carter: 3 jobs left today" / "Floor Pickup ·
 // Laundry Day! · Tidy Up: Kitchen". Kids who are done get nothing. Devices
 // with the parent summary on get one "who's not done" note — and on Sundays
-// it also says whose turn it is for date night (until it's scheduled); in the
+// it also says whose turn it is for the one-on-one night out (until it's scheduled); in the
 // last week of a month it adds any monthly work hours still owed (Cole).
 //
 // Scheduling: vercel.json runs this at 00:00 and 01:00 UTC. The free plan only
@@ -86,10 +86,10 @@ export function jobsLeft(member, date, customTasks, completedChores) {
 export function buildMessages(subscriptions, date, customTasks, completedChores, dateNights = {}, workLogs = {}) {
   const kids = FAMILY_MEMBERS.map(m => m.name);
   const left = Object.fromEntries(kids.map(k => [k, jobsLeft(k, date, customTasks, completedChores)]));
-  // Sundays: remind parents whose turn it is for date night (until it's scheduled).
+  // Sundays: remind parents whose turn it is for the one-on-one night out (until it's scheduled).
   const dn = date.getDay() === 0 ? getDateNight(date, dateNights) : null;
   const dateLine = dn && !(dn.record && dn.record.status === "scheduled")
-    ? `💕 Date night this week: ${dn.kid} — not scheduled yet` : null;
+    ? `🍔 One-on-one this week: ${dn.kid} — not scheduled yet` : null;
   // Last 7 days of the month: nudge parents about monthly work hours still owed.
   const daysLeft = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate() - date.getDate();
   const workLines = daysLeft < 7 ? Object.keys(MONTHLY_WORK).map(kid => {
@@ -120,7 +120,7 @@ export function buildMessages(subscriptions, date, customTasks, completedChores,
         tag: "hq-parent",
       } });
       else if (dateLine) out.push({ subId, payload: {
-        title: `💕 Date night this week: ${dn.kid}`,
+        title: `🍔 One-on-one this week: ${dn.kid}`,
         body: ["Not scheduled yet — tap to set it up", ...workLines].join("\n"),
         url: "/",
         tag: "hq-parent",

@@ -369,13 +369,13 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .reminders-device{display:flex;align-items:center;gap:10px;font-size:0.85rem;padding:6px 0}
 .reminders-device span:first-child{font-weight:700;min-width:110px}
 .reminders-device-who{flex:1;color:var(--text-secondary)}
-.date-night{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;margin-bottom:16px;border-radius:16px;border:1px solid rgba(236,72,153,0.35);border-left:4px solid #EC4899;background:linear-gradient(135deg,rgba(236,72,153,0.14),rgba(139,92,246,0.08))}
-.date-night.scheduled{border-color:rgba(16,185,129,0.35);border-left-color:var(--success);background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(236,72,153,0.06))}
-.date-night.fresh{box-shadow:0 0 0 3px rgba(236,72,153,0.18)}
+.date-night{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;margin-bottom:16px;border-radius:16px;border:1px solid rgba(20,184,166,0.35);border-left:4px solid #14B8A6;background:linear-gradient(135deg,rgba(20,184,166,0.14),rgba(139,92,246,0.08))}
+.date-night.scheduled{border-color:rgba(16,185,129,0.35);border-left-color:var(--success);background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(20,184,166,0.06))}
+.date-night.fresh{box-shadow:0 0 0 3px rgba(20,184,166,0.18)}
 .date-night-icon{font-size:1.9rem;line-height:1}
 .date-night-body{flex:1;min-width:0}
-.date-night-label{font-size:0.72rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#f9a8d4;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.date-night-new{font-size:0.65rem;letter-spacing:0.06em;background:#EC4899;color:#fff;padding:2px 8px;border-radius:999px}
+.date-night-label{font-size:0.72rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#5eead4;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.date-night-new{font-size:0.65rem;letter-spacing:0.06em;background:#0d9488;color:#fff;padding:2px 8px;border-radius:999px}
 .date-night-who{display:flex;align-items:center;gap:10px;margin:8px 0 6px;flex-wrap:wrap}
 .date-night-kid{font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.15rem;color:#fff;padding:5px 14px;border-radius:999px}
 .date-night-with{font-weight:700;color:var(--text-secondary)}
@@ -383,7 +383,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .date-night-next{color:var(--text-muted)}
 .date-night-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
 .date-night-date{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;color-scheme:dark}
-.date-night-btn{background:#EC4899;border-color:#EC4899}
+.date-night-btn{background:#0d9488;border-color:#0d9488}
 .dinner-duty{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)}
 .dinner-duty-item{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap}
 .dinner-duty-label{font-size:0.68rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted)}
@@ -3193,9 +3193,9 @@ function DateNightCard({ today, dateNights, setDateNights, isParent, getMemberEm
 
   return (
     <div className={`date-night ${scheduled ? "scheduled" : ""} ${isSunday && !scheduled ? "fresh" : ""}`}>
-      <div className="date-night-icon">💕</div>
+      <div className="date-night-icon">🍔</div>
       <div className="date-night-body">
-        <div className="date-night-label">Date night this week{isSunday && !scheduled ? <span className="date-night-new">New this week</span> : null}</div>
+        <div className="date-night-label">One-on-one this week{isSunday && !scheduled ? <span className="date-night-new">New this week</span> : null}</div>
         <div className="date-night-who">
           <span className="date-night-kid" style={{ background: kid?.color }}>{getMemberEmoji(info.kid)} {info.kid}</span>
           <span className="date-night-with">with Mom &amp; Dad</span>
@@ -3217,7 +3217,7 @@ function DateNightCard({ today, dateNights, setDateNights, isParent, getMemberEm
               <button className="btn btn-ghost" onClick={() => save({ status: "missed", day: null })}>It didn't happen</button>
               <button className="btn btn-ghost" onClick={() => save(null)}>Undo</button>
             </>) : (<>
-              <button className="btn btn-primary date-night-btn" onClick={() => { setDay(""); setPicking(true); }}>💕 We've scheduled it</button>
+              <button className="btn btn-primary date-night-btn" onClick={() => { setDay(""); setPicking(true); }}>🍔 We've scheduled it</button>
               {missed && <button className="btn btn-ghost" onClick={() => save(null)}>Undo</button>}
             </>)}
           </div>

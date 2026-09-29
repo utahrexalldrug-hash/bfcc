@@ -119,15 +119,15 @@ async function run(nowISO, docs, q = "") {
   const docs = baseDocs(); docs.dateNights = { "2026-09-27": { status: "scheduled" } }; // Cole's date happened
   const a = await run("2026-10-05T00:30:00Z", docs); // Sun Oct 4, 6:30pm MDT → Carter's week
   const dad = a.sent.find(m => m.to === "dad");
-  check("Sunday summary mentions date night (Carter's week)", dad && /Date night this week: Carter — not scheduled yet/.test(dad.body), dad && dad.body.replace("\n", " / "));
+  check("Sunday summary mentions date night (Carter's week)", dad && /One-on-one this week: Carter — not scheduled yet/.test(dad.body), dad && dad.body.replace("\n", " / "));
   const docs0 = baseDocs(); docs0.dateNights = {}; // Cole's week never scheduled → he keeps the turn
   const a0 = await run("2026-10-05T00:30:00Z", docs0);
   const dad0 = a0.sent.find(m => m.to === "dad");
-  check("unscheduled week carries over (still Cole)", dad0 && /Date night this week: Cole/.test(dad0.body), dad0 && dad0.body.replace("\n", " / "));
+  check("unscheduled week carries over (still Cole)", dad0 && /One-on-one this week: Cole/.test(dad0.body), dad0 && dad0.body.replace("\n", " / "));
   const docs2 = baseDocs(); docs2.dateNights = { "2026-09-27": { status: "scheduled" }, "2026-10-04": { status: "scheduled", day: "2026-10-09" } };
   const b = await run("2026-10-05T00:30:00Z", docs2);
   const dad2 = b.sent.find(m => m.to === "dad");
-  check("once scheduled, no date-night nag", dad2 && !/Date night/.test(dad2.body), dad2 && dad2.body);
+  check("once scheduled, no date-night nag", dad2 && !/One-on-one/.test(dad2.body), dad2 && dad2.body);
   const docs3 = baseDocs(); docs3.dateNights = {};
   process.env.TZ = "America/Denver";
   const now3 = new Date("2026-10-05T00:30:00Z"); const dk3 = S.dateToKey(now3);
@@ -135,9 +135,9 @@ async function run(nowISO, docs, q = "") {
   process.env.TZ = "UTC";
   const c = await run(now3.toISOString(), docs3);
   const dad3 = c.sent.find(m => m.to === "dad");
-  check("everyone done on Sunday → date-night-only note", dad3 && dad3.title === "💕 Date night this week: Cole" && /tap to set it up/.test(dad3.body), dad3 && `${dad3.title} | ${dad3.body}`);
+  check("everyone done on Sunday → date-night-only note", dad3 && dad3.title === "🍔 One-on-one this week: Cole" && /tap to set it up/.test(dad3.body), dad3 && `${dad3.title} | ${dad3.body}`);
   const e = await run("2026-10-01T00:30:00Z", Object.assign(baseDocs(), { dateNights: {} })); // Wednesday
-  check("weekday summary has no date-night line", !/Date night/.test((e.sent.find(m => m.to === "dad") || {}).body || ""));
+  check("weekday summary has no date-night line", !/One-on-one/.test((e.sent.find(m => m.to === "dad") || {}).body || ""));
 }
 
 // 7. Last week of the month: work hours still owed
