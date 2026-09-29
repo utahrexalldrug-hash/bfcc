@@ -5,7 +5,9 @@
 // turned on reminders gets a notification for each kid it follows who still
 // has jobs left today — e.g. "Carter: 3 jobs left today" / "Floor Pickup ·
 // Laundry Day! · Tidy Up: Kitchen". Kids who are done get nothing. Devices
-// with the parent summary on get one "who's not done" note.
+// with the parent summary on get one "who's not done" note — and on Sundays
+// it also says whose turn it is for date night (until it's scheduled); in the
+// last week of a month it adds any monthly work hours still owed (Cole).
 //
 // Scheduling: vercel.json runs this at 00:00 and 01:00 UTC. The free plan only
 // promises "somewhere in that hour", and Denver is UTC-6 in summer / UTC-7 in
@@ -23,7 +25,7 @@
 //   CRON_SECRET        — Vercel sends this with cron requests automatically
 // ============================================================
 import webpush from "web-push";
-import { buildChoreList, FAMILY_MEMBERS, dateToKey } from "../src/schedule.js";
+import { buildChoreList, FAMILY_MEMBERS, dateToKey, getDateNight, MONTHLY_WORK, getWorkMonth, formatMinutes, getMonthKey } from "../src/schedule.js";
 import { firebaseConfig } from "../src/firebaseConfig.js";
 import { VAPID_PUBLIC_KEY } from "../src/pushConfig.js";
 
@@ -81,9 +83,20 @@ export function jobsLeft(member, date, customTasks, completedChores) {
     .filter(c => !c.routine && !completedChores[`${dk}_${member}_${c.id}`]);
 }
 
-export function buildMessages(subscriptions, date, customTasks, completedChores) {
+export function buildMessages(subscriptions, date, customTasks, completedChores, dateNights = {}, workLogs = {}) {
   const kids = FAMILY_MEMBERS.map(m => m.name);
   const left = Object.fromEntries(kids.map(k => [k, jobsLeft(k, date, customTasks, completedChores)]));
+  // Sundays: remind parents whose turn it is for date night (until it's scheduled).
+  const dn = date.getDay() === 0 ? getDateNight(date, dateNights) : null;
+  const dateLine = dn && !(dn.record && dn.record.status === "scheduled")
+    ? `💕 Date night this week: ${dn.kid} — not scheduled yet` : null;
+  // Last 7 days of the month: nudge parents about monthly work hours still owed.
+  const daysLeft = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate() - date.getDate();
+  const workLines = daysLeft < 7 ? Object.keys(MONTHLY_WORK).map(kid => {
+    const w = getWorkMonth(kid, getMonthKey(date), workLogs);
+    return w && !w.beforeStart && w.remaining > 0 ? `⏱️ ${kid}: ${formatMinutes(w.remaining)} work left this month` : null;
+  }).filter(Boolean) : [];
+  const extraLines = [dateLine, ...workLines].filter(Boolean);
   const out = []; // { subId, payload }
   for (const [subId, sub] of Object.entries(subscriptions)) {
     if (!sub || !sub.subscription) continue;
@@ -102,7 +115,19 @@ export function buildMessages(subscriptions, date, customTasks, completedChores)
       const notDone = kids.filter(k => left[k].length > 0);
       if (notDone.length) out.push({ subId, payload: {
         title: notDone.length === 1 ? "1 kid still has jobs" : `${notDone.length} kids still have jobs`,
-        body: notDone.map(k => `${k} ${left[k].length}`).join(" · "),
+        body: [notDone.map(k => `${k} ${left[k].length}`).join(" · "), ...extraLines].join("\n"),
+        url: "/",
+        tag: "hq-parent",
+      } });
+      else if (dateLine) out.push({ subId, payload: {
+        title: `💕 Date night this week: ${dn.kid}`,
+        body: ["Not scheduled yet — tap to set it up", ...workLines].join("\n"),
+        url: "/",
+        tag: "hq-parent",
+      } });
+      else if (workLines.length) out.push({ subId, payload: {
+        title: "⏱️ Work hours this month",
+        body: workLines.join("\n"),
         url: "/",
         tag: "hq-parent",
       } });
@@ -179,10 +204,11 @@ export default async function handler(req, res, deps = {}) {
 
     // Claim today first so an overlapping run can't double-send.
     if (!force) await patchDoc("pushState", { lastSentDate: dateToKey(now) }, fetchImpl);
-    const [subs, completedChores, customTasks] = await Promise.all([
+    const [subs, completedChores, customTasks, dateNights, workLogs] = await Promise.all([
       readDoc("pushSubscriptions", fetchImpl), readDoc("completedChores", fetchImpl), readDoc("customTasks", fetchImpl),
+      readDoc("dateNights", fetchImpl), readDoc("workLogs", fetchImpl),
     ]);
-    const messages = buildMessages(subs, now, customTasks, completedChores);
+    const messages = buildMessages(subs, now, customTasks, completedChores, dateNights, workLogs);
     const result = await sendAll(messages, subs, send);
     if (result.removed.length) await patchDoc("pushSubscriptions", Object.fromEntries(result.removed.map(id => [id, null])), fetchImpl);
     return res.status(200).json({ ok: true, date: dateToKey(now), devices: Object.keys(subs).length, ...result });

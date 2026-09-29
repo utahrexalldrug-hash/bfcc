@@ -797,3 +797,94 @@ export function buildChoreList(member, date, customTasks, completedChores) {
   chores.sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0));
   return chores;
 }
+
+// ============================================================
+// DATE NIGHT — each week one kid goes out with Mom & Dad.
+// Order is youngest → oldest. A week "counts" once a parent taps "We've
+// scheduled it"; if a week passes without that (or they mark "It didn't
+// happen"), the same kid keeps the turn the next week — nobody gets skipped.
+// Records live in the synced Firestore doc family/dateNights, keyed by the
+// week's Sunday: { "2026-09-27": { kid, status: "scheduled" | "missed", day } }
+// ============================================================
+export const DATE_NIGHT_ORDER = ["Liam", "Finn", "Cole", "Carter", "Nicholas"];
+export const DATE_NIGHT_START = { week: "2026-09-27", kid: "Cole" };
+
+export function dateNightHappened(record) {
+  return !!record && record.status === "scheduled";
+}
+
+// Whose date week is it for the week containing `date`?
+// Returns { weekKey, kid, upNext, record, carriedOver } or null before the start.
+export function getDateNight(date, records = {}) {
+  const weekKey = dateToKey(getWeekStart(date));
+  if (weekKey < DATE_NIGHT_START.week) return null;
+  const n = DATE_NIGHT_ORDER.length;
+  let idx = DATE_NIGHT_ORDER.indexOf(DATE_NIGHT_START.kid);
+  let carriedOver = false;
+  for (let w = localDateFromKey(DATE_NIGHT_START.week); dateToKey(w) < weekKey; w.setDate(w.getDate() + 7)) {
+    if (dateNightHappened(records[dateToKey(w)])) { idx = (idx + 1) % n; carriedOver = false; }
+    else carriedOver = true;
+  }
+  return { weekKey, kid: DATE_NIGHT_ORDER[idx], upNext: DATE_NIGHT_ORDER[(idx + 1) % n], record: records[weekKey] || null, carriedOver };
+}
+
+// ============================================================
+// MONTHLY WORK HOURS — kids who owe a set amount of work time each month.
+// Entries live in the synced Firestore doc family/workLogs:
+//   { "<id>": { kid, date: "YYYY-MM-DD", minutes, note, loggedAt, by } }
+// The balance carries both ways: a short month adds to next month's target,
+// extra time counts as credit. Time logged before `start` is credit toward
+// the first month. Add another kid with one line here.
+// ============================================================
+export const MONTHLY_WORK = {
+  Cole: { hours: 12, start: "2026-10" },
+};
+
+export function addMonths(monthKey, n) {
+  let [y, m] = monthKey.split("-").map(Number);
+  m += n;
+  while (m > 12) { m -= 12; y++; }
+  while (m < 1) { m += 12; y--; }
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+export function formatMinutes(total) {
+  const m = Math.round(total);
+  const h = Math.floor(m / 60), r = m % 60;
+  if (h && r) return `${h}h ${r}m`;
+  if (h) return `${h}h`;
+  return `${r}m`;
+}
+
+// Everything the work-hours screen and reminders need for one kid + month.
+// Minutes throughout. carryIn > 0 = credit from earlier, < 0 = still owed.
+export function getWorkMonth(kid, monthKey, logs = {}) {
+  const cfg = MONTHLY_WORK[kid];
+  if (!cfg) return null;
+  const required = cfg.hours * 60;
+  const all = Object.entries(logs || {})
+    .filter(([id, e]) => id !== "_empty" && e && e.kid === kid && e.date && Number(e.minutes) > 0)
+    .map(([id, e]) => ({ id, ...e, minutes: Number(e.minutes) }));
+  const perMonth = {};
+  let preStart = 0;
+  for (const e of all) {
+    const mk = e.date.slice(0, 7);
+    if (mk < cfg.start) preStart += e.minutes;
+    else perMonth[mk] = (perMonth[mk] || 0) + e.minutes;
+  }
+  const entries = all.filter(e => e.date.slice(0, 7) === monthKey)
+    .sort((a, b) => (b.date.localeCompare(a.date)) || ((b.loggedAt || 0) - (a.loggedAt || 0)));
+  const logged = entries.reduce((s, e) => s + e.minutes, 0);
+  if (monthKey < cfg.start) {
+    return { kid, monthKey, start: cfg.start, beforeStart: true, required, entries, logged, creditTowardStart: preStart };
+  }
+  let carryIn = preStart;
+  for (let mk = cfg.start; mk < monthKey; mk = addMonths(mk, 1)) carryIn += (perMonth[mk] || 0) - required;
+  const target = Math.max(0, required - carryIn);
+  return {
+    kid, monthKey, start: cfg.start, beforeStart: false, required, carryIn, target, logged, entries,
+    remaining: Math.max(0, target - logged),
+    extra: Math.max(0, logged - target),
+    carryOut: carryIn + logged - required,
+  };
+}

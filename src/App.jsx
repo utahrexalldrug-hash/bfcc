@@ -5,7 +5,8 @@ import {
   isVideoGameDay, getDailyAssignment, getRoutineForItemId, FAMILY_MEMBERS, getToday, getDayName,
   formatDate, getWeekStart, dateToKey, getCurrentWeekRotation, getWeekNumber, isTeamWeek,
   getChartAssignment, getWeekStartKey, getMonthKey, getYearKey, calculateStreak, STREAK_MILESTONES,
-  CHORE_TIME_GROUPS, buildChoreList,
+  CHORE_TIME_GROUPS, buildChoreList, getDateNight, MONTHLY_WORK, addMonths, formatMinutes,
+  getWorkMonth,
 } from "./schedule";
 import { LogoMark, LaunchSplash, shouldShowSplash } from "./Logo";
 import { pushSupport, subscribeThisDevice, subscriptionId, currentSubscriptionId, unsubscribeThisDevice, sendTestReminder, deviceLabel } from "./push";
@@ -199,9 +200,15 @@ function writeSyncDiff(docName, base, next) {
 function useFirebaseSync(docName, setRawState) {
   useEffect(() => {
     const docRef = doc(db, "family", docName);
-    const unsub = onSnapshot(docRef, (snapshot) => {
-      // An offline start can report "document missing" from the empty local
-      // cache — ignore that rather than blanking the screen.
+    // Until the server has answered once, Firestore's local cache only knows
+    // the fields this device wrote (offline start / slow connection), so a
+    // cache-only snapshot can be a PARTIAL document. Ignore those — the screen
+    // keeps its localStorage copy until real server data arrives. After the
+    // first server snapshot the cache holds the full doc and is safe to use.
+    let serverSeen = false;
+    const unsub = onSnapshot(docRef, { includeMetadataChanges: true }, (snapshot) => {
+      if (!snapshot.metadata.fromCache) serverSeen = true;
+      if (!serverSeen) return;
       if (!snapshot.exists()) return;
       const data = snapshot.data();
       setRawState(data);
@@ -362,6 +369,49 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .reminders-device{display:flex;align-items:center;gap:10px;font-size:0.85rem;padding:6px 0}
 .reminders-device span:first-child{font-weight:700;min-width:110px}
 .reminders-device-who{flex:1;color:var(--text-secondary)}
+.date-night{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;margin-bottom:16px;border-radius:16px;border:1px solid rgba(236,72,153,0.35);border-left:4px solid #EC4899;background:linear-gradient(135deg,rgba(236,72,153,0.14),rgba(139,92,246,0.08))}
+.date-night.scheduled{border-color:rgba(16,185,129,0.35);border-left-color:var(--success);background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(236,72,153,0.06))}
+.date-night.fresh{box-shadow:0 0 0 3px rgba(236,72,153,0.18)}
+.date-night-icon{font-size:1.9rem;line-height:1}
+.date-night-body{flex:1;min-width:0}
+.date-night-label{font-size:0.72rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#f9a8d4;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.date-night-new{font-size:0.65rem;letter-spacing:0.06em;background:#EC4899;color:#fff;padding:2px 8px;border-radius:999px}
+.date-night-who{display:flex;align-items:center;gap:10px;margin:8px 0 6px;flex-wrap:wrap}
+.date-night-kid{font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.15rem;color:#fff;padding:5px 14px;border-radius:999px}
+.date-night-with{font-weight:700;color:var(--text-secondary)}
+.date-night-status{font-size:0.85rem;color:var(--text-secondary);font-weight:600}
+.date-night-next{color:var(--text-muted)}
+.date-night-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+.date-night-date{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;color-scheme:dark}
+.date-night-btn{background:#EC4899;border-color:#EC4899}
+.dinner-duty{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)}
+.dinner-duty-item{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap}
+.dinner-duty-label{font-size:0.68rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted)}
+.dinner-duty-kid{display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 7px;border-radius:999px;font-family:'Fredoka',sans-serif;font-size:0.92rem;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.25)}
+.dinner-duty-kid.done{background:rgba(16,185,129,0.22);color:#6ee7b7;text-shadow:none}
+.work-bar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;width:100%;margin-top:10px;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--text-primary);font-family:inherit;text-align:left;cursor:pointer}
+.work-bar.done{border-color:rgba(16,185,129,0.4)}
+.work-bar-label{font-size:0.68rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted)}
+.work-bar-text{font-size:0.85rem;font-weight:700;flex:1;min-width:0}
+.work-bar-track{display:block;width:100%;height:6px;border-radius:99px;background:rgba(255,255,255,0.08);overflow:hidden}
+.work-bar-track.big{height:10px;margin:10px 0 6px}
+.work-bar-fill{display:block;height:100%;border-radius:99px;transition:width .3s}
+.work-modal{width:480px;max-width:94vw}
+.work-month-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 12px;font-weight:800}
+.work-month-nav .week-nav-btn{width:34px;height:34px}
+.work-month-nav .week-nav-btn:disabled{opacity:.3;cursor:default}
+.work-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.work-stats .stat-value{font-family:'Fredoka',sans-serif;font-size:1.5rem;font-weight:700}
+.work-stats .stat-label{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)}
+.work-summary-note{font-size:0.85rem;color:var(--text-secondary);line-height:1.45}
+.work-form{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.work-form-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.work-form-row .form-select{width:auto;flex:0 0 auto}
+.work-entries{margin-top:16px;border-top:1px solid var(--border);padding-top:12px;max-height:40vh;overflow-y:auto}
+.work-entry{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88rem}
+.work-entry-when{color:var(--text-muted);font-weight:700;min-width:84px;font-size:0.8rem}
+.work-entry-what{flex:1;min-width:0}
+.work-entry-mins{font-weight:800;white-space:nowrap}
 .chore-done-toggle{background:none;border:none;color:var(--success);font-size:0.8rem;font-weight:700;text-align:left;padding:6px 2px 2px;cursor:pointer;font-family:inherit}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
 /* --- "Dishes today" hero banner --- */
@@ -696,6 +746,8 @@ export default function App() {
   const [parentSettings, setParentSettingsRaw] = useState(() => loadData("fcc_parentSettings", {})); // { pinHash }
   const [pushSubscriptions, setPushSubscriptionsRaw] = useState(() => loadData("fcc_pushSubscriptions", {})); // { subId: { members, parent, subscription, device } }
   const [showReminders, setShowReminders] = useState(false);
+  const [dateNights, setDateNightsRaw] = useState(() => loadData("fcc_dateNights", {})); // { "2026-09-27": { kid, status, day } }
+  const [workLogs, setWorkLogsRaw] = useState(() => loadData("fcc_workLogs", {})); // { id: { kid, date, minutes, note, loggedAt, by } }
   // Tapping a reminder opens /?kid=Carter — expand that kid's card on Today.
   const [focusKid] = useState(() => { try { return new URLSearchParams(window.location.search).get("kid"); } catch { return null; } });
   const [pinPrompt, setPinPrompt] = useState(null); // { member, action } when waiting on kid PIN
@@ -724,10 +776,14 @@ export default function App() {
   const setMemberPins = useFirebaseSync("memberPins", setMemberPinsRaw);
   const setParentSettings = useFirebaseSync("parentSettings", setParentSettingsRaw);
   const setPushSubscriptions = useFirebaseSync("pushSubscriptions", setPushSubscriptionsRaw);
+  const setDateNights = useFirebaseSync("dateNights", setDateNightsRaw);
+  const setWorkLogs = useFirebaseSync("workLogs", setWorkLogsRaw);
 
   useEffect(() => { saveData("fcc_memberPins", memberPins); }, [memberPins]);
   useEffect(() => { saveData("fcc_parentSettings", parentSettings); }, [parentSettings]);
   useEffect(() => { saveData("fcc_pushSubscriptions", pushSubscriptions); }, [pushSubscriptions]);
+  useEffect(() => { saveData("fcc_dateNights", dateNights); }, [dateNights]);
+  useEffect(() => { saveData("fcc_workLogs", workLogs); }, [workLogs]);
   useEffect(() => { if (focusKid) { try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ } } }, [focusKid]);
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
@@ -1265,7 +1321,7 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView focusKid={focusKid} members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
+          {currentTab === "today" && <TodayView focusKid={focusKid} dateNights={dateNights} setDateNights={setDateNights} workLogs={workLogs} setWorkLogs={setWorkLogs} pinGate={pinGate} members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
@@ -1384,9 +1440,10 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
   );
 }
 
-function TodayView({ focusKid, members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
+function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs, pinGate, members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   const [jobsModal, setJobsModal] = useState(null); // member name or null
+  const [workModal, setWorkModal] = useState(null); // kid name for the work-hours log
   const [expanded, setExpanded] = useState(() => new Set(focusKid ? [focusKid] : [])); // collapsed by default (except a kid opened from a reminder)
   useEffect(() => {
     if (!focusKid) return;
@@ -1437,6 +1494,28 @@ function TodayView({ focusKid, members, getMemberChores, isChoreComplete, toggle
         const onDishes = members.filter(m => getMemberChores(m.name).some(isDishChore));
         const allDishesDone = onDishes.length > 0 && onDishes.every(m =>
           getMemberChores(m.name).filter(isDishChore).every(c => isChoreComplete(m.name, c.id)));
+        // Tonight's other two "whose turn is it" dinner jobs, right under dishes.
+        const DUTY_JOBS = [{ id: "dinner_clear", label: "Clear Table", icon: "🧽" }, { id: "dinner_trash", label: "Take Out Trash", icon: "🗑️" }];
+        const duty = DUTY_JOBS
+          .map(j => ({ ...j, kids: members.filter(m => getMemberChores(m.name).some(c => c.id === j.id)) }))
+          .filter(j => j.kids.length > 0);
+        const dutyRow = duty.length > 0 && (
+          <div className="dinner-duty">
+            {duty.map(j => (
+              <span key={j.id} className="dinner-duty-item">
+                <span className="dinner-duty-label">{j.icon} {j.label}</span>
+                {j.kids.map(m => {
+                  const done = isChoreComplete(m.name, j.id);
+                  return (
+                    <span key={m.name} className={`dinner-duty-kid ${done ? "done" : ""}`} style={done ? undefined : { background: m.color }}>
+                      {getMemberEmoji(m.name)} {m.name}{done && <span className="dishes-kid-check"> ✓</span>}
+                    </span>
+                  );
+                })}
+              </span>
+            ))}
+          </div>
+        );
         if (onDishes.length === 0) {
           return (
             <div className="dishes-banner none">
@@ -1444,6 +1523,7 @@ function TodayView({ focusKid, members, getMemberChores, isChoreComplete, toggle
               <div className="dishes-banner-body">
                 <div className="dishes-banner-label">Dishes today</div>
                 <div className="dishes-banner-none-text">Nobody today — day off</div>
+                {dutyRow}
               </div>
             </div>
           );
@@ -1469,11 +1549,13 @@ function TodayView({ focusKid, members, getMemberChores, isChoreComplete, toggle
                   );
                 })}
               </div>
+              {dutyRow}
             </div>
             {allDishesDone && <div className="dishes-banner-status">Done</div>}
           </div>
         );
       })()}
+      <DateNightCard today={today} dateNights={dateNights} setDateNights={setDateNights} isParent={isParent} getMemberEmoji={getMemberEmoji} />
       <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
       <div className="today-grid">
       {members.map((member) => {
@@ -1564,6 +1646,7 @@ function TodayView({ focusKid, members, getMemberChores, isChoreComplete, toggle
             <div className="member-progress">
               <div className="member-progress-fill" style={{ width: `${pct}%`, background: member.color }} />
             </div>
+            {MONTHLY_WORK[member.name] && <WorkHoursBar kid={member.name} color={member.color} today={today} workLogs={workLogs} onOpen={() => setWorkModal(member.name)} />}
             {emojiPicker === member.name && (
               <div className="emoji-grid" style={{ marginBottom: 12 }}>
                 {EMOJI_OPTIONS.map(e => (
@@ -1676,6 +1759,7 @@ function TodayView({ focusKid, members, getMemberChores, isChoreComplete, toggle
         );
       })}
       </div>
+      {workModal && <WorkHoursModal kid={workModal} today={today} workLogs={workLogs} setWorkLogs={setWorkLogs} isParent={isParent} pinGate={pinGate} getMemberEmoji={getMemberEmoji} onClose={() => setWorkModal(null)} />}
       {jobsModal && weeklyJobsData && (
         <div className="modal-overlay" onClick={() => setJobsModal(null)}>
           <div className="my-jobs-modal" onClick={e => e.stopPropagation()}>
@@ -2942,6 +3026,202 @@ function PinDialog({ parentSettings, onSuccess, onClose }) {
         </div>
         {error && <div className="pin-error">{error}</div>}
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MONTHLY WORK HOURS (Cole) — bar on the kid's card + log screen.
+// Math lives in schedule.js getWorkMonth(); entries in Firestore family/workLogs.
+// ============================================================
+const monthLabel = (mk) => { const [y, m] = mk.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }); };
+const monthName = (mk) => { const [y, m] = mk.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long" }); };
+
+function WorkHoursBar({ kid, color, today, workLogs, onOpen }) {
+  const mk = getMonthKey(today);
+  const w = getWorkMonth(kid, mk, workLogs);
+  if (!w) return null;
+  let text, pct;
+  if (w.beforeStart) {
+    text = `Starts ${monthName(w.start)} 1${w.logged ? ` · ${formatMinutes(w.logged)} credit so far` : " · early time counts as credit"}`;
+    pct = 0;
+  } else {
+    pct = w.target > 0 ? Math.min(100, Math.round((w.logged / w.target) * 100)) : 100;
+    text = w.remaining > 0 ? `${formatMinutes(w.logged)} of ${formatMinutes(w.target)} · ${formatMinutes(w.remaining)} left`
+      : `✓ ${formatMinutes(w.logged)} done${w.extra ? ` · +${formatMinutes(w.extra)} extra` : ""}`;
+  }
+  return (
+    <button className={`work-bar ${!w.beforeStart && w.remaining === 0 ? "done" : ""}`} onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+      <span className="work-bar-label">⏱️ Work hours</span>
+      <span className="work-bar-text">{text}</span>
+      <span className="work-bar-track"><span className="work-bar-fill" style={{ width: `${pct}%`, background: !w.beforeStart && w.remaining === 0 ? "var(--success)" : color }} /></span>
+    </button>
+  );
+}
+
+function WorkHoursModal({ kid, today, workLogs, setWorkLogs, isParent, pinGate, getMemberEmoji, onClose }) {
+  const currentMonth = getMonthKey(today);
+  const [monthKey, setMonthKey] = useState(currentMonth);
+  const [hours, setHours] = useState(1);
+  const [mins, setMins] = useState(0);
+  const [date, setDate] = useState(dateToKey(today));
+  const [note, setNote] = useState("");
+  const [editing, setEditing] = useState(null); // entry id being edited (parents)
+  const [msg, setMsg] = useState(null);
+  const w = getWorkMonth(kid, monthKey, workLogs);
+  if (!w) return null;
+  const monthStart = `${currentMonth}-01`;
+  const todayKey = dateToKey(today);
+  const UNDO_MS = 10 * 60 * 1000;
+
+  const resetForm = () => { setHours(1); setMins(0); setDate(todayKey); setNote(""); setEditing(null); };
+  const submit = () => {
+    const minutes = Number(hours) * 60 + Number(mins);
+    if (minutes <= 0) return setMsg({ ok: false, text: "Add how long you worked." });
+    if (!note.trim()) return setMsg({ ok: false, text: "Add a quick note about what you did." });
+    const run = () => {
+      const id = editing || `w${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+      setWorkLogs(prev => {
+        const u = { ...prev }; delete u._empty;
+        const old = u[id] || {};
+        u[id] = { ...old, kid, date, minutes, note: note.trim(), loggedAt: old.loggedAt || Date.now(), by: old.by || (isParent ? "Parent" : kid), ...(editing ? { editedAt: Date.now() } : {}) };
+        return u;
+      });
+      setMsg({ ok: true, text: editing ? "Entry updated." : `Logged ${formatMinutes(minutes)} — nice work!` });
+      setMonthKey(date.slice(0, 7));
+      resetForm();
+    };
+    if (isParent) run(); else pinGate(kid, run);
+  };
+  const remove = (id) => setWorkLogs(prev => { const u = { ...prev }; delete u[id]; if (Object.keys(u).length === 0) u._empty = true; return u; });
+  const startEdit = (e) => { setEditing(e.id); setHours(Math.floor(e.minutes / 60)); setMins(e.minutes % 60); setDate(e.date); setNote(e.note || ""); setMsg(null); };
+  const fmtDate = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); };
+  const carryText = w.beforeStart ? null
+    : w.carryIn > 0 ? `12h − ${formatMinutes(w.carryIn)} credit from earlier`
+    : w.carryIn < 0 ? `12h + ${formatMinutes(-w.carryIn)} carried from last month` : null;
+  const pct = w.beforeStart ? 0 : (w.target > 0 ? Math.min(100, Math.round((w.logged / w.target) * 100)) : 100);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal work-modal" onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div className="modal-title" style={{ margin: 0 }}>⏱️ {getMemberEmoji(kid)} {kid}'s work hours</div>
+          <button onClick={onClose} className="reminders-close" aria-label="Close">&times;</button>
+        </div>
+        <div className="work-month-nav">
+          <button className="week-nav-btn" onClick={() => setMonthKey(m => addMonths(m, -1))} aria-label="Previous month"><Icons.ChevronLeft size={18} /></button>
+          <span>{monthLabel(monthKey)}</span>
+          <button className="week-nav-btn" disabled={monthKey >= currentMonth} onClick={() => setMonthKey(m => addMonths(m, 1))} aria-label="Next month"><Icons.ChevronRight size={18} /></button>
+        </div>
+        {w.beforeStart ? (
+          <div className="work-summary-note">Tracking starts <b>{monthName(w.start)} 1</b>. Time logged before then counts as credit toward {monthName(w.start)}{w.creditTowardStart ? <> — <b>{formatMinutes(w.creditTowardStart)}</b> so far</> : null}.</div>
+        ) : (<>
+          <div className="work-stats">
+            <div><div className="stat-value">{formatMinutes(w.target)}</div><div className="stat-label">Owed</div></div>
+            <div><div className="stat-value" style={{ color: "var(--success)" }}>{formatMinutes(w.logged)}</div><div className="stat-label">Done</div></div>
+            <div><div className="stat-value" style={{ color: w.remaining ? "var(--danger)" : "var(--success)" }}>{w.remaining ? formatMinutes(w.remaining) : "✓"}</div><div className="stat-label">{w.remaining ? "Left" : "Done!"}</div></div>
+          </div>
+          <div className="work-bar-track big"><span className="work-bar-fill" style={{ width: `${pct}%`, background: w.remaining ? "var(--accent)" : "var(--success)" }} /></div>
+          {(carryText || w.extra > 0) && <div className="work-summary-note">{carryText}{carryText && w.extra > 0 ? " · " : ""}{w.extra > 0 ? `+${formatMinutes(w.extra)} extra carries to next month` : ""}</div>}
+        </>)}
+
+        {monthKey === currentMonth && (
+          <div className="work-form">
+            <div className="reminders-label">{editing ? "Edit entry" : "Log time"}</div>
+            <div className="work-form-row">
+              <select className="form-select" value={hours} onChange={e => setHours(e.target.value)} aria-label="Hours">{Array.from({ length: 9 }, (_, i) => <option key={i} value={i}>{i} hr</option>)}</select>
+              <select className="form-select" value={mins} onChange={e => setMins(e.target.value)} aria-label="Minutes">{[0, 15, 30, 45].map(m => <option key={m} value={m}>{m} min</option>)}</select>
+              <input type="date" className="date-night-date" value={date} min={isParent ? undefined : monthStart} max={todayKey} onChange={e => setDate(e.target.value || todayKey)} aria-label="Date" />
+            </div>
+            <input className="form-input" placeholder="What did you do? (e.g. mowed the back lawn)" value={note} maxLength={140} onChange={e => setNote(e.target.value)} />
+            <div className="reminders-actions" style={{ marginTop: 10 }}>
+              <button className="btn btn-primary" onClick={submit}>{editing ? "Save changes" : "Log time"}</button>
+              {editing && <button className="btn btn-ghost" onClick={resetForm}>Cancel</button>}
+            </div>
+          </div>
+        )}
+        {msg && <div className="reminders-msg" style={{ color: msg.ok ? "var(--success)" : "var(--danger)" }}>{msg.text}</div>}
+
+        <div className="work-entries">
+          <div className="reminders-label">{w.entries.length ? `${w.entries.length} entr${w.entries.length === 1 ? "y" : "ies"} in ${monthName(monthKey)}` : `Nothing logged in ${monthName(monthKey)} yet`}</div>
+          {w.entries.map(e => {
+            const canUndo = !isParent && e.by === kid && Date.now() - (e.loggedAt || 0) < UNDO_MS;
+            return (
+              <div key={e.id} className="work-entry">
+                <div className="work-entry-when">{fmtDate(e.date)}</div>
+                <div className="work-entry-what">{e.note}</div>
+                <div className="work-entry-mins">{formatMinutes(e.minutes)}</div>
+                {isParent && <button className="chore-delete-btn" onClick={() => startEdit(e)} title="Edit">✏️</button>}
+                {(isParent || canUndo) && <button className="chore-delete-btn" onClick={() => remove(e.id)} title={isParent ? "Remove" : "Undo"}>{isParent ? <Icons.X size={14} /> : "Undo"}</button>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DATE NIGHT CARD — whose week it is to go out with Mom & Dad (rotation in
+// schedule.js). Everyone sees it; only parents can mark it scheduled.
+// ============================================================
+function DateNightCard({ today, dateNights, setDateNights, isParent, getMemberEmoji }) {
+  const info = getDateNight(today, dateNights || {});
+  const [picking, setPicking] = useState(false);
+  const [day, setDay] = useState("");
+  if (!info) return null;
+  const kid = FAMILY_MEMBERS.find(m => m.name === info.kid);
+  const next = FAMILY_MEMBERS.find(m => m.name === info.upNext);
+  const rec = info.record;
+  const scheduled = rec && rec.status === "scheduled";
+  const missed = rec && rec.status === "missed";
+  const isSunday = today.getDay() === 0;
+  const weekStart = getWeekStart(today);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+  const fmtDay = (key) => { const [y, m, d] = key.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }); };
+
+  const save = (patch) => setDateNights(prev => {
+    const u = { ...prev }; delete u._empty;
+    if (patch === null) delete u[info.weekKey];
+    else u[info.weekKey] = { ...(u[info.weekKey] || {}), kid: info.kid, ...patch, updatedAt: Date.now() };
+    if (Object.keys(u).length === 0) u._empty = true;
+    return u;
+  });
+  const markScheduled = () => { save({ status: "scheduled", day: day || null }); setPicking(false); };
+
+  return (
+    <div className={`date-night ${scheduled ? "scheduled" : ""} ${isSunday && !scheduled ? "fresh" : ""}`}>
+      <div className="date-night-icon">💕</div>
+      <div className="date-night-body">
+        <div className="date-night-label">Date night this week{isSunday && !scheduled ? <span className="date-night-new">New this week</span> : null}</div>
+        <div className="date-night-who">
+          <span className="date-night-kid" style={{ background: kid?.color }}>{getMemberEmoji(info.kid)} {info.kid}</span>
+          <span className="date-night-with">with Mom &amp; Dad</span>
+        </div>
+        <div className="date-night-status">
+          {scheduled ? <>✓ Scheduled{rec.day ? ` · ${fmtDay(rec.day)}` : ""}</>
+            : missed ? <>Didn't happen this week — {info.kid} keeps the turn next week</>
+            : <>Not scheduled yet{info.carriedOver ? ` · carried over from last week` : ""}</>}
+          {!missed && <span className="date-night-next"> · Up next: <b style={{ color: next?.color }}>{info.upNext}</b></span>}
+        </div>
+        {isParent && (
+          <div className="date-night-actions">
+            {picking ? (<>
+              <input type="date" className="date-night-date" value={day} min={dateToKey(weekStart)} max={dateToKey(weekEnd)} onChange={e => setDay(e.target.value)} />
+              <button className="btn btn-primary" onClick={markScheduled}>{day ? "Save" : "Save without a day"}</button>
+              <button className="btn btn-ghost" onClick={() => setPicking(false)}>Cancel</button>
+            </>) : scheduled ? (<>
+              <button className="btn btn-ghost" onClick={() => { setDay(rec.day || ""); setPicking(true); }}>Change day</button>
+              <button className="btn btn-ghost" onClick={() => save({ status: "missed", day: null })}>It didn't happen</button>
+              <button className="btn btn-ghost" onClick={() => save(null)}>Undo</button>
+            </>) : (<>
+              <button className="btn btn-primary date-night-btn" onClick={() => { setDay(""); setPicking(true); }}>💕 We've scheduled it</button>
+              {missed && <button className="btn btn-ghost" onClick={() => save(null)}>Undo</button>}
+            </>)}
+          </div>
+        )}
       </div>
     </div>
   );

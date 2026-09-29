@@ -114,5 +114,44 @@ async function run(nowISO, docs, q = "") {
   check("test note reaches just that device", res.body.ok && sent.length === 1 && /Cole, Finn, Liam/.test(sent[0].body), sent[0] && sent[0].body);
 }
 
+// 6. Sunday: parent summary adds date night (until scheduled)
+{
+  const docs = baseDocs(); docs.dateNights = { "2026-09-27": { status: "scheduled" } }; // Cole's date happened
+  const a = await run("2026-10-05T00:30:00Z", docs); // Sun Oct 4, 6:30pm MDT → Carter's week
+  const dad = a.sent.find(m => m.to === "dad");
+  check("Sunday summary mentions date night (Carter's week)", dad && /Date night this week: Carter — not scheduled yet/.test(dad.body), dad && dad.body.replace("\n", " / "));
+  const docs0 = baseDocs(); docs0.dateNights = {}; // Cole's week never scheduled → he keeps the turn
+  const a0 = await run("2026-10-05T00:30:00Z", docs0);
+  const dad0 = a0.sent.find(m => m.to === "dad");
+  check("unscheduled week carries over (still Cole)", dad0 && /Date night this week: Cole/.test(dad0.body), dad0 && dad0.body.replace("\n", " / "));
+  const docs2 = baseDocs(); docs2.dateNights = { "2026-09-27": { status: "scheduled" }, "2026-10-04": { status: "scheduled", day: "2026-10-09" } };
+  const b = await run("2026-10-05T00:30:00Z", docs2);
+  const dad2 = b.sent.find(m => m.to === "dad");
+  check("once scheduled, no date-night nag", dad2 && !/Date night/.test(dad2.body), dad2 && dad2.body);
+  const docs3 = baseDocs(); docs3.dateNights = {};
+  process.env.TZ = "America/Denver";
+  const now3 = new Date("2026-10-05T00:30:00Z"); const dk3 = S.dateToKey(now3);
+  for (const k of S.FAMILY_MEMBERS.map(m => m.name)) for (const c of S.buildChoreList(k, now3, {}, {})) docs3.completedChores[`${dk3}_${k}_${c.id}`] = { ts: 1, pts: 1 };
+  process.env.TZ = "UTC";
+  const c = await run(now3.toISOString(), docs3);
+  const dad3 = c.sent.find(m => m.to === "dad");
+  check("everyone done on Sunday → date-night-only note", dad3 && dad3.title === "💕 Date night this week: Cole" && /tap to set it up/.test(dad3.body), dad3 && `${dad3.title} | ${dad3.body}`);
+  const e = await run("2026-10-01T00:30:00Z", Object.assign(baseDocs(), { dateNights: {} })); // Wednesday
+  check("weekday summary has no date-night line", !/Date night/.test((e.sent.find(m => m.to === "dad") || {}).body || ""));
+}
+
+// 7. Last week of the month: work hours still owed
+{
+  const docs = baseDocs(); docs.dateNights = {}; docs.workLogs = { w1: { kid: "Cole", date: "2026-10-05", minutes: 390, note: "Yard" } };
+  const a = await run("2026-10-29T00:30:00Z", docs); // Wed Oct 28, 6:30pm — 3 days left
+  const dad = a.sent.find(m => m.to === "dad");
+  check("late-month summary shows Cole's hours left", dad && /⏱️ Cole: 5h 30m work left this month/.test(dad.body), dad && dad.body.replace(/\n/g, " / "));
+  const b = await run("2026-10-15T00:30:00Z", Object.assign(baseDocs(), { workLogs: docs.workLogs })); // mid-month
+  check("mid-month: no hours nag", !/work left/.test((b.sent.find(m => m.to === "dad") || {}).body || ""));
+  const done = Object.assign(baseDocs(), { workLogs: { w1: { kid: "Cole", date: "2026-10-05", minutes: 720, note: "All of it" } } });
+  const c = await run("2026-10-29T00:30:00Z", done);
+  check("hours all done: no nag", !/work left/.test((c.sent.find(m => m.to === "dad") || {}).body || ""));
+}
+
 console.log(failures ? `\n✖ ${failures} failed` : "\n✔ all reminder tests passed");
 process.exit(failures ? 1 : 0);
