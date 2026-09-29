@@ -17,10 +17,34 @@ const ROT_REFILL_SOAP = ["Finn","Liam","Carter","Finn","Liam","Finn","Liam","Fin
 const ROT_TOILET_PAPER = ["Liam","Finn","Liam","Cole","Finn","Liam","Cole","Liam","Liam","Finn","Liam","Finn","Liam","Liam","Nicholas","Finn","Liam","Finn","Finn","Carter","Liam","Cole","Liam","Finn","Liam","Finn","Liam","Liam","Finn","Liam","Liam"];
 const ROT_LEN = 31;
 
+// ROTATION V2 — starts the week of Sun Sep 27, 2026.
+// The legacy spreadsheet lists above had built-in conflicts (e.g. one kid on both
+// Collect Trash AND Take Trash Out). V2 is computed so conflicts are impossible:
+//   • Trash crew rotates Collect Trash → Take Trash Out → Bring Cans In (one job each)
+//   • Supply crew swaps Refill Soap ↔ Toilet Paper every week
+// Weeks before V2 start still use the legacy lists so past streaks/points are unchanged.
+const ROTATION_V2_START = new Date(2026, 8, 27); // local-time Sunday (month is 0-based)
+const V2_TRASH_CREW = ["Nicholas", "Carter", "Cole"];
+const V2_SUPPLY_CREW = ["Finn", "Liam"];
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 function getWeeklyRotation(date) {
   const weekStart = getWeekStart(date);
   const weekNum = Math.round((weekStart.getTime() - ROTATION_EPOCH_SUNDAY.getTime()) / (7*24*60*60*1000));
   if (weekNum < 0) return null;
+  if (weekStart.getTime() >= ROTATION_V2_START.getTime()) {
+    const v = Math.round((weekStart.getTime() - ROTATION_V2_START.getTime()) / WEEK_MS);
+    const t = V2_TRASH_CREW, s = V2_SUPPLY_CREW;
+    return {
+      date: dateToKey(weekStart),
+      collectTrash: t[v % t.length],
+      trashOut: t[(v + 1) % t.length],
+      recycle: weekNum % 2 === 0,
+      bringCansIn: t[(v + 2) % t.length],
+      refillSoap: s[v % s.length],
+      toiletPaper: s[(v + 1) % s.length],
+    };
+  }
   const idx = ((weekNum % ROT_LEN) + ROT_LEN) % ROT_LEN;
   return {
     date: dateToKey(weekStart),
