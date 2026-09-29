@@ -1,403 +1,83 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import { db, storage } from "./firebase";
-import { doc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, deleteField, increment, FieldPath } from "firebase/firestore";
+import {
+  LAUNDRY_DAYS, isVideoGameDay, getDishChores, DINNER_JOB_LABELS, getDailyAssignment, isPriorityChore,
+  getRoutinesForDate, getRoutineForItemId, hasChurchClothesOnDate, hasPianoOnDate, FAMILY_MEMBERS, getToday,
+  getDayName, formatDate, getWeekStart, dateToKey, getCurrentWeekRotation, getWeekNumber,
+  isTeamWeek, getChartAssignment, isMopSaturday, getIncompleteHousekeepingTasks, getWeekStartKey, getMonthKey,
+  getYearKey, calculateStreak, STREAK_MILESTONES,
+} from "./schedule";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 
 // ============================================================
-// AUTO-GENERATING WEEKLY ROTATION SYSTEM
-// All roles cycle through the original 31-week spreadsheet pattern.
-// Recycle alternates every week. When weeks exceed 31, the pattern
-// loops back to the start — no manual updates needed.
+// TODAY LAYOUT — time-of-day groups + short titles
+// Kids work through the day in this order, so the Today card lists chores the
+// same way. Long chart text becomes a short title; the full instructions are
+// one tap away (the ⓘ button) instead of filling the card.
 // ============================================================
-const ROTATION_EPOCH_SUNDAY = new Date("2025-07-27"); // Sunday of first rotation week
-const ROT_COLLECT_TRASH = ["Nicholas","Carter","Cole","Carter","Carter","Cole","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole"];
-const ROT_TRASH_OUT = ["Carter","Cole","Nicholas","Carter","Cole","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter","Cole","Nicholas","Cole","Carter","Cole","Nicholas","Nicholas","Carter","Cole","Nicholas","Carter","Carter"];
-const ROT_BRING_CANS = ["Cole","Nicholas","Finn","Liam","Carter","Carter","Finn","Cole","Carter","Nicholas","Nicholas","Carter","Cole","Finn","Nicholas","Carter","Carter","Cole","Liam","Finn","Carter","Nicholas","Cole","Carter","Cole","Finn","Nicholas","Nicholas","Carter","Cole","Liam"];
-const ROT_REFILL_SOAP = ["Finn","Liam","Carter","Finn","Liam","Finn","Liam","Finn","Cole","Liam","Finn","Liam","Finn","Cole","Finn","Liam","Finn","Liam","Nicholas","Cole","Finn","Liam","Finn","Liam","Carter","Cole","Finn","Liam","Liam","Finn","Finn"];
-const ROT_TOILET_PAPER = ["Liam","Finn","Liam","Cole","Finn","Liam","Cole","Liam","Liam","Finn","Liam","Finn","Liam","Liam","Nicholas","Finn","Liam","Finn","Finn","Carter","Liam","Cole","Liam","Finn","Liam","Finn","Liam","Liam","Finn","Liam","Liam"];
-const ROT_LEN = 31;
-
-// ROTATION V2 — starts the week of Sun Sep 27, 2026.
-// The legacy spreadsheet lists above had built-in conflicts (e.g. one kid on both
-// Collect Trash AND Take Trash Out). V2 is computed so conflicts are impossible:
-//   • Trash crew rotates Collect Trash → Take Trash Out → Bring Cans In (one job each)
-//   • Supply crew swaps Refill Soap ↔ Toilet Paper every week
-// Weeks before V2 start still use the legacy lists so past streaks/points are unchanged.
-const ROTATION_V2_START = new Date(2026, 8, 27); // local-time Sunday (month is 0-based)
-const V2_TRASH_CREW = ["Nicholas", "Carter", "Cole"];
-const V2_SUPPLY_CREW = ["Finn", "Liam"];
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-function getWeeklyRotation(date) {
-  const weekStart = getWeekStart(date);
-  const weekNum = Math.round((weekStart.getTime() - ROTATION_EPOCH_SUNDAY.getTime()) / (7*24*60*60*1000));
-  if (weekNum < 0) return null;
-  if (weekStart.getTime() >= ROTATION_V2_START.getTime()) {
-    const v = Math.round((weekStart.getTime() - ROTATION_V2_START.getTime()) / WEEK_MS);
-    const t = V2_TRASH_CREW, s = V2_SUPPLY_CREW;
-    return {
-      date: dateToKey(weekStart),
-      collectTrash: t[v % t.length],
-      trashOut: t[(v + 1) % t.length],
-      recycle: weekNum % 2 === 0,
-      bringCansIn: t[(v + 2) % t.length],
-      refillSoap: s[v % s.length],
-      toiletPaper: s[(v + 1) % s.length],
-    };
-  }
-  const idx = ((weekNum % ROT_LEN) + ROT_LEN) % ROT_LEN;
-  return {
-    date: dateToKey(weekStart),
-    collectTrash: ROT_COLLECT_TRASH[idx],
-    trashOut: ROT_TRASH_OUT[idx],
-    recycle: weekNum % 2 === 0,
-    bringCansIn: ROT_BRING_CANS[idx],
-    refillSoap: ROT_REFILL_SOAP[idx],
-    toiletPaper: ROT_TOILET_PAPER[idx],
-  };
-}
-
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-// ============================================================
-// HOUSEKEEPING CHARTS (6 rotating weekly, Mon/Tue/Wed/Thu only)
-// ============================================================
-const HOUSEKEEPING_CHARTS = [
-  { // Chart 1
-    name: "Chart 1",
-    tasks: {
-      Monday: "Bathroom counter/sink",
-      Tuesday: "Dust windowsills / shelves / bookcase",
-      Wednesday: "Pick up upstairs hallway for Roborock, bring garbage cans in from curb",
-      Thursday: "Wipe light switches",
-      Saturday: "Vacuum upstairs stairs",
-    },
-    zone: "Coat closet/stairs/upstairs hallway — pick up and put away any loose items, tell dad so he can set the vacuums loose",
-  },
-  { // Chart 2
-    name: "Chart 2",
-    tasks: {
-      Monday: "Toilet",
-      Tuesday: "Dust banister/wipe down handrail (dry after wet), empty trashes",
-      Wednesday: "Pick up front hallway for Roborock",
-      Thursday: "Wipe doorknobs / fridge",
-      Saturday: "Vacuum downstairs stairs",
-    },
-    zone: "Office/Front hallway — pick up floor, straighten desk/piano/front hallway piece, tell dad so he can set the vacuums loose",
-  },
-  { // Chart 3
-    name: "Chart 3",
-    tasks: {
-      Monday: "Tub",
-      Tuesday: "Dust pieces (TV stand, front hall piece, piano, printer table), put garbage bags in cans",
-      Wednesday: "Pick up kitchen for Roborock",
-      Thursday: "Wipe microwave/dishwasher",
-      Saturday: "Mop kids bathroom floor",
-    },
-    zone: "Kitchen — pick up floor, countertops, tell dad so he can set the vacuums loose",
-  },
-  { // Chart 4
-    name: "Chart 4",
-    tasks: {
-      Monday: "Mirror/Refill toilet paper (all bathrooms)/refill soaps (whole house)",
-      Tuesday: "Dust baseboards, take garbage cans to the curb",
-      Wednesday: "Pick up family room for Roborock",
-      Thursday: "Wipe oven/fridge",
-      Saturday: "Mop main level bathroom floor",
-    },
-    zone: "Family Room + laundry area/garage entry — pick up floor, clean off TV piece, straighten laundry/garage entry, tell dad so he can set the vacuums loose",
-  },
-  { // Chart 5
-    name: "Chart 5",
-    tasks: {
-      Monday: "Clean floor / wipe bathroom cabinets",
-      Tuesday: "Dust shelves/surfaces",
-      Wednesday: "Move chairs for Roborock",
-      Thursday: "Wipe dishwasher",
-      Saturday: "Pick up basement so vacuum can run",
-    },
-    zone: "Bathroom(s) — pick up and wipe down, tell dad so he can set the vacuums loose",
-  },
+const CHORE_TIME_GROUPS = [
+  { key: "morning", label: "Morning", icon: "☀️" },
+  { key: "day", label: "After School", icon: "🎒", weekendLabel: "During the Day", weekendIcon: "🏠" },
+  { key: "dinner", label: "After Dinner", icon: "🍽️" },
 ];
-
-// Laundry days are fixed per kid (do not rotate with charts)
-const LAUNDRY_DAYS = {
-  Nicholas: "Monday",
-  Carter: "Tuesday",
-  Cole: "Wednesday",
-  Finn: "Thursday",
-  Liam: "Friday",
-};
-
-
-// ============================================================
-// SCHOOL CALENDAR & VIDEO GAME DAY RULES
-// Video games only on Fri/Sat during school + specific days off.
-// Summer TBD. Update these dates each school year.
-// ============================================================
-const SCHOOL_CALENDAR = {
-  schoolEndDate: "2026-05-22",       // Last day of school
-  schoolStartDate: "2026-08-19",     // First day of next school year
-  daysOff: [                         // Specific days off during school year
-    "2026-03-09",
-    "2026-03-23",
-    "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10",
-  ],
-  summerRules: "unrestricted",       // "unrestricted" | "weekends_only" | "custom" — change for summer policy
-};
-
-function isVideoGameDay(date) {
-  const dk = dateToKey(date);
-  const dayNum = date.getDay(); // 0=Sun, 5=Fri, 6=Sat
-
-  // Check if it's a school day-off
-  if (SCHOOL_CALENDAR.daysOff.includes(dk)) return true;
-
-  // Check if we're in summer break
-  const endDate = new Date(SCHOOL_CALENDAR.schoolEndDate + "T00:00:00");
-  const startDate = new Date(SCHOOL_CALENDAR.schoolStartDate + "T00:00:00");
-  const checkDate = new Date(dk + "T00:00:00");
-
-  if (checkDate > endDate && checkDate < startDate) {
-    // Summer break — apply summer rules
-    if (SCHOOL_CALENDAR.summerRules === "unrestricted") return true;
-    if (SCHOOL_CALENDAR.summerRules === "weekends_only") return dayNum === 5 || dayNum === 6;
-    return true; // default unrestricted
+function getChoreTimeOfDay(chore) {
+  if (chore.id === "dishes_unload" || chore.id === "church_clothes") return "morning";
+  if (chore.id === "dishes_load" || chore.id === "dishes" || chore.id === "zone" || chore.tag === "dinner") return "dinner";
+  return "day";
+}
+const SHORT_TITLE_MAX = 40;
+function shortenChoreText(text) {
+  if (!text || text.length <= SHORT_TITLE_MAX) return { text };
+  let cut = -1;
+  for (const sep of [" — ", " (", ", "]) {
+    const i = text.indexOf(sep);
+    if (i > 8 && (cut < 0 || i < cut)) cut = i;
   }
+  if (cut < 0) return { text };
+  return { text: text.slice(0, cut).trim(), details: text };
+}
+function capitalizeFirst(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : str; }
 
-  // During school year: Friday and Saturday only
-  return dayNum === 5 || dayNum === 6;
+
+// Parent PIN: only a salted SHA-256 fingerprint lives in code/Firestore, never the
+// digits. Parents change it in Admin -> "Parent PIN" (stored in the synced
+// `parentSettings` doc). Until one is set, the default fingerprint below applies.
+const PARENT_PIN_SALT = "family-hq-parent-v1:";
+const DEFAULT_PARENT_PIN_HASH = "612cb0953ec4062ea2c4875569fb525379267e65163adee8c8c73431d778941c";
+const PIN_MAX_FAILS = 5;
+const PIN_LOCKOUT_MS = 60 * 1000;
+
+async function hashParentPin(pin) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(PARENT_PIN_SALT + pin));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// ============================================================
-// LEGACY DAILY CHORES (dates before SCHEDULE_V2_START)
-// Kept verbatim so historical completions and streaks still resolve against the
-// schedule that was actually in force on those days. Do not edit — edit the v2
-// tables below instead.
-// ============================================================
-const LEGACY_DAILY_CHORES = {
-  Nicholas: { Sunday:{type:"none",zone:null,dinnerJob:null},Monday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Tuesday:{type:"none",zone:null,dinnerJob:null},Wednesday:{type:"dishes",zone:null,dinnerJob:null},Thursday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Friday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Saturday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"} },
-  Carter: { Sunday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Monday:{type:"dishes",zone:null,dinnerJob:null},Tuesday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Wednesday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Thursday:{type:"zone",zone:"Family Room/Vacuum",dinnerJob:"Take Out Trash"},Friday:{type:"dishes",zone:null,dinnerJob:null},Saturday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"} },
-  Cole: { Sunday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Monday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Tuesday:{type:"dishes",zone:null,dinnerJob:null},Wednesday:{type:"none",zone:null,dinnerJob:null},Thursday:{type:"zone",zone:"Office/Front Hall",dinnerJob:"Clear Table"},Friday:{type:"zone",zone:"Kitchen Floor",dinnerJob:"Sweep"},Saturday:{type:"dishes",zone:null,dinnerJob:null} },
-  Finn: { Sunday:{type:"young",task:"Set Table/Stairs"},Monday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Tuesday:{type:"young",task:"Set Table/Stairs"},Wednesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Thursday:{type:"young",task:"Load Dishes"},Friday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Saturday:{type:"young",task:"Set Table/Stairs"} },
-  Liam: { Sunday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Monday:{type:"young",task:"Set Table/Stairs"},Tuesday:{type:"young",task:"Help with Dishes/Upstairs Hallway"},Wednesday:{type:"young",task:"Set Table/Stairs"},Thursday:{type:"young",task:"Load Dishes"},Friday:{type:"young",task:"Set Table/Stairs"},Saturday:{type:"young",task:"Help with Dishes/Upstairs Hallway"} },
-};
-
-// ============================================================
-// SCHEDULE v2 — dinner jobs, dishes and zones are now three INDEPENDENT
-// rotations. Previously the dinner job rode along with the cleaning zone, so
-// any kid on dishes silently lost his dinner job — which left the nightly trash
-// uncovered 5 nights a week. Effective SCHEDULE_V2_START; earlier dates still
-// resolve against LEGACY_DAILY_CHORES so history and streaks stay intact.
-// ============================================================
-const SCHEDULE_V2_START = "2026-08-14"; // live today — school starts Aug 19
-
-// Who's on dishes each day. Sunday rotates through every kid week by week
-// (see SUNDAY_DISH_ROTATION) so nobody permanently owns or dodges it.
-const DISH_DUTY = {
-  Monday: ["Carter"], Tuesday: ["Cole"], Wednesday: ["Nicholas"],
-  Thursday: ["Finn", "Liam"], Friday: ["Carter"], Saturday: ["Cole"],
-};
-const SUNDAY_DISH_ROTATION = ["Nicholas", "Carter", "Cole", "Finn", "Liam"];
-
-function getDishDutyFor(date) {
-  const dn = getDayName(date);
-  if (dn === "Sunday") {
-    const wk = getWeekNumber(date);
-    const i = ((wk % SUNDAY_DISH_ROTATION.length) + SUNDAY_DISH_ROTATION.length) % SUNDAY_DISH_ROTATION.length;
-    return [SUNDAY_DISH_ROTATION[i]];
-  }
-  return DISH_DUTY[dn] || [];
+// Per-device lockout after repeated wrong guesses.
+function getPinLockoutRemaining() {
+  try {
+    const { until } = JSON.parse(localStorage.getItem("fcc_parentPinFails") || "{}");
+    return until && until > Date.now() ? until - Date.now() : 0;
+  } catch { return 0; }
 }
-
-// Dishes is two halves: unload in the morning, load in the evening. On school
-// days they're labelled by time of day; on weekends it's just both jobs.
-// 1 point each, so the day is still worth the same 2 points it always was.
-const DISH_TASKS = [
-  { id: "dishes_unload", school: "Unload Dishwasher (morning)", weekend: "Unload Dishwasher" },
-  { id: "dishes_load",   school: "Load Dishwasher (evening)",   weekend: "Load Dishwasher" },
-];
-function isSchoolDayForDishes(date) {
-  const d = date.getDay();
-  return d >= 1 && d <= 5; // Mon-Fri
+function recordPinFailure() {
+  try {
+    const rec = JSON.parse(localStorage.getItem("fcc_parentPinFails") || "{}");
+    const count = (rec.until && rec.until <= Date.now() ? 0 : (rec.count || 0)) + 1;
+    const until = count >= PIN_MAX_FAILS ? Date.now() + PIN_LOCKOUT_MS : 0;
+    localStorage.setItem("fcc_parentPinFails", JSON.stringify({ count: until ? 0 : count, until }));
+  } catch {}
 }
-function getDishChores(date) {
-  const school = isSchoolDayForDishes(date);
-  return DISH_TASKS.map(t => ({ id: t.id, text: school ? t.school : t.weekend }));
+function clearPinFailures() { try { localStorage.removeItem("fcc_parentPinFails"); } catch {} }
+
+// Returns "ok", "wrong", or "locked".
+async function verifyParentPin(pin, parentSettings) {
+  if (getPinLockoutRemaining() > 0) return "locked";
+  const expected = parentSettings?.pinHash || DEFAULT_PARENT_PIN_HASH;
+  if ((await hashParentPin(pin)) === expected) { clearPinFailures(); return "ok"; }
+  recordPinFailure();
+  return getPinLockoutRemaining() > 0 ? "locked" : "wrong";
 }
-
-// The four nightly dinner jobs. Every job is filled every night.
-// Thursday: Finn and Liam are both on dishes, so Carter sets the table.
-const DINNER_JOB_IDS = {
-  "Clear Table": "dinner_clear",
-  "Take Out Trash": "dinner_trash",
-  "Floor Pickup": "dinner_floor",
-  "Set Table": "dinner_table",
-};
-// What the kids actually read. Keys above stay stable so the rotation tables
-// below don't have to change when we reword a job.
-const DINNER_JOB_LABELS = {
-  "Clear Table": "Clear Table, Clear & Wipe Down Countertops",
-  "Take Out Trash": "Take Out Trash",
-  "Floor Pickup": "Floor Pickup",
-  "Set Table": "Set Table",
-};
-const DINNER_JOBS = {
-  Sunday:    { "Clear Table": "Carter",   "Take Out Trash": "Cole",     "Floor Pickup": "Nicholas", "Set Table": "Finn" },
-  Monday:    { "Clear Table": "Nicholas", "Take Out Trash": "Cole",     "Floor Pickup": "Finn",     "Set Table": "Liam" },
-  Tuesday:   { "Clear Table": "Liam",     "Take Out Trash": "Carter",   "Floor Pickup": "Nicholas", "Set Table": "Finn" },
-  Wednesday: { "Clear Table": "Finn",     "Take Out Trash": "Carter",   "Floor Pickup": "Cole",     "Set Table": "Liam" },
-  Thursday:  { "Clear Table": "Cole",     "Take Out Trash": "Nicholas", "Floor Pickup": "Carter",   "Set Table": "Carter" },
-  Friday:    { "Clear Table": "Nicholas", "Take Out Trash": "Cole",     "Floor Pickup": "Liam",     "Set Table": "Finn" },
-  Saturday:  { "Clear Table": "Finn",     "Take Out Trash": "Nicholas", "Floor Pickup": "Carter",   "Set Table": "Liam" },
-};
-
-// Cleaning zones now rotate on their own, so every zone is covered all 7 nights
-// regardless of who has dishes.
-const ZONE_KIDS = ["Nicholas", "Carter", "Cole"];
-const ZONE_NAMES = ["Office/Front Hall", "Family Room/Vacuum", "Kitchen Floor"];
-const YOUNG_ZONE_KIDS = ["Finn", "Liam"];
-const YOUNG_ZONE_NAMES = ["Stairs", "Upstairs Hallway"];
-
-function getZoneForDate(member, date) {
-  const oi = ZONE_KIDS.indexOf(member);
-  if (oi >= 0) return ZONE_NAMES[(oi + date.getDay()) % ZONE_NAMES.length];
-  const yi = YOUNG_ZONE_KIDS.indexOf(member);
-  if (yi >= 0) return YOUNG_ZONE_NAMES[(yi + date.getDay()) % YOUNG_ZONE_NAMES.length];
-  return null;
-}
-
-function getDinnerJobsFor(member, dayName) {
-  const table = DINNER_JOBS[dayName] || {};
-  return Object.entries(table)
-    .filter(([, who]) => who === member)
-    .map(([job]) => ({ job, id: DINNER_JOB_IDS[job] }));
-}
-
-// Normalized daily assignment for a member on a date. Handles the legacy
-// schedule for pre-cutover dates so old streaks don't retroactively break.
-function getDailyAssignment(member, date) {
-  const dn = getDayName(date);
-  if (dateToKey(date) < SCHEDULE_V2_START) {
-    const d = LEGACY_DAILY_CHORES[member]?.[dn];
-    if (!d) return null;
-    if (d.type === "dishes") return { legacy: true, dishes: true, dinnerJobs: [], zone: null, youngTasks: [] };
-    if (d.type === "zone")   return { legacy: true, dishes: false, dinnerJobs: d.dinnerJob ? [{ job: d.dinnerJob, id: "dinner" }] : [], zone: d.zone, youngTasks: [] };
-    if (d.type === "young")  return { legacy: true, dishes: false, dinnerJobs: [], zone: null, youngTasks: d.task.split("/").map(s => s.trim()) };
-    return { legacy: true, dishes: false, dinnerJobs: [], zone: null, youngTasks: [] };
-  }
-  return {
-    legacy: false,
-    dishes: getDishDutyFor(date).includes(member),
-    dinnerJobs: getDinnerJobsFor(member, dn),
-    zone: getZoneForDate(member, date),
-    youngTasks: [],
-  };
-}
-
-// ============================================================
-// PRIORITY ("no-miss") CHORES
-// These are the weekly rotation jobs that only come around once a week — if
-// they're skipped nobody else picks them up and the whole house notices. They
-// get a MUST DO badge, sort to the top of the list, and surface on the collapsed
-// card header so a kid can't miss one without opening their card.
-// ============================================================
-const PRIORITY_CHORE_IDS = new Set([
-  "w_trash",     // Collect Trash (all rooms) — Wednesday
-  "w_trashout",  // Take Bins Out — Wednesday
-  "w_soap",      // Refill Soap — Wednesday
-  "w_tp",        // Refill Toilet Paper — Wednesday
-  "w_cans",      // Bring Cans In — Thursday (carries to Friday)
-]);
-function isPriorityChore(choreId) { return PRIORITY_CHORE_IDS.has(choreId); }
-
-// ============================================================
-// DAILY ROUTINES (morning / bedtime checklists)
-// All-or-nothing: individual items are worth 0 points; completing every item
-// in a routine awards ROUTINE_BONUS. Unchecking any item takes the bonus back.
-// Item chore IDs are `rt_<key>_<index>` — the bonus record is `rt_<key>_bonus`.
-// ============================================================
-const ROUTINE_MEMBERS = ["Finn", "Liam"];
-const ROUTINE_BONUS = 2;
-// Routine items only count as "due" (for streaks) on or after this date, so
-// turning routines on doesn't retroactively break existing streaks.
-const ROUTINES_START = "2026-08-14";
-
-const ROUTINES = [
-  {
-    key: "morning",
-    label: "Morning",
-    icon: "☀️",
-    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-    items: ["Get Dressed", "Get Lunch", "Get Shoes", "Pack Backpack"],
-  },
-  {
-    key: "night",
-    label: "Bedtime",
-    icon: "\u{1F319}",
-    days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
-    items: ["Get Jammied", "Brush Teeth", "Set Out Clothes for Tomorrow"],
-  },
-  {
-    key: "night",
-    label: "Bedtime",
-    icon: "\u{1F319}",
-    days: ["Friday", "Saturday"],
-    items: ["Get Jammied", "Brush Teeth"],
-  },
-];
-
-// Returns [{key, label, icon, bonus, items:[{id,text}]}] for a member on a date.
-function getRoutinesForDate(member, date) {
-  if (!ROUTINE_MEMBERS.includes(member)) return [];
-  if (dateToKey(date) < ROUTINES_START) return [];
-  const dn = getDayName(date);
-  return ROUTINES.filter(r => r.days.includes(dn)).map(r => ({
-    key: r.key,
-    label: r.label,
-    icon: r.icon,
-    bonus: ROUTINE_BONUS,
-    items: r.items.map((text, i) => ({ id: `rt_${r.key}_${i}`, text })),
-  }));
-}
-
-// Given a chore ID, find the routine it belongs to (or null).
-function getRoutineForItemId(member, date, choreId) {
-  if (typeof choreId !== "string" || !choreId.startsWith("rt_")) return null;
-  return getRoutinesForDate(member, date).find(r => r.items.some(it => it.id === choreId)) || null;
-}
-
-// ============================================================
-// SATURDAY MORNING — find church clothes for Sunday
-// Nicholas handles his own; the other four get the reminder.
-// ============================================================
-const CHURCH_CLOTHES_KIDS = ["Carter", "Cole", "Finn", "Liam"];
-
-function hasChurchClothesOnDate(member, date) {
-  return CHURCH_CLOTHES_KIDS.includes(member)
-    && date.getDay() === 6 // Saturday
-    && dateToKey(date) >= SCHEDULE_V2_START;
-}
-
-// ============================================================
-// DAILY PRACTICE — piano, every day
-// ============================================================
-const PIANO_MEMBERS = ["Cole", "Liam"];
-const PIANO_START = "2026-08-14"; // same grandfathering rule as routines
-
-function hasPianoOnDate(member, date) {
-  return PIANO_MEMBERS.includes(member) && dateToKey(date) >= PIANO_START;
-}
-
-const FAMILY_MEMBERS = [
-  { name: "Nicholas", color: "#E85D4A", emoji: "\u{1F985}", group: "older" },
-  { name: "Carter", color: "#3B82F6", emoji: "\u26A1", group: "older" },
-  { name: "Cole", color: "#10B981", emoji: "\u{1F3AF}", group: "older" },
-  { name: "Finn", color: "#F59E0B", emoji: "\u{1F31F}", group: "younger" },
-  { name: "Liam", color: "#8B5CF6", emoji: "\u{1F680}", group: "younger" },
-];
-
-const PARENT_PIN = "1234";
 
 const EMOJI_OPTIONS = [
   "🦅","🌸","⚡","🎯","🌟","🚀","🐉","🦁","🐺","🦊","🐻","🐼",
@@ -418,62 +98,6 @@ const TEAM_COLORS = [
   { name: "Pink", value: "#EC4899" },
   { name: "Rose", value: "#F43F5E" },
 ];
-
-function getToday() { return new Date(); }
-function getDayName(date) { return DAYS[date.getDay()]; }
-function formatDate(date) { return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }); }
-function getWeekStart(date) { const d = new Date(date); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; }
-function dateToKey(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
-
-function getCurrentWeekRotation(date) {
-  return getWeeklyRotation(date);
-}
-
-// Week number since a fixed epoch (for determining individual vs team weeks)
-function getWeekNumber(date) {
-  const epoch = new Date("2025-07-27"); // A Sunday
-  const weekStart = getWeekStart(date);
-  return Math.floor((weekStart.getTime() - epoch.getTime()) / (7 * 24 * 60 * 60 * 1000));
-}
-
-function isTeamWeek(date) {
-  return false; // teams retired May 2026 — everyone competes individually
-}
-
-// Get the housekeeping chart assigned to a member for a given date's week
-function getChartAssignment(memberName, date) {
-  const weekNum = getWeekNumber(date);
-  const memberIndex = FAMILY_MEMBERS.findIndex(m => m.name === memberName);
-  const chartIndex = ((memberIndex + weekNum) % 5 + 5) % 5;
-  return HOUSEKEEPING_CHARTS[chartIndex];
-}
-
-// Check if a given Saturday is a mop Saturday (every other Saturday)
-// Uses week number: even weeks = mop Saturday
-function isMopSaturday(date) {
-  const weekNum = getWeekNumber(date);
-  return weekNum % 2 === 0;
-}
-
-// Get incomplete housekeeping tasks from the current week (for Saturday catch-up)
-function getIncompleteHousekeepingTasks(member, date, completedChores) {
-  const weekStart = getWeekStart(date);
-  const chart = getChartAssignment(member, date);
-  const incomplete = [];
-  const housekeepingDays = ["Monday", "Tuesday", "Wednesday", "Thursday"];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    const dn = getDayName(d);
-    if (!housekeepingDays.includes(dn)) continue;
-    const dk = dateToKey(d);
-    const task = chart.tasks[dn];
-    if (task && !completedChores[`${dk}_${member}_hk_${dn.toLowerCase()}`]) {
-      incomplete.push({ day: dn, task });
-    }
-  }
-  return incomplete;
-}
 
 
 // Seeded random for deterministic team generation per week
@@ -509,113 +133,6 @@ function getTeamsForWeek(date) {
   };
 }
 
-function getWeekStartKey(date) { return dateToKey(getWeekStart(date)); }
-function getMonthKey(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`; }
-function getYearKey(date) { return `${date.getFullYear()}`; }
-
-// Get daily chores that are due TODAY for a member (excludes weekly chores without specific due days)
-// Single source of truth: what chore IDs are due for a member on a given date.
-// Used by both UI rendering (getChoresForDate decorates these with text/tags) and
-// by streak math. KEEP THIS IN SYNC with getChoresForDate inside App.
-function getDailyDueChores(member, date, customTasks, completedChores) {
-  const dayName = getDayName(date);
-  const dk = dateToKey(date);
-  const daily = getDailyAssignment(member, date);
-  const chores = [];
-  if (!daily) return chores;
-  if (daily.dishes) {
-    if (daily.legacy) chores.push("dishes");
-    else getDishChores(date).forEach(t => chores.push(t.id));
-  }
-  if (daily.zone) chores.push("zone");
-  daily.dinnerJobs.forEach(dj => chores.push(dj.id));
-  daily.youngTasks.forEach((_, i) => chores.push(`task_${i}`));
-  // Daily routines (morning / bedtime) — every item counts toward the streak
-  getRoutinesForDate(member, date).forEach(r => r.items.forEach(it => chores.push(it.id)));
-  // Saturday morning: find church clothes for Sunday
-  if (hasChurchClothesOnDate(member, date)) chores.push("church_clothes");
-  // Daily piano practice
-  if (hasPianoOnDate(member, date)) chores.push("piano");
-  // Weekly rotation
-  const weekRotation = getCurrentWeekRotation(date);
-  if (weekRotation && dayName === "Wednesday") {
-    if (weekRotation.collectTrash === member) chores.push("w_trash");
-    if (weekRotation.trashOut === member) chores.push("w_trashout");
-    if (weekRotation.refillSoap === member) chores.push("w_soap");
-    if (weekRotation.toiletPaper === member) chores.push("w_tp");
-  }
-  // Bring Cans In: Thursday primary, carries to Friday if not done Thursday
-  if (weekRotation && weekRotation.bringCansIn === member) {
-    if (dayName === "Thursday") chores.push("w_cans");
-    else if (dayName === "Friday" && completedChores) {
-      const thuDate = new Date(date); thuDate.setDate(thuDate.getDate() - 1);
-      const thuKey = dateToKey(thuDate);
-      if (!completedChores[`${thuKey}_${member}_w_cans`]) chores.push("w_cans");
-    }
-  }
-  // Housekeeping
-  if (dayName !== "Sunday" && dayName !== "Friday") {
-    const chart = getChartAssignment(member, date);
-    if (dayName === "Saturday") {
-      if (isMopSaturday(date)) chores.push("hk_mop");
-      if (chart.tasks["Saturday"]) chores.push("hk_saturday");
-    } else {
-      if (chart.tasks[dayName]) chores.push(`hk_${dayName.toLowerCase()}`);
-      chores.push("hk_zone");
-    }
-  }
-  // Laundry
-  if (LAUNDRY_DAYS[member] === dayName) chores.push("laundry");
-  // Custom tasks assigned for this date
-  if (customTasks && !customTasks._empty) {
-    Object.entries(customTasks).forEach(([k, t]) => {
-      if (k !== "_empty" && t && t.assignee === member && t.date === dk) {
-        chores.push(`custom_${k}`);
-      }
-    });
-  }
-  return chores;
-}
-
-// A chore counts toward streak only if completed on the same calendar day it was due.
-// completedChores values can be `true` (legacy) or `{ts, pts}`. `true` is treated as
-// on-time for grandfathering; new completions use the timestamp object.
-function isCompletedOnTime(record, dueDateKey) {
-  if (!record) return false;
-  if (record === true) return true; // legacy
-  if (typeof record === "object" && record.ts) {
-    // Convert ts to America/Denver date key
-    const d = new Date(record.ts);
-    const tsKey = d.toLocaleDateString("en-CA", { timeZone: "America/Denver" });
-    return tsKey === dueDateKey;
-  }
-  return false;
-}
-
-// Bounded full recalc. No cache — runs in <5ms for 90 days × 5 kids.
-// Streak = consecutive days ending today (or yesterday if today not yet done) where
-// every due chore was completed on-day.
-function calculateStreak(member, completedChores, today, customTasks) {
-  let streak = 0;
-  const d = new Date(today);
-  for (let i = 0; i < 90; i++) {
-    const checkDate = new Date(d);
-    checkDate.setDate(d.getDate() - i);
-    const dk = dateToKey(checkDate);
-    const dueChores = getDailyDueChores(member, checkDate, customTasks, completedChores);
-    if (dueChores.length === 0) continue;
-    const allOnTime = dueChores.every(choreId => isCompletedOnTime(completedChores[`${dk}_${member}_${choreId}`], dk));
-    if (allOnTime) streak++;
-    else {
-      // Today not done? Don't break the streak — kid still has time
-      if (i === 0) continue;
-      break;
-    }
-  }
-  return streak;
-}
-
-const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 
 // Compress an image file to a target max width and JPEG quality
 function compressImage(file, maxWidth = 800, quality = 0.7) {
@@ -643,24 +160,95 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
 function loadData(key, fallback) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } }
 function saveData(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
 
-function useFirebaseSync(docName, localState, setLocalState) {
-  const isRemoteUpdate = useRef(false);
-  const initialized = useRef(false);
+// Two-way sync between a React state object and one Firestore document.
+//
+// Writes are recorded AT THE MOMENT OF THE LOCAL CHANGE, not by diffing state
+// afterwards. The returned setter works like React's: every update is
+// "given the current data, return the new data" — so we diff exactly those two
+// objects and upload only what that one update changed (changed keys merged in,
+// removed keys deleted with deleteField()). Consequences:
+//   • Phones can't overwrite each other: a write only touches the keys the tap
+//     changed. (Previously every change re-uploaded the device's ENTIRE copy,
+//     so two phones — or one waking up with a stale copy — wiped each other.)
+//   • Server snapshots go straight into state through the raw setter and never
+//     trigger a write, so there's no echo/revert loop.
+//   • Each update writes once, even if React re-runs the updater (StrictMode,
+//     or re-basing an update on top of a newer snapshot).
+//   • Changes made offline are queued by Firestore and sent on reconnect.
+// Numeric counters in the points doc are sent as increment(delta), so two kids
+// earning points at the same moment both count.
+const SYNC_INCREMENT_DOCS = new Set(["points"]);
+const SYNC_MAX_INCREMENTS = 400; // Firestore allows ~500 transforms per write; bigger diffs send absolute values
+
+// Deep equality that ignores key order (Firestore may return map keys in a
+// different order than we wrote them).
+function syncEqual(a, b) {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a), kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && syncEqual(a[k], b[k]));
+}
+
+function computeSyncDiff(base, next, useIncrement) {
+  const diff = {};
+  let count = 0;
+  const b = base || {}, n = next || {};
+  for (const k of Object.keys(n)) {
+    if (!(k in b)) { diff[k] = n[k]; count++; continue; }
+    if (syncEqual(b[k], n[k])) continue;
+    diff[k] = (useIncrement && typeof b[k] === "number" && typeof n[k] === "number") ? increment(n[k] - b[k]) : n[k];
+    count++;
+  }
+  for (const k of Object.keys(b)) {
+    if (!(k in n)) { diff[k] = deleteField(); count++; }
+  }
+  return { diff, count };
+}
+
+const syncNormalize = (x) => (x && Object.keys(x).length > 0 ? x : { _empty: true });
+
+function writeSyncDiff(docName, base, next) {
+  const useInc = SYNC_INCREMENT_DOCS.has(docName);
+  let { diff, count } = computeSyncDiff(syncNormalize(base), syncNormalize(next), useInc);
+  if (count === 0) return;
+  if (useInc && count > SYNC_MAX_INCREMENTS) ({ diff } = computeSyncDiff(syncNormalize(base), syncNormalize(next), false));
+  try {
+    setDoc(doc(db, "family", docName), diff, { mergeFields: Object.keys(diff).map(k => new FieldPath(k)) })
+      .catch((err) => console.warn(`Firestore write error ${docName}:`, err));
+  } catch (err) {
+    console.warn(`Firestore write error ${docName}:`, err); // e.g. an undefined value — never crash the app
+  }
+}
+
+// Usage: const [x, setXRaw] = useState(...); const setX = useFirebaseSync("docName", setXRaw);
+function useFirebaseSync(docName, setRawState) {
   useEffect(() => {
     const docRef = doc(db, "family", docName);
     const unsub = onSnapshot(docRef, (snapshot) => {
-      if (snapshot.exists()) { const data = snapshot.data(); isRemoteUpdate.current = true; setLocalState(data); saveData(`fcc_${docName}`, data); }
-      initialized.current = true;
-    }, (error) => { console.warn(`Firestore error ${docName}:`, error); initialized.current = true; });
+      // An offline start can report "document missing" from the empty local
+      // cache — ignore that rather than blanking the screen.
+      if (!snapshot.exists()) return;
+      const data = snapshot.data();
+      setRawState(data);
+      saveData(`fcc_${docName}`, data);
+    }, (error) => { console.warn(`Firestore error ${docName}:`, error); });
     return () => unsub();
-  }, [docName, setLocalState]);
-  useEffect(() => {
-    if (!initialized.current) return;
-    if (isRemoteUpdate.current) { isRemoteUpdate.current = false; return; }
-    const docRef = doc(db, "family", docName);
-    const dataToSave = localState && Object.keys(localState).length > 0 ? localState : { _empty: true };
-    setDoc(docRef, dataToSave).catch((err) => console.warn(`Firestore write error ${docName}:`, err));
-  }, [docName, localState]);
+  }, [docName, setRawState]);
+
+  return useCallback((valueOrUpdater) => {
+    let written = false;
+    setRawState(prev => {
+      const next = typeof valueOrUpdater === "function" ? valueOrUpdater(prev) : valueOrUpdater;
+      if (!written) {
+        written = true;
+        // Defer the network call out of React's update cycle.
+        queueMicrotask(() => writeSyncDiff(docName, prev, next));
+      }
+      return next;
+    });
+  }, [docName, setRawState]);
 }
 
 const Icons = {
@@ -764,6 +352,23 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .must-do-alert-text{font-size:0.72rem;font-weight:800;color:#fbbf24;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .my-jobs-chore.priority:not(.done){background:rgba(245,158,11,0.12);border-left:3px solid #f59e0b;font-weight:700;color:#fcd34d}
 @media(prefers-reduced-motion:reduce){.chore-item.priority,.must-do-alert{animation:none}}
+.chore-group-label{display:flex;align-items:center;gap:6px;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin:8px 2px 0}
+.chore-list>.chore-group-label:first-child{margin-top:0}
+.chore-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.chore-details{font-size:0.8rem;font-weight:500;color:var(--text-secondary);line-height:1.4}
+.chore-info-btn{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);background:none;color:var(--text-muted);font-size:0.72rem;font-weight:800;font-style:italic;font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0}
+.chore-info-btn.open{color:var(--accent);border-color:var(--accent)}
+@media (max-width:560px){.chore-list .chore-tag{display:none}}
+.nightly-row{display:flex;gap:12px;align-items:flex-start;padding:10px 6px;border-top:1px solid var(--border)}
+.nightly-row:nth-of-type(2){border-top:none}
+.nightly-row.today{background:rgba(59,130,246,0.08);border-radius:10px;border-top-color:transparent}
+.nightly-row.today .nightly-day{color:var(--accent)}
+.nightly-day{width:48px;flex-shrink:0;font-weight:800;font-size:0.9rem;line-height:1.15}
+.nightly-day small{display:block;font-weight:600;font-size:0.7rem;color:var(--text-muted)}
+.nightly-jobs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.nightly-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:0.8rem;font-weight:700}
+.nightly-job{color:var(--text-muted);font-weight:600}
+.chore-done-toggle{background:none;border:none;color:var(--success);font-size:0.8rem;font-weight:700;text-align:left;padding:6px 2px 2px;cursor:pointer;font-family:inherit}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
 /* --- "Dishes today" hero banner --- */
 .dishes-banner{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:16px;border-radius:16px;background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.06));border:1px solid rgba(59,130,246,0.4);border-left:5px solid var(--accent)}
@@ -1078,22 +683,23 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 export default function App() {
   const [currentTab, setCurrentTab] = useState("today");
   const [today] = useState(getToday());
-  const [completedChores, setCompletedChores] = useState(() => loadData("fcc_completed", {}));
-  const [points, setPoints] = useState(() => loadData("fcc_points", {}));
-  const [streaks, setStreaks] = useState(() => loadData("fcc_streaks", {}));
-  const [customTasks, setCustomTasks] = useState(() => loadData("fcc_customTasks", {}));
-  const [teamNames, setTeamNames] = useState(() => loadData("fcc_teamNames", {}));
-  const [awards, setAwards] = useState(() => loadData("fcc_awards", {}));
-  const [prizes, setPrizes] = useState(() => loadData("fcc_prizes", {}));
-  const [customEmojis, setCustomEmojis] = useState(() => loadData("fcc_customEmojis", {}));
-  const [teamColors, setTeamColors] = useState(() => loadData("fcc_teamColors", {}));
-  const [gameUnlocks, setGameUnlocks] = useState(() => loadData("fcc_gameUnlocks", {}));
-  const [gameTimers, setGameTimers] = useState(() => loadData("fcc_gameTimers", {}));
-  const [chorePhotos, setChorePhotos] = useState(() => loadData("fcc_chorePhotos", {}));
+  const [completedChores, setCompletedChoresRaw] = useState(() => loadData("fcc_completed", {}));
+  const [points, setPointsRaw] = useState(() => loadData("fcc_points", {}));
+  const [streaks, setStreaksRaw] = useState(() => loadData("fcc_streaks", {}));
+  const [customTasks, setCustomTasksRaw] = useState(() => loadData("fcc_customTasks", {}));
+  const [teamNames, setTeamNamesRaw] = useState(() => loadData("fcc_teamNames", {}));
+  const [awards, setAwardsRaw] = useState(() => loadData("fcc_awards", {}));
+  const [prizes, setPrizesRaw] = useState(() => loadData("fcc_prizes", {}));
+  const [customEmojis, setCustomEmojisRaw] = useState(() => loadData("fcc_customEmojis", {}));
+  const [teamColors, setTeamColorsRaw] = useState(() => loadData("fcc_teamColors", {}));
+  const [gameUnlocks, setGameUnlocksRaw] = useState(() => loadData("fcc_gameUnlocks", {}));
+  const [gameTimers, setGameTimersRaw] = useState(() => loadData("fcc_gameTimers", {}));
+  const [chorePhotos, setChorePhotosRaw] = useState(() => loadData("fcc_chorePhotos", {}));
   const [photoUploading, setPhotoUploading] = useState(null); // "member_choreId" while uploading
   const [photoViewer, setPhotoViewer] = useState(null); // { url, member, chore } for full-screen view
   const [timesUpMember, setTimesUpMember] = useState(null); // member name for TIMES UP overlay
-  const [memberPins, setMemberPins] = useState(() => loadData("fcc_memberPins", {})); // {Nicholas:"1234",...}
+  const [memberPins, setMemberPinsRaw] = useState(() => loadData("fcc_memberPins", {})); // {Nicholas:"1234",...}
+  const [parentSettings, setParentSettingsRaw] = useState(() => loadData("fcc_parentSettings", {})); // { pinHash }
   const [pinPrompt, setPinPrompt] = useState(null); // { member, action } when waiting on kid PIN
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -1104,21 +710,23 @@ export default function App() {
   const prevStreaksRef = useRef({});
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  useFirebaseSync("completedChores", completedChores, setCompletedChores);
-  useFirebaseSync("points", points, setPoints);
-  useFirebaseSync("streaks", streaks, setStreaks);
-  useFirebaseSync("customTasks", customTasks, setCustomTasks);
-  useFirebaseSync("teamNames", teamNames, setTeamNames);
-  useFirebaseSync("awards", awards, setAwards);
-  useFirebaseSync("prizes", prizes, setPrizes);
-  useFirebaseSync("customEmojis", customEmojis, setCustomEmojis);
-  useFirebaseSync("teamColors", teamColors, setTeamColors);
-  useFirebaseSync("gameUnlocks", gameUnlocks, setGameUnlocks);
-  useFirebaseSync("gameTimers", gameTimers, setGameTimers);
-  useFirebaseSync("chorePhotos", chorePhotos, setChorePhotos);
-  useFirebaseSync("memberPins", memberPins, setMemberPins);
+  const setCompletedChores = useFirebaseSync("completedChores", setCompletedChoresRaw);
+  const setPoints = useFirebaseSync("points", setPointsRaw);
+  const setStreaks = useFirebaseSync("streaks", setStreaksRaw);
+  const setCustomTasks = useFirebaseSync("customTasks", setCustomTasksRaw);
+  const setTeamNames = useFirebaseSync("teamNames", setTeamNamesRaw);
+  const setAwards = useFirebaseSync("awards", setAwardsRaw);
+  const setPrizes = useFirebaseSync("prizes", setPrizesRaw);
+  const setCustomEmojis = useFirebaseSync("customEmojis", setCustomEmojisRaw);
+  const setTeamColors = useFirebaseSync("teamColors", setTeamColorsRaw);
+  const setGameUnlocks = useFirebaseSync("gameUnlocks", setGameUnlocksRaw);
+  const setGameTimers = useFirebaseSync("gameTimers", setGameTimersRaw);
+  const setChorePhotos = useFirebaseSync("chorePhotos", setChorePhotosRaw);
+  const setMemberPins = useFirebaseSync("memberPins", setMemberPinsRaw);
+  const setParentSettings = useFirebaseSync("parentSettings", setParentSettingsRaw);
 
   useEffect(() => { saveData("fcc_memberPins", memberPins); }, [memberPins]);
+  useEffect(() => { saveData("fcc_parentSettings", parentSettings); }, [parentSettings]);
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
   useEffect(() => { saveData("fcc_streaks", streaks); }, [streaks]);
@@ -1296,10 +904,10 @@ export default function App() {
 
   const getPoints = useCallback((member, period) => {
     if (!points || points._empty) return 0;
-    if (period === "weekly") return points[`w_${weekStartKey}_${member}`] || 0;
-    if (period === "monthly") return points[`m_${monthKey}_${member}`] || 0;
-    if (period === "yearly") return points[`y_${yearKey}_${member}`] || 0;
-    if (period === "alltime") return points[`a_${member}`] || 0;
+    if (period === "weekly") return Math.max(0, points[`w_${weekStartKey}_${member}`] || 0);
+    if (period === "monthly") return Math.max(0, points[`m_${monthKey}_${member}`] || 0);
+    if (period === "yearly") return Math.max(0, points[`y_${yearKey}_${member}`] || 0);
+    if (period === "alltime") return Math.max(0, points[`a_${member}`] || 0);
     return 0;
   }, [points, weekStartKey, monthKey, yearKey]);
 
@@ -1403,7 +1011,7 @@ export default function App() {
       if (daily.legacy) chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 });
       else getDishChores(date).forEach(t => chores.push({ id: t.id, text: t.text, tag: "dishes", pointValue: 1 }));
     }
-    if (daily.zone) chores.push({ id: "zone", text: `Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
+    if (daily.zone) chores.push({ id: "zone", text: `After-Dinner Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
     daily.dinnerJobs.forEach(dj => {
       chores.push({ id: dj.id, text: `Dinner: ${DINNER_JOB_LABELS[dj.job] || dj.job}`, tag: "dinner", pointValue: 1 });
     });
@@ -1473,7 +1081,8 @@ export default function App() {
         }
       }
       if (dn !== "Saturday") {
-        chores.push({ id: "hk_zone", text: `Tidy Up Zone: ${chart.zone}`, tag: "housekeeping", pointValue: 1 });
+        const [zoneName, ...zoneRest] = chart.zone.split(" — ");
+        chores.push({ id: "hk_zone", text: `Tidy Up: ${zoneName}`, details: zoneRest.length ? capitalizeFirst(zoneRest.join(" — ")) : undefined, tag: "housekeeping", pointValue: 1 });
       }
     }
 
@@ -1491,7 +1100,11 @@ export default function App() {
         });
     }
     // Flag the once-a-week no-miss jobs and float them to the top of the list.
-    chores.forEach(c => { if (isPriorityChore(c.id)) c.priority = true; });
+    chores.forEach(c => {
+      if (isPriorityChore(c.id)) c.priority = true;
+      if (!c.routine && !c.details) Object.assign(c, shortenChoreText(c.text));
+      c.when = getChoreTimeOfDay(c);
+    });
     chores.sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0));
     return chores;
   }, [completedChores, customTasks]);
@@ -1758,10 +1371,10 @@ export default function App() {
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
           {currentTab === "games" && <GameView members={FAMILY_MEMBERS} getVideoGameStatus={getVideoGameStatus} getMemberEmoji={getMemberEmoji} gameTimers={gameTimers} startTimer={startTimer} pauseTimer={pauseTimer} stopTimer={stopTimer} adjustTimer={adjustTimer} isParent={isParent} toggleGameUnlock={toggleGameUnlock} setTimesUpMember={setTimesUpMember} />}
           {currentTab === "history" && <HistoryView awards={awards} points={points} teamNames={teamNames} getMemberEmoji={getMemberEmoji} today={today} />}
-          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} memberPins={memberPins} setMemberPins={setMemberPins} />}
+          {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} memberPins={memberPins} setMemberPins={setMemberPins} parentSettings={parentSettings} setParentSettings={setParentSettings} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
-        {showPinDialog && <PinDialog onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
+        {showPinDialog && <PinDialog parentSettings={parentSettings} onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {pinPrompt && (() => {
           const m = FAMILY_MEMBERS.find(f => f.name === pinPrompt.member);
           const expected = memberPins?.[pinPrompt.member];
@@ -2052,25 +1665,63 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
                 ))}
               </div>
             )}
-            {isExpanded && (
-            <div className="chore-list" style={{ marginTop: 10 }}>
-              {chores.map((chore) => {
+            {isExpanded && (() => {
+              // Open chores grouped by time of day (must-do jobs stay first within
+              // their group); finished chores collapse into one "done" row at the
+              // bottom so what's left is always on top.
+              const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+              const openChores = chores.filter(c => !isChoreComplete(member.name, c.id));
+              const doneChores = chores.filter(c => isChoreComplete(member.name, c.id));
+              const doneKey = `${member.name}::done`;
+              const showDone = expanded.has(doneKey);
+              const renderChore = (chore) => {
                 const completed = isChoreComplete(member.name, chore.id);
                 const isCustom = chore.tag === "custom";
+                const infoKey = `${member.name}::info::${chore.id}`;
+                const infoOpen = expanded.has(infoKey);
                 return (
                   <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${chore.priority ? "priority" : ""}`}>
                     <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{completed && <Icons.Check size={16} color="white" />}</div>
-                    <span className="chore-text" onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{chore.text}</span>
+                    <div className="chore-body">
+                      <span className="chore-text" onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{chore.text}</span>
+                      {infoOpen && chore.details && <div className="chore-details" onClick={() => toggleExpanded(infoKey)}>{chore.details}</div>}
+                    </div>
+                    {chore.details && <button className={`chore-info-btn ${infoOpen ? "open" : ""}`} onClick={(e) => { e.stopPropagation(); toggleExpanded(infoKey); }} title={infoOpen ? "Hide details" : "Show details"} aria-label="Show details">i</button>}
                     {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
                     {chore.priority && <span className="must-do-badge">⚠ MUST DO</span>}
                     <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
                     {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
                   </div>
                 );
-              })}
-              {chores.length === 0 && <div className="chore-empty">Nothing assigned today</div>}
-            </div>
-            )}
+              };
+              return (
+                <div className="chore-list" style={{ marginTop: 10 }}>
+                  {CHORE_TIME_GROUPS.map(group => {
+                    const items = openChores.filter(c => (c.when || "day") === group.key);
+                    if (items.length === 0) return null;
+                    return (
+                      <Fragment key={group.key}>
+                        <div className="chore-group-label">
+                          <span>{isWeekend && group.weekendIcon ? group.weekendIcon : group.icon}</span>
+                          {isWeekend && group.weekendLabel ? group.weekendLabel : group.label}
+                        </div>
+                        {items.map(renderChore)}
+                      </Fragment>
+                    );
+                  })}
+                  {chores.length === 0 && <div className="chore-empty">Nothing assigned today</div>}
+                  {chores.length > 0 && openChores.length === 0 && <div className="chore-empty">Everything's done — nice work! 🎉</div>}
+                  {doneChores.length > 0 && (
+                    <>
+                      <button className="chore-done-toggle" onClick={() => toggleExpanded(doneKey)}>
+                        ✓ {doneChores.length} done <span style={{ opacity: 0.7 }}>{showDone ? "· hide" : "· show"}</span>
+                      </button>
+                      {showDone && doneChores.map(renderChore)}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             {isExpanded && routineGroups.map((rg) => {
             const rKey = `${member.name}::${rg.key}`;
             const rOpen = expanded.has(rKey);
@@ -2629,6 +2280,14 @@ function WeekView({ today, weekOffset, setWeekOffset, getChoresForDate, isChoreC
 // ============================================================
 // ROTATION VIEW
 // ============================================================
+const NIGHTLY_JOB_DISPLAY = [
+  { key: "Dishes", label: "Dishes", icon: "🍽️" },
+  { key: "Take Out Trash", label: "Trash", icon: "🗑️" },
+  { key: "Clear Table", label: "Clear", icon: "🧽" },
+  { key: "Floor Pickup", label: "Floor", icon: "🧹" },
+  { key: "Set Table", label: "Set", icon: "🍴" },
+];
+
 function RotationView({ today, weekRotation }) {
   const [rotationOffset, setRotationOffset] = useState(0);
   const member = (name) => FAMILY_MEMBERS.find(m => m.name === name);
@@ -2647,6 +2306,27 @@ function RotationView({ today, weekRotation }) {
     return result;
   }, [today, rotationOffset]);
 
+  // Nightly jobs (dishes + dinner jobs) for the first week shown. Built from the
+  // same getDailyAssignment() the Today screen uses, so the two can't disagree.
+  const nightly = useMemo(() => {
+    const ws = weeks[0]?.date;
+    if (!ws) return null;
+    const todayKey = dateToKey(today);
+    const rows = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ws); d.setDate(d.getDate() + i);
+      const jobs = {};
+      FAMILY_MEMBERS.forEach(m => {
+        const a = getDailyAssignment(m.name, d);
+        if (!a) return;
+        if (a.dishes) (jobs["Dishes"] = jobs["Dishes"] || []).push(m.name);
+        a.dinnerJobs.forEach(dj => { (jobs[dj.job] = jobs[dj.job] || []).push(m.name); });
+      });
+      rows.push({ date: d, key: dateToKey(d), isToday: dateToKey(d) === todayKey, jobs });
+    }
+    return { weekStart: ws, rows };
+  }, [weeks, today]);
+
   return (
     <div>
       <div className="week-nav">
@@ -2654,6 +2334,34 @@ function RotationView({ today, weekRotation }) {
         <span className="week-label">Rotation Schedule</span>
         <button className="week-nav-btn" onClick={() => setRotationOffset(o => o + 4)}><Icons.ChevronRight size={20} /></button>
       </div>
+      {nightly && (
+        <div className="card animate-in">
+          <div className="card-title">
+            <span>🍽️</span>
+            <span>Nightly Jobs · week of {nightly.weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+          </div>
+          {nightly.rows.map(row => (
+            <div key={row.key} className={`nightly-row ${row.isToday ? "today" : ""}`}>
+              <div className="nightly-day">
+                {row.date.toLocaleDateString("en-US", { weekday: "short" })}
+                <small>{row.isToday ? "Today" : row.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</small>
+              </div>
+              <div className="nightly-jobs">
+                {NIGHTLY_JOB_DISPLAY.filter(j => row.jobs[j.key]).map(j => (
+                  <span key={j.key} className="nightly-chip">
+                    <span>{j.icon}</span>
+                    <span className="nightly-job">{j.label}</span>
+                    {row.jobs[j.key].map(name => {
+                      const m = member(name);
+                      return <span key={name} style={{ color: m?.color }}>{name}</span>;
+                    })}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {weeks.map(({ date, rotation, isCurrent }) => {
         if (!rotation) return null;
         const weekLabel = `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(date.getTime() + 6*24*60*60*1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
@@ -2730,7 +2438,7 @@ function HistoryView({ awards, points, teamNames, getMemberEmoji, today }) {
     if (!points || points._empty) return [];
     const scores = FAMILY_MEMBERS.map(m => {
       const key = `w_${weekKey}_${m.name}`;
-      return { name: m.name, color: m.color, points: points[key] || 0 };
+      return { name: m.name, color: m.color, points: Math.max(0, points[key] || 0) };
     }).sort((a, b) => b.points - a.points);
     return scores;
   }, [points]);
@@ -2893,7 +2601,7 @@ function sendLocalNotification(title, body) {
 // ============================================================
 // TIMES UP OVERLAY
 // ============================================================
-function TimesUpOverlay({ member, memberEmoji, onDismiss }) {
+function TimesUpOverlay({ member, memberEmoji, parentSettings, onDismiss }) {
   const [pin, setPin] = useState(["", "", "", ""]);
   const [error, setError] = useState(false);
   const refs = [useRef(), useRef(), useRef(), useRef()];
@@ -2906,8 +2614,11 @@ function TimesUpOverlay({ member, memberEmoji, onDismiss }) {
     if (val && i < 3) refs[i + 1].current?.focus();
     const full = newPin.join("");
     if (full.length === 4) {
-      if (full === PARENT_PIN) { onDismiss(); }
-      else { setError(true); setPin(["", "", "", ""]); setTimeout(() => refs[0].current?.focus(), 100); }
+      verifyParentPin(full, parentSettings).then(result => {
+        if (result === "ok") { onDismiss(); return; }
+        setError(result === "locked" ? "Too many tries — wait a minute" : "Wrong PIN");
+        setPin(["", "", "", ""]); setTimeout(() => refs[0].current?.focus(), 100);
+      });
     }
   };
 
@@ -2925,7 +2636,7 @@ function TimesUpOverlay({ member, memberEmoji, onDismiss }) {
             style={error ? { borderColor: "#EF4444" } : {}} />
         ))}
       </div>
-      {error && <div style={{ color: "#f87171", fontSize: "0.85rem", fontWeight: 600, marginTop: 4 }}>Wrong PIN</div>}
+      {error && <div style={{ color: "#f87171", fontSize: "0.85rem", fontWeight: 600, marginTop: 4 }}>{error}</div>}
     </div>
   );
 }
@@ -3041,7 +2752,7 @@ function GameView({ members, getVideoGameStatus, getMemberEmoji, gameTimers, sta
 // ============================================================
 // ADMIN VIEW
 // ============================================================
-function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards, getVideoGameStatus, toggleGameUnlock, chorePhotos, deleteChorePhoto, setPhotoViewer, getMemberEmoji, memberPins, setMemberPins }) {
+function AdminView({ points, setPoints, completedChores, setCompletedChores, streaks, setStreaks, customTasks, deleteCustomTask, getPoints, addPoints, recordWeekAwards, prizes, setPrizes, weekStartKey, monthKey, awards, setAwards, getVideoGameStatus, toggleGameUnlock, chorePhotos, deleteChorePhoto, setPhotoViewer, getMemberEmoji, memberPins, setMemberPins, parentSettings, setParentSettings }) {
   const [awardMsg, setAwardMsg] = useState("");
 
   // Get today's photos for review
@@ -3086,6 +2797,7 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
 
   return (
     <div>
+      <ParentPinCard parentSettings={parentSettings} setParentSettings={setParentSettings} />
       {/* Kid PINs */}
       <div className="card">
         <div className="card-title"><Icons.Lock size={22} color="var(--accent)" /> Kid PINs</div>
@@ -3295,7 +3007,7 @@ function AdminView({ points, setPoints, completedChores, setCompletedChores, str
 // ============================================================
 // PIN DIALOG (parent)
 // ============================================================
-function PinDialog({ onSuccess, onClose }) {
+function PinDialog({ parentSettings, onSuccess, onClose }) {
   const [pin, setPin] = useState(["", "", "", ""]);
   const [error, setError] = useState(false);
   const refs = [useRef(), useRef(), useRef(), useRef()];
@@ -3307,8 +3019,11 @@ function PinDialog({ onSuccess, onClose }) {
     if (val && i < 3) refs[i + 1].current?.focus();
     const full = newPin.join("");
     if (full.length === 4) {
-      if (full === PARENT_PIN) onSuccess();
-      else { setError(true); setTimeout(() => { setPin(["","","",""]); refs[0].current?.focus(); }, 600); }
+      verifyParentPin(full, parentSettings).then(result => {
+        if (result === "ok") { onSuccess(); return; }
+        setError(result === "locked" ? "Too many tries — wait a minute" : "Incorrect PIN");
+        setTimeout(() => { setPin(["","","",""]); refs[0].current?.focus(); }, 600);
+      });
     }
   };
   return (
@@ -3319,9 +3034,45 @@ function PinDialog({ onSuccess, onClose }) {
         <div className="pin-input">
           {pin.map((d, i) => <input key={i} ref={refs[i]} type="tel" inputMode="numeric" className="pin-digit" value={d} onChange={e => handleChange(i, e.target.value)} onKeyDown={e => { if (e.key === "Backspace" && !pin[i] && i > 0) refs[i-1].current?.focus(); }} maxLength={1} />)}
         </div>
-        {error && <div className="pin-error">Incorrect PIN</div>}
+        {error && <div className="pin-error">{error}</div>}
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// PARENT PIN — change card (Admin). Stores only the fingerprint, never the digits.
+// ============================================================
+function ParentPinCard({ parentSettings, setParentSettings }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [msg, setMsg] = useState(null); // { ok: bool, text }
+  const usingDefault = !parentSettings?.pinHash;
+  const inputStyle = { width: 100, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontFamily: "monospace", fontSize: "1rem", textAlign: "center", letterSpacing: "0.2em" };
+  const digits = (v) => v.replace(/[^0-9]/g, "").slice(0, 4);
+  const save = async () => {
+    if (next.length !== 4) return setMsg({ ok: false, text: "New PIN must be 4 digits." });
+    if (next !== confirm) return setMsg({ ok: false, text: "New PINs don't match." });
+    const result = await verifyParentPin(current, parentSettings);
+    if (result !== "ok") return setMsg({ ok: false, text: result === "locked" ? "Too many tries — wait a minute." : "Current PIN is wrong." });
+    const pinHash = await hashParentPin(next);
+    setParentSettings(prev => { const u = { ...prev }; delete u._empty; u.pinHash = pinHash; u.changedAt = Date.now(); return u; });
+    setCurrent(""); setNext(""); setConfirm("");
+    setMsg({ ok: true, text: "Parent PIN updated on all devices." });
+  };
+  return (
+    <div className="card">
+      <div className="card-title"><Icons.Lock size={22} color="var(--accent)" /> Parent PIN</div>
+      <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+        {usingDefault ? "Still using the original default PIN — change it so the kids can't guess it." : "Change the 4-digit PIN used to unlock parent mode."} After 5 wrong tries a device is locked out for 1 minute.
+      </div>
+      <div className="admin-row"><label>Current PIN</label><input type="password" inputMode="numeric" maxLength={4} value={current} onChange={e => { setCurrent(digits(e.target.value)); setMsg(null); }} style={inputStyle} /></div>
+      <div className="admin-row"><label>New PIN</label><input type="password" inputMode="numeric" maxLength={4} value={next} onChange={e => { setNext(digits(e.target.value)); setMsg(null); }} style={inputStyle} /></div>
+      <div className="admin-row"><label>Confirm new PIN</label><input type="password" inputMode="numeric" maxLength={4} value={confirm} onChange={e => { setConfirm(digits(e.target.value)); setMsg(null); }} style={inputStyle} /></div>
+      {msg && <div style={{ fontSize: "0.85rem", fontWeight: 600, marginTop: 8, color: msg.ok ? "var(--success)" : "var(--danger)" }}>{msg.text}</div>}
+      <button className="btn btn-primary" onClick={save} style={{ marginTop: 12 }}>Update PIN</button>
     </div>
   );
 }
