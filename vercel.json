@@ -3,5 +3,15 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "vite"
+  "framework": "vite",
+  "crons": [
+    {
+      "path": "/api/remind?run=a",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/remind?run=b",
+      "schedule": "0 1 * * *"
+    }
+  ]
 }

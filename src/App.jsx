@@ -2,43 +2,15 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "rea
 import { db, storage } from "./firebase";
 import { doc, setDoc, onSnapshot, deleteField, increment, FieldPath } from "firebase/firestore";
 import {
-  LAUNDRY_DAYS, isVideoGameDay, getDishChores, DINNER_JOB_LABELS, getDailyAssignment, isPriorityChore,
-  getRoutinesForDate, getRoutineForItemId, hasChurchClothesOnDate, hasPianoOnDate, FAMILY_MEMBERS, getToday,
-  getDayName, formatDate, getWeekStart, dateToKey, getCurrentWeekRotation, getWeekNumber,
-  isTeamWeek, getChartAssignment, isMopSaturday, getIncompleteHousekeepingTasks, getWeekStartKey, getMonthKey,
-  getYearKey, calculateStreak, STREAK_MILESTONES,
+  isVideoGameDay, getDailyAssignment, getRoutineForItemId, FAMILY_MEMBERS, getToday, getDayName,
+  formatDate, getWeekStart, dateToKey, getCurrentWeekRotation, getWeekNumber, isTeamWeek,
+  getChartAssignment, getWeekStartKey, getMonthKey, getYearKey, calculateStreak, STREAK_MILESTONES,
+  CHORE_TIME_GROUPS, buildChoreList,
 } from "./schedule";
 import { LogoMark, LaunchSplash, shouldShowSplash } from "./Logo";
+import { pushSupport, subscribeThisDevice, subscriptionId, currentSubscriptionId, unsubscribeThisDevice, sendTestReminder, deviceLabel } from "./push";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 
-// ============================================================
-// TODAY LAYOUT — time-of-day groups + short titles
-// Kids work through the day in this order, so the Today card lists chores the
-// same way. Long chart text becomes a short title; the full instructions are
-// one tap away (the ⓘ button) instead of filling the card.
-// ============================================================
-const CHORE_TIME_GROUPS = [
-  { key: "morning", label: "Morning", icon: "☀️" },
-  { key: "day", label: "After School", icon: "🎒", weekendLabel: "During the Day", weekendIcon: "🏠" },
-  { key: "dinner", label: "After Dinner", icon: "🍽️" },
-];
-function getChoreTimeOfDay(chore) {
-  if (chore.id === "dishes_unload" || chore.id === "church_clothes") return "morning";
-  if (chore.id === "dishes_load" || chore.id === "dishes" || chore.id === "zone" || chore.tag === "dinner") return "dinner";
-  return "day";
-}
-const SHORT_TITLE_MAX = 40;
-function shortenChoreText(text) {
-  if (!text || text.length <= SHORT_TITLE_MAX) return { text };
-  let cut = -1;
-  for (const sep of [" — ", " (", ", "]) {
-    const i = text.indexOf(sep);
-    if (i > 8 && (cut < 0 || i < cut)) cut = i;
-  }
-  if (cut < 0) return { text };
-  return { text: text.slice(0, cut).trim(), details: text };
-}
-function capitalizeFirst(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : str; }
 
 
 // Parent PIN: only a salted SHA-256 fingerprint lives in code/Firestore, never the
@@ -262,6 +234,7 @@ const Icons = {
   Star: ({ size = 20, color = "currentColor", filled = false }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : "none"} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>),
   Recycle: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5" /><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12" /><path d="m14 16-3 3 3 3" /><path d="M8.293 13.596 7.196 9.5 3.1 10.598" /><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843" /><path d="m13.378 9.633 4.096 1.098 1.097-4.096" /></svg>),
   Lock: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>),
+  Bell: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>),
   Fire: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none"><path d="M12 23c-3.866 0-7-2.686-7-6 0-1.665.737-3.199 2-4.272C7 9.5 8.5 6 12 2c1 3 3 5 4 6.5.667 1 2 2.5 2 4.5 0 3.314-2.686 6-6 6z" /></svg>),
   Users: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>),
   ChevronLeft: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>),
@@ -372,6 +345,23 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .nightly-jobs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
 .nightly-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:0.8rem;font-weight:700}
 .nightly-job{color:var(--text-muted);font-weight:600}
+.header-bell{padding:6px 8px}
+.reminders-modal{width:440px;max-width:94vw}
+.reminders-close{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.6rem;line-height:1}
+.reminders-sub{font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px;line-height:1.45}
+.reminders-label{font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin:4px 0 8px}
+.reminders-kids{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.reminders-kid{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:2px solid var(--border);background:var(--bg-secondary);font-weight:700;cursor:pointer;user-select:none}
+.reminders-kid input{display:none}
+.reminders-kid.on{background:rgba(59,130,246,0.1)}
+.reminders-actions{display:flex;flex-wrap:wrap;gap:8px}
+.reminders-msg{font-size:0.85rem;font-weight:600;margin-top:12px;line-height:1.4}
+.reminders-help{font-size:0.9rem;line-height:1.5;color:var(--text-primary);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:14px}
+.reminders-help ol{margin:8px 0 0 18px;padding:0}
+.reminders-devices{margin-top:18px;border-top:1px solid var(--border);padding-top:12px}
+.reminders-device{display:flex;align-items:center;gap:10px;font-size:0.85rem;padding:6px 0}
+.reminders-device span:first-child{font-weight:700;min-width:110px}
+.reminders-device-who{flex:1;color:var(--text-secondary)}
 .chore-done-toggle{background:none;border:none;color:var(--success);font-size:0.8rem;font-weight:700;text-align:left;padding:6px 2px 2px;cursor:pointer;font-family:inherit}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
 /* --- "Dishes today" hero banner --- */
@@ -704,6 +694,10 @@ export default function App() {
   const [timesUpMember, setTimesUpMember] = useState(null); // member name for TIMES UP overlay
   const [memberPins, setMemberPinsRaw] = useState(() => loadData("fcc_memberPins", {})); // {Nicholas:"1234",...}
   const [parentSettings, setParentSettingsRaw] = useState(() => loadData("fcc_parentSettings", {})); // { pinHash }
+  const [pushSubscriptions, setPushSubscriptionsRaw] = useState(() => loadData("fcc_pushSubscriptions", {})); // { subId: { members, parent, subscription, device } }
+  const [showReminders, setShowReminders] = useState(false);
+  // Tapping a reminder opens /?kid=Carter — expand that kid's card on Today.
+  const [focusKid] = useState(() => { try { return new URLSearchParams(window.location.search).get("kid"); } catch { return null; } });
   const [pinPrompt, setPinPrompt] = useState(null); // { member, action } when waiting on kid PIN
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -729,9 +723,12 @@ export default function App() {
   const setChorePhotos = useFirebaseSync("chorePhotos", setChorePhotosRaw);
   const setMemberPins = useFirebaseSync("memberPins", setMemberPinsRaw);
   const setParentSettings = useFirebaseSync("parentSettings", setParentSettingsRaw);
+  const setPushSubscriptions = useFirebaseSync("pushSubscriptions", setPushSubscriptionsRaw);
 
   useEffect(() => { saveData("fcc_memberPins", memberPins); }, [memberPins]);
   useEffect(() => { saveData("fcc_parentSettings", parentSettings); }, [parentSettings]);
+  useEffect(() => { saveData("fcc_pushSubscriptions", pushSubscriptions); }, [pushSubscriptions]);
+  useEffect(() => { if (focusKid) { try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ } } }, [focusKid]);
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
   useEffect(() => { saveData("fcc_streaks", streaks); }, [streaks]);
@@ -1006,113 +1003,9 @@ export default function App() {
   }, [toggleChoreForDate, today]);
 
   // Generic: get chores for any member on any date
-  const getChoresForDate = useCallback((member, date) => {
-    const dn = getDayName(date);
-    const dk = dateToKey(date);
-    const daily = getDailyAssignment(member, date);
-    const chores = [];
-    if (!daily) return chores;
-    if (daily.dishes) {
-      if (daily.legacy) chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 });
-      else getDishChores(date).forEach(t => chores.push({ id: t.id, text: t.text, tag: "dishes", pointValue: 1 }));
-    }
-    if (daily.zone) chores.push({ id: "zone", text: `After-Dinner Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
-    daily.dinnerJobs.forEach(dj => {
-      chores.push({ id: dj.id, text: `Dinner: ${DINNER_JOB_LABELS[dj.job] || dj.job}`, tag: "dinner", pointValue: 1 });
-    });
-    daily.youngTasks.forEach((t, i) => { chores.push({ id: `task_${i}`, text: t, tag: "young", pointValue: 1 }); });
-    // Daily routines — items are 0 pts each; the routine bonus is awarded when
-    // every item is checked (see toggleChoreForDate). `routine` marks the key so
-    // TodayView can pull them out into their own cards.
-    getRoutinesForDate(member, date).forEach(r => {
-      r.items.forEach(it => {
-        chores.push({ id: it.id, text: it.text, tag: "routine", pointValue: 0, routine: r.key, routineLabel: r.label, routineIcon: r.icon, routineBonus: r.bonus });
-      });
-    });
-    // Saturday morning: find church clothes for Sunday
-    if (hasChurchClothesOnDate(member, date)) {
-      chores.push({ id: "church_clothes", text: "Find Church Clothes for Sunday (morning)", tag: "church", pointValue: 1 });
-    }
-    // Daily piano practice
-    if (hasPianoOnDate(member, date)) {
-      chores.push({ id: "piano", text: "Practice Piano", tag: "practice", pointValue: 1 });
-    }
-    const rot = getCurrentWeekRotation(date);
-    if (rot) {
-      // Collect Trash, Take Bins Out, Refill Soap, Refill TP — Wednesday only
-      if (dn === "Wednesday") {
-        if (rot.collectTrash === member) chores.push({ id: "w_trash", text: "Collect Trash (all rooms)", tag: "weekly", pointValue: 1 });
-        if (rot.trashOut === member) chores.push({ id: "w_trashout", text: `Take Bins Out${rot.recycle ? " + Recycling" : ""}`, tag: "weekly", pointValue: 1 });
-        if (rot.refillSoap === member) chores.push({ id: "w_soap", text: "Refill Soap", tag: "weekly", pointValue: 1 });
-        if (rot.toiletPaper === member) chores.push({ id: "w_tp", text: "Refill Toilet Paper", tag: "weekly", pointValue: 1 });
-      }
-      // Bring Cans In — Thursday, carries over to Friday if not done
-      if (rot.bringCansIn === member) {
-        if (dn === "Thursday") {
-          chores.push({ id: "w_cans", text: "Bring Cans In", tag: "weekly", pointValue: 1 });
-        } else if (dn === "Friday") {
-          // Check if it was completed Thursday — if not, carry over
-          const thuDate = new Date(date);
-          thuDate.setDate(thuDate.getDate() - 1);
-          const thuKey = dateToKey(thuDate);
-          const thuDone = !!completedChores[`${thuKey}_${member}_w_cans`];
-          if (!thuDone) {
-            chores.push({ id: "w_cans", text: "Bring Cans In (carried over!)", tag: "weekly", pointValue: 1 });
-          }
-        }
-      }
-    }
-
-    // Housekeeping chart tasks
-    const chart = getChartAssignment(member, date);
-    if (dn !== "Sunday" && dn !== "Friday") {
-      if (dn === "Saturday") {
-        if (isMopSaturday(date)) {
-          chores.push({ id: "hk_mop", text: "Mop kitchen & bathrooms", tag: "housekeeping", pointValue: 1 });
-        }
-        // Saturday chart task (stairs, bathroom mopping, etc.)
-        const satTask = chart.tasks["Saturday"];
-        if (satTask) {
-          chores.push({ id: "hk_saturday", text: satTask, tag: "housekeeping", pointValue: 1 });
-        }
-        const incomplete = getIncompleteHousekeepingTasks(member, date, completedChores);
-        incomplete.forEach(item => {
-          chores.push({ id: `hk_catchup_${item.day.toLowerCase()}`, text: `Catch-up: ${item.task} (${item.day})`, tag: "housekeeping", pointValue: 1 });
-        });
-      } else {
-        const hkTask = chart.tasks[dn];
-        if (hkTask) {
-          chores.push({ id: `hk_${dn.toLowerCase()}`, text: hkTask, tag: "housekeeping", pointValue: 1 });
-        }
-      }
-      if (dn !== "Saturday") {
-        const [zoneName, ...zoneRest] = chart.zone.split(" — ");
-        chores.push({ id: "hk_zone", text: `Tidy Up: ${zoneName}`, details: zoneRest.length ? capitalizeFirst(zoneRest.join(" — ")) : undefined, tag: "housekeeping", pointValue: 1 });
-      }
-    }
-
-    // Laundry day
-    if (LAUNDRY_DAYS[member] === dn) {
-      chores.push({ id: "laundry", text: "Laundry Day! (wash, dry, fold, put away)", tag: "laundry", pointValue: 1 });
-    }
-
-    // Custom tasks for this date
-    if (customTasks && !customTasks._empty) {
-      Object.entries(customTasks)
-        .filter(([key, task]) => key !== "_empty" && task && task.assignee === member && task.date === dk)
-        .forEach(([key, task]) => {
-          chores.push({ id: `custom_${key}`, taskKey: key, text: task.description, tag: "custom", pointValue: task.points || 1 });
-        });
-    }
-    // Flag the once-a-week no-miss jobs and float them to the top of the list.
-    chores.forEach(c => {
-      if (isPriorityChore(c.id)) c.priority = true;
-      if (!c.routine && !c.details) Object.assign(c, shortenChoreText(c.text));
-      c.when = getChoreTimeOfDay(c);
-    });
-    chores.sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0));
-    return chores;
-  }, [completedChores, customTasks]);
+  // Built by buildChoreList() in schedule.js — shared with the reminder sender
+  // (api/remind.js) so notifications list exactly what the Today screen shows.
+  const getChoresForDate = useCallback((member, date) => buildChoreList(member, date, customTasks, completedChores), [completedChores, customTasks]);
 
   // Today-specific wrapper (used by TodayView)
   const getMemberChores = useCallback((member) => {
@@ -1350,6 +1243,7 @@ export default function App() {
             <span className="header-date">{formatDate(today)}</span>
           </div>
           <div className="header-right">
+            <button className="btn btn-ghost header-bell" onClick={() => setShowReminders(true)} title="Reminders" aria-label="Reminders"><Icons.Bell size={18} /></button>
             <div className={`sync-indicator ${isOnline ? "sync-online" : "sync-offline"}`}>
               {isOnline ? <Icons.Cloud size={14} /> : <Icons.CloudOff size={14} />}
               <span className="sync-label">{isOnline ? "Synced" : "Offline"}</span>
@@ -1371,7 +1265,7 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
+          {currentTab === "today" && <TodayView focusKid={focusKid} members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
@@ -1380,6 +1274,7 @@ export default function App() {
           {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} memberPins={memberPins} setMemberPins={setMemberPins} parentSettings={parentSettings} setParentSettings={setParentSettings} />}
         </main>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
+        {showReminders && <RemindersModal pushSubscriptions={pushSubscriptions} setPushSubscriptions={setPushSubscriptions} isParent={isParent} getMemberEmoji={getMemberEmoji} onClose={() => setShowReminders(false)} />}
         {showPinDialog && <PinDialog parentSettings={parentSettings} onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
         {pinPrompt && (() => {
           const m = FAMILY_MEMBERS.find(f => f.name === pinPrompt.member);
@@ -1489,10 +1384,15 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
   );
 }
 
-function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
+function TodayView({ focusKid, members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   const [jobsModal, setJobsModal] = useState(null); // member name or null
-  const [expanded, setExpanded] = useState(() => new Set()); // collapsed by default
+  const [expanded, setExpanded] = useState(() => new Set(focusKid ? [focusKid] : [])); // collapsed by default (except a kid opened from a reminder)
+  useEffect(() => {
+    if (!focusKid) return;
+    const t = setTimeout(() => document.getElementById(`member-${focusKid}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+    return () => clearTimeout(t);
+  }, [focusKid]);
   const toggleExpanded = (name) => setExpanded(prev => {
     const next = new Set(prev);
     if (next.has(name)) next.delete(name); else next.add(name);
@@ -1599,7 +1499,7 @@ function TodayView({ members, getMemberChores, isChoreComplete, toggleChore, get
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         const isExpanded = expanded.has(member.name);
         return (
-          <div key={member.name} className="member-stack">
+          <div key={member.name} id={`member-${member.name}`} className="member-stack">
           <div className="member-card animate-in">
             <div className="member-header" onClick={() => toggleExpanded(member.name)} style={{ cursor: "pointer" }}>
               <div className="member-name-row">
@@ -3042,6 +2942,137 @@ function PinDialog({ parentSettings, onSuccess, onClose }) {
         </div>
         {error && <div className="pin-error">{error}</div>}
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// REMINDERS — pick which kids this device gets a 6 o'clock reminder for.
+// Sender: api/remind.js. One device can follow several kids (the family iPad).
+// ============================================================
+function RemindersModal({ pushSubscriptions, setPushSubscriptions, isParent, getMemberEmoji, onClose }) {
+  const [support] = useState(() => pushSupport());
+  const [subId, setSubId] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [parent, setParent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null); // { ok, text }
+  const record = subId ? pushSubscriptions?.[subId] : null;
+
+  // Find this device's existing registration (if any) and preload its choices.
+  useEffect(() => {
+    let alive = true;
+    currentSubscriptionId().then(id => {
+      if (!alive || !id) return;
+      setSubId(id);
+      const rec = pushSubscriptions?.[id];
+      if (rec) { setMembers(rec.members || []); setParent(!!rec.parent); }
+    });
+    return () => { alive = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleMember = (name) => setMembers(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+
+  const save = async () => {
+    if (members.length === 0 && !parent) return turnOff();
+    setBusy(true); setMsg(null);
+    try {
+      const subscription = await subscribeThisDevice();
+      const id = subscriptionId(subscription.endpoint);
+      const ordered = FAMILY_MEMBERS.map(m => m.name).filter(n => members.includes(n));
+      setPushSubscriptions(prev => {
+        const u = { ...prev }; delete u._empty;
+        u[id] = { members: ordered, parent: !!parent, subscription, device: deviceLabel(), updatedAt: Date.now() };
+        return u;
+      });
+      setSubId(id);
+      setMsg({ ok: true, text: "Reminders are on for this device. Tap “Send a test” to make sure it works." });
+    } catch (err) {
+      setMsg({ ok: false, text: err.message === "denied"
+        ? "Notifications are blocked for this app. Turn them on in the device's Settings → Notifications, then try again."
+        : `Couldn't turn on reminders (${err.message}).` });
+    } finally { setBusy(false); }
+  };
+
+  const turnOff = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      await unsubscribeThisDevice();
+      if (subId) setPushSubscriptions(prev => { const u = { ...prev }; delete u[subId]; if (Object.keys(u).length === 0) u._empty = true; return u; });
+      setSubId(null); setMembers([]); setParent(false);
+      setMsg({ ok: true, text: "Reminders are off on this device." });
+    } catch (err) { setMsg({ ok: false, text: `Couldn't turn off (${err.message}).` }); }
+    finally { setBusy(false); }
+  };
+
+  const test = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      await new Promise(r => setTimeout(r, 1200)); // let a just-saved registration reach the server
+      await sendTestReminder(subId);
+      setMsg({ ok: true, text: "Test sent — it should pop up in a few seconds." });
+    } catch (err) { setMsg({ ok: false, text: `Test didn't go through (${err.message}).` }); }
+    finally { setBusy(false); }
+  };
+
+  const removeDevice = (id) => setPushSubscriptions(prev => { const u = { ...prev }; delete u[id]; if (Object.keys(u).length === 0) u._empty = true; return u; });
+  const devices = Object.entries(pushSubscriptions || {}).filter(([k, v]) => k !== "_empty" && v && v.subscription);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal reminders-modal" onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div className="modal-title" style={{ margin: 0 }}>🔔 Evening reminders</div>
+          <button onClick={onClose} className="reminders-close" aria-label="Close">&times;</button>
+        </div>
+        <div className="reminders-sub">Once a day, in the 6 o'clock hour, this device gets a note listing any jobs still left. Kids who are all done don't get one.</div>
+
+        {!support.ok ? (
+          <div className="reminders-help">
+            {support.reason === "ios-home-screen" ? (<>
+              <b>First, add Family HQ to this {deviceLabel() === "iPad" ? "iPad" : "iPhone"}'s Home Screen</b> — Apple only allows notifications from apps opened there:
+              <ol><li>Tap the <b>Share</b> button (square with an arrow) in Safari.</li><li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open Family HQ from the new Home Screen icon and tap 🔔 again.</li></ol>
+            </>) : support.reason === "denied" ? (
+              <>Notifications are blocked for this app. Turn them on in the device's <b>Settings → Notifications</b> (or the browser's site settings), then come back.</>
+            ) : (<>This browser can't receive notifications. Try Chrome on Android, or Safari on an iPhone/iPad (from the Home Screen).</>)}
+          </div>
+        ) : (<>
+          <div className="reminders-label">Remind this device about</div>
+          <div className="reminders-kids">
+            {FAMILY_MEMBERS.map(m => (
+              <label key={m.name} className={`reminders-kid ${members.includes(m.name) ? "on" : ""}`} style={members.includes(m.name) ? { borderColor: m.color } : {}}>
+                <input type="checkbox" checked={members.includes(m.name)} onChange={() => toggleMember(m.name)} />
+                <span>{getMemberEmoji(m.name)}</span> {m.name}
+              </label>
+            ))}
+            {isParent && (
+              <label className={`reminders-kid ${parent ? "on" : ""}`}>
+                <input type="checkbox" checked={parent} onChange={() => setParent(p => !p)} />
+                <span>👪</span> Parent summary
+              </label>
+            )}
+          </div>
+          <div className="reminders-actions">
+            <button className="btn btn-primary" disabled={busy} onClick={save}>{record ? "Save" : "Turn on reminders"}</button>
+            {record && <button className="btn btn-ghost" disabled={busy} onClick={test}>Send a test</button>}
+            {record && <button className="btn btn-ghost" disabled={busy} onClick={turnOff}>Turn off</button>}
+          </div>
+        </>)}
+        {msg && <div className="reminders-msg" style={{ color: msg.ok ? "var(--success)" : "var(--danger)" }}>{msg.text}</div>}
+
+        {isParent && devices.length > 0 && (
+          <div className="reminders-devices">
+            <div className="reminders-label">Devices with reminders</div>
+            {devices.map(([id, d]) => (
+              <div key={id} className="reminders-device">
+                <span>{d.device || "Device"}{id === subId ? " (this one)" : ""}</span>
+                <span className="reminders-device-who">{[...(d.members || []), ...(d.parent ? ["Parent summary"] : [])].join(", ") || "—"}</span>
+                <button className="chore-delete-btn" onClick={() => removeDevice(id)} title="Remove"><Icons.X size={14} /></button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

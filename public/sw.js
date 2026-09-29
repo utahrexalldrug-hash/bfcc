@@ -53,3 +53,35 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// ------------------------------------------------------------
+// Evening reminders (sent by /api/remind)
+// ------------------------------------------------------------
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; }
+  catch { data = { title: 'Family HQ', body: event.data ? event.data.text() : '' }; }
+  event.waitUntil(self.registration.showNotification(data.title || 'Family HQ', {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    tag: data.tag,
+    data: { url: data.url || '/' },
+  }));
+});
+
+// Tapping a reminder opens the app on that kid's card (/?kid=Name),
+// reusing an open Family HQ window if there is one.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const win of windows) {
+      if (win.url.startsWith(self.location.origin)) {
+        await win.focus();
+        return win.navigate ? win.navigate(url) : undefined;
+      }
+    }
+    return self.clients.openWindow(url);
+  })());
+});

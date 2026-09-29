@@ -654,3 +654,146 @@ export function calculateStreak(member, completedChores, today, customTasks) {
 }
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
+
+// ============================================================
+// TODAY LAYOUT — time-of-day groups + short titles
+// Kids work through the day in this order, so the Today card lists chores the
+// same way. Long chart text becomes a short title; the full instructions are
+// one tap away (the ⓘ button) instead of filling the card.
+// ============================================================
+export const CHORE_TIME_GROUPS = [
+  { key: "morning", label: "Morning", icon: "☀️" },
+  { key: "day", label: "After School", icon: "🎒", weekendLabel: "During the Day", weekendIcon: "🏠" },
+  { key: "dinner", label: "After Dinner", icon: "🍽️" },
+];
+export function getChoreTimeOfDay(chore) {
+  if (chore.id === "dishes_unload" || chore.id === "church_clothes") return "morning";
+  if (chore.id === "dishes_load" || chore.id === "dishes" || chore.id === "zone" || chore.tag === "dinner") return "dinner";
+  return "day";
+}
+export const SHORT_TITLE_MAX = 40;
+export function shortenChoreText(text) {
+  if (!text || text.length <= SHORT_TITLE_MAX) return { text };
+  let cut = -1;
+  for (const sep of [" — ", " (", ", "]) {
+    const i = text.indexOf(sep);
+    if (i > 8 && (cut < 0 || i < cut)) cut = i;
+  }
+  if (cut < 0) return { text };
+  return { text: text.slice(0, cut).trim(), details: text };
+}
+export function capitalizeFirst(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : str; }
+
+// ============================================================
+// A KID'S CHORE LIST FOR ONE DAY — what the Today card shows (with text, tags,
+// time-of-day group, priority). Pure function: the app calls it for the
+// screens, and api/remind.js calls it for the 6pm reminders, so they always
+// agree. (getDailyDueChores above is the id-only version used for streaks.)
+// ============================================================
+export function buildChoreList(member, date, customTasks, completedChores) {
+  const dn = getDayName(date);
+  const dk = dateToKey(date);
+  const daily = getDailyAssignment(member, date);
+  const chores = [];
+  if (!daily) return chores;
+  if (daily.dishes) {
+    if (daily.legacy) chores.push({ id: "dishes", text: "Dishes", tag: "dishes", pointValue: 2 });
+    else getDishChores(date).forEach(t => chores.push({ id: t.id, text: t.text, tag: "dishes", pointValue: 1 }));
+  }
+  if (daily.zone) chores.push({ id: "zone", text: `After-Dinner Zone: ${daily.zone}`, tag: "zone", pointValue: 1 });
+  daily.dinnerJobs.forEach(dj => {
+    chores.push({ id: dj.id, text: `Dinner: ${DINNER_JOB_LABELS[dj.job] || dj.job}`, tag: "dinner", pointValue: 1 });
+  });
+  daily.youngTasks.forEach((t, i) => { chores.push({ id: `task_${i}`, text: t, tag: "young", pointValue: 1 }); });
+  // Daily routines — items are 0 pts each; the routine bonus is awarded when
+  // every item is checked (see toggleChoreForDate). `routine` marks the key so
+  // TodayView can pull them out into their own cards.
+  getRoutinesForDate(member, date).forEach(r => {
+    r.items.forEach(it => {
+      chores.push({ id: it.id, text: it.text, tag: "routine", pointValue: 0, routine: r.key, routineLabel: r.label, routineIcon: r.icon, routineBonus: r.bonus });
+    });
+  });
+  // Saturday morning: find church clothes for Sunday
+  if (hasChurchClothesOnDate(member, date)) {
+    chores.push({ id: "church_clothes", text: "Find Church Clothes for Sunday (morning)", tag: "church", pointValue: 1 });
+  }
+  // Daily piano practice
+  if (hasPianoOnDate(member, date)) {
+    chores.push({ id: "piano", text: "Practice Piano", tag: "practice", pointValue: 1 });
+  }
+  const rot = getCurrentWeekRotation(date);
+  if (rot) {
+    // Collect Trash, Take Bins Out, Refill Soap, Refill TP — Wednesday only
+    if (dn === "Wednesday") {
+      if (rot.collectTrash === member) chores.push({ id: "w_trash", text: "Collect Trash (all rooms)", tag: "weekly", pointValue: 1 });
+      if (rot.trashOut === member) chores.push({ id: "w_trashout", text: `Take Bins Out${rot.recycle ? " + Recycling" : ""}`, tag: "weekly", pointValue: 1 });
+      if (rot.refillSoap === member) chores.push({ id: "w_soap", text: "Refill Soap", tag: "weekly", pointValue: 1 });
+      if (rot.toiletPaper === member) chores.push({ id: "w_tp", text: "Refill Toilet Paper", tag: "weekly", pointValue: 1 });
+    }
+    // Bring Cans In — Thursday, carries over to Friday if not done
+    if (rot.bringCansIn === member) {
+      if (dn === "Thursday") {
+        chores.push({ id: "w_cans", text: "Bring Cans In", tag: "weekly", pointValue: 1 });
+      } else if (dn === "Friday") {
+        // Check if it was completed Thursday — if not, carry over
+        const thuDate = new Date(date);
+        thuDate.setDate(thuDate.getDate() - 1);
+        const thuKey = dateToKey(thuDate);
+        const thuDone = !!completedChores[`${thuKey}_${member}_w_cans`];
+        if (!thuDone) {
+          chores.push({ id: "w_cans", text: "Bring Cans In (carried over!)", tag: "weekly", pointValue: 1 });
+        }
+      }
+    }
+  }
+
+  // Housekeeping chart tasks
+  const chart = getChartAssignment(member, date);
+  if (dn !== "Sunday" && dn !== "Friday") {
+    if (dn === "Saturday") {
+      if (isMopSaturday(date)) {
+        chores.push({ id: "hk_mop", text: "Mop kitchen & bathrooms", tag: "housekeeping", pointValue: 1 });
+      }
+      // Saturday chart task (stairs, bathroom mopping, etc.)
+      const satTask = chart.tasks["Saturday"];
+      if (satTask) {
+        chores.push({ id: "hk_saturday", text: satTask, tag: "housekeeping", pointValue: 1 });
+      }
+      const incomplete = getIncompleteHousekeepingTasks(member, date, completedChores);
+      incomplete.forEach(item => {
+        chores.push({ id: `hk_catchup_${item.day.toLowerCase()}`, text: `Catch-up: ${item.task} (${item.day})`, tag: "housekeeping", pointValue: 1 });
+      });
+    } else {
+      const hkTask = chart.tasks[dn];
+      if (hkTask) {
+        chores.push({ id: `hk_${dn.toLowerCase()}`, text: hkTask, tag: "housekeeping", pointValue: 1 });
+      }
+    }
+    if (dn !== "Saturday") {
+      const [zoneName, ...zoneRest] = chart.zone.split(" — ");
+      chores.push({ id: "hk_zone", text: `Tidy Up: ${zoneName}`, details: zoneRest.length ? capitalizeFirst(zoneRest.join(" — ")) : undefined, tag: "housekeeping", pointValue: 1 });
+    }
+  }
+
+  // Laundry day
+  if (LAUNDRY_DAYS[member] === dn) {
+    chores.push({ id: "laundry", text: "Laundry Day! (wash, dry, fold, put away)", tag: "laundry", pointValue: 1 });
+  }
+
+  // Custom tasks for this date
+  if (customTasks && !customTasks._empty) {
+    Object.entries(customTasks)
+      .filter(([key, task]) => key !== "_empty" && task && task.assignee === member && task.date === dk)
+      .forEach(([key, task]) => {
+        chores.push({ id: `custom_${key}`, taskKey: key, text: task.description, tag: "custom", pointValue: task.points || 1 });
+      });
+  }
+  // Flag the once-a-week no-miss jobs and float them to the top of the list.
+  chores.forEach(c => {
+    if (isPriorityChore(c.id)) c.priority = true;
+    if (!c.routine && !c.details) Object.assign(c, shortenChoreText(c.text));
+    c.when = getChoreTimeOfDay(c);
+  });
+  chores.sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0));
+  return chores;
+}
