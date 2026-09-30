@@ -153,5 +153,18 @@ async function run(nowISO, docs, q = "") {
   check("hours all done: no nag", !/work left/.test((c.sent.find(m => m.to === "dad") || {}).body || ""));
 }
 
+// 8. Cash-outs reduce credit, so the late-month nudge accounts for them
+{
+  // Oct: 14h (2h extra). Nov: logs 6h. Without a cash-out he owes 10h → 4h left; cashing out 2h makes it 12h → 6h left.
+  const logs = { a: { kid: "Cole", date: "2026-10-05", minutes: 840, note: "x" }, b: { kid: "Cole", date: "2026-11-10", minutes: 360, note: "y" } };
+  const a = await run("2026-11-26T01:30:00Z", Object.assign(baseDocs(), { workLogs: logs })); // Wed Nov 25, 6:30pm MST
+  const dad = a.sent.find(m => m.to === "dad");
+  check("rolled-over credit lowers what's left (4h)", dad && /Cole: 4h work left/.test(dad.body), dad && dad.body.replace(/\n/g, " / "));
+  const cash = { c1: { kid: "Cole", month: "2026-11", minutes: 120, rate: 12, amount: 24, at: 1, paid: false } };
+  const b = await run("2026-11-26T01:30:00Z", Object.assign(baseDocs(), { workLogs: logs, workCashouts: cash }));
+  const dad2 = b.sent.find(m => m.to === "dad");
+  check("cashing out 2h means 6h left", dad2 && /Cole: 6h work left/.test(dad2.body), dad2 && dad2.body.replace(/\n/g, " / "));
+}
+
 console.log(failures ? `\n✖ ${failures} failed` : "\n✔ all reminder tests passed");
 process.exit(failures ? 1 : 0);

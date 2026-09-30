@@ -6,7 +6,7 @@ import {
   formatDate, getWeekStart, dateToKey, getCurrentWeekRotation, getWeekNumber, isTeamWeek,
   getChartAssignment, getWeekStartKey, getMonthKey, getYearKey, calculateStreak, STREAK_MILESTONES,
   CHORE_TIME_GROUPS, buildChoreList, getDateNight, MONTHLY_WORK, addMonths, formatMinutes,
-  getWorkMonth,
+  getWorkMonth, cashoutAmount,
 } from "./schedule";
 import { LogoMark, LaunchSplash, shouldShowSplash } from "./Logo";
 import { pushSupport, subscribeThisDevice, subscriptionId, currentSubscriptionId, unsubscribeThisDevice, sendTestReminder, deviceLabel } from "./push";
@@ -419,6 +419,17 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .duty-none{font-family:'Fredoka',sans-serif;font-size:1rem;color:var(--text-secondary);padding:5px 0}
 @media (max-width:560px){.dishes-banner{padding:12px}.dishes-banner .dishes-banner-icon,.dishes-banner .dishes-banner-status{display:none}.duty-grid{gap:8px}.duty-label{font-size:0.6rem;letter-spacing:0.6px}.duty-chip{font-size:0.95rem;padding:5px 6px;gap:3px}.duty-chip-emoji{display:none}}
 @media (max-width:400px){.duty-chip{font-size:0.88rem;padding:4px 4px}.duty-chip-count{font-size:0.68rem}}
+.work-bar-tag{font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.work-bar-tag.cash{background:rgba(245,158,11,0.18);color:#fcd34d}
+.work-bar-tag.owed{background:rgba(16,185,129,0.18);color:#6ee7b7}
+.work-cash{margin-top:14px;padding:12px 14px;border-radius:12px;border:1px solid rgba(245,158,11,0.4);background:linear-gradient(135deg,rgba(245,158,11,0.14),rgba(16,185,129,0.06))}
+.work-cash-title{font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.1rem}
+.work-cash-sub{font-size:0.82rem;color:var(--text-secondary);margin-top:2px;line-height:1.4}
+.btn.work-cash-btn{background:#16a34a;border-color:#16a34a}
+.work-cashouts{margin-top:16px;border-top:1px solid var(--border);padding-top:12px}
+.work-paid{font-size:0.78rem;font-weight:800;color:var(--success);white-space:nowrap}
+.work-unpaid{font-size:0.78rem;font-weight:800;color:#fcd34d;white-space:nowrap}
+.work-mark-paid{padding:4px 10px;font-size:0.78rem}
 .chore-done-toggle{background:none;border:none;color:var(--success);font-size:0.8rem;font-weight:700;text-align:left;padding:6px 2px 2px;cursor:pointer;font-family:inherit}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
 /* --- "Dishes today" hero banner --- */
@@ -755,6 +766,7 @@ export default function App() {
   const [showReminders, setShowReminders] = useState(false);
   const [dateNights, setDateNightsRaw] = useState(() => loadData("fcc_dateNights", {})); // { "2026-09-27": { kid, status, day } }
   const [workLogs, setWorkLogsRaw] = useState(() => loadData("fcc_workLogs", {})); // { id: { kid, date, minutes, note, loggedAt, by } }
+  const [workCashouts, setWorkCashoutsRaw] = useState(() => loadData("fcc_workCashouts", {})); // { id: { kid, month, minutes, rate, amount, at, paid } }
   // Tapping a reminder opens /?kid=Carter — expand that kid's card on Today.
   const [focusKid] = useState(() => { try { return new URLSearchParams(window.location.search).get("kid"); } catch { return null; } });
   const [pinPrompt, setPinPrompt] = useState(null); // { member, action } when waiting on kid PIN
@@ -785,12 +797,14 @@ export default function App() {
   const setPushSubscriptions = useFirebaseSync("pushSubscriptions", setPushSubscriptionsRaw);
   const setDateNights = useFirebaseSync("dateNights", setDateNightsRaw);
   const setWorkLogs = useFirebaseSync("workLogs", setWorkLogsRaw);
+  const setWorkCashouts = useFirebaseSync("workCashouts", setWorkCashoutsRaw);
 
   useEffect(() => { saveData("fcc_memberPins", memberPins); }, [memberPins]);
   useEffect(() => { saveData("fcc_parentSettings", parentSettings); }, [parentSettings]);
   useEffect(() => { saveData("fcc_pushSubscriptions", pushSubscriptions); }, [pushSubscriptions]);
   useEffect(() => { saveData("fcc_dateNights", dateNights); }, [dateNights]);
   useEffect(() => { saveData("fcc_workLogs", workLogs); }, [workLogs]);
+  useEffect(() => { saveData("fcc_workCashouts", workCashouts); }, [workCashouts]);
   useEffect(() => { if (focusKid) { try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ } } }, [focusKid]);
   useEffect(() => { saveData("fcc_completed", completedChores); }, [completedChores]);
   useEffect(() => { saveData("fcc_points", points); }, [points]);
@@ -1328,7 +1342,7 @@ export default function App() {
           {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
         </nav>
         <main className="main">
-          {currentTab === "today" && <TodayView focusKid={focusKid} dateNights={dateNights} setDateNights={setDateNights} workLogs={workLogs} setWorkLogs={setWorkLogs} pinGate={pinGate} members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
+          {currentTab === "today" && <TodayView focusKid={focusKid} dateNights={dateNights} setDateNights={setDateNights} workLogs={workLogs} setWorkLogs={setWorkLogs} workCashouts={workCashouts} setWorkCashouts={setWorkCashouts} pinGate={pinGate} members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
           {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
@@ -1447,7 +1461,7 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
   );
 }
 
-function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs, pinGate, members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
+function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs, workCashouts, setWorkCashouts, pinGate, members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
   const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
   const [jobsModal, setJobsModal] = useState(null); // member name or null
   const [workModal, setWorkModal] = useState(null); // kid name for the work-hours log
@@ -1628,7 +1642,7 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
             <div className="member-progress">
               <div className="member-progress-fill" style={{ width: `${pct}%`, background: member.color }} />
             </div>
-            {MONTHLY_WORK[member.name] && <WorkHoursBar kid={member.name} color={member.color} today={today} workLogs={workLogs} onOpen={() => setWorkModal(member.name)} />}
+            {MONTHLY_WORK[member.name] && <WorkHoursBar kid={member.name} color={member.color} today={today} workLogs={workLogs} workCashouts={workCashouts} onOpen={() => setWorkModal(member.name)} />}
             {emojiPicker === member.name && (
               <div className="emoji-grid" style={{ marginBottom: 12 }}>
                 {EMOJI_OPTIONS.map(e => (
@@ -1741,7 +1755,7 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
         );
       })}
       </div>
-      {workModal && <WorkHoursModal kid={workModal} today={today} workLogs={workLogs} setWorkLogs={setWorkLogs} isParent={isParent} pinGate={pinGate} getMemberEmoji={getMemberEmoji} onClose={() => setWorkModal(null)} />}
+      {workModal && <WorkHoursModal kid={workModal} today={today} workLogs={workLogs} setWorkLogs={setWorkLogs} workCashouts={workCashouts} setWorkCashouts={setWorkCashouts} isParent={isParent} pinGate={pinGate} getMemberEmoji={getMemberEmoji} onClose={() => setWorkModal(null)} />}
       {jobsModal && weeklyJobsData && (
         <div className="modal-overlay" onClick={() => setJobsModal(null)}>
           <div className="my-jobs-modal" onClick={e => e.stopPropagation()}>
@@ -3020,9 +3034,9 @@ function PinDialog({ parentSettings, onSuccess, onClose }) {
 const monthLabel = (mk) => { const [y, m] = mk.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }); };
 const monthName = (mk) => { const [y, m] = mk.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long" }); };
 
-function WorkHoursBar({ kid, color, today, workLogs, onOpen }) {
+function WorkHoursBar({ kid, color, today, workLogs, workCashouts, onOpen }) {
   const mk = getMonthKey(today);
-  const w = getWorkMonth(kid, mk, workLogs);
+  const w = getWorkMonth(kid, mk, workLogs, workCashouts);
   if (!w) return null;
   let text, pct;
   if (w.beforeStart) {
@@ -3037,12 +3051,14 @@ function WorkHoursBar({ kid, color, today, workLogs, onOpen }) {
     <button className={`work-bar ${!w.beforeStart && w.remaining === 0 ? "done" : ""}`} onClick={(e) => { e.stopPropagation(); onOpen(); }}>
       <span className="work-bar-label">⏱️ Work hours</span>
       <span className="work-bar-text">{text}</span>
+      {w.cashable > 0 && <span className="work-bar-tag cash">🎉 {formatMinutes(w.cashable)} extra</span>}
+      {w.unpaidAmount > 0 && <span className="work-bar-tag owed">💵 ${w.unpaidAmount % 1 ? w.unpaidAmount.toFixed(2) : w.unpaidAmount} to pay</span>}
       <span className="work-bar-track"><span className="work-bar-fill" style={{ width: `${pct}%`, background: !w.beforeStart && w.remaining === 0 ? "var(--success)" : color }} /></span>
     </button>
   );
 }
 
-function WorkHoursModal({ kid, today, workLogs, setWorkLogs, isParent, pinGate, getMemberEmoji, onClose }) {
+function WorkHoursModal({ kid, today, workLogs, setWorkLogs, workCashouts, setWorkCashouts, isParent, pinGate, getMemberEmoji, onClose }) {
   const currentMonth = getMonthKey(today);
   const [monthKey, setMonthKey] = useState(currentMonth);
   const [hours, setHours] = useState(1);
@@ -3051,7 +3067,8 @@ function WorkHoursModal({ kid, today, workLogs, setWorkLogs, isParent, pinGate, 
   const [note, setNote] = useState("");
   const [editing, setEditing] = useState(null); // entry id being edited (parents)
   const [msg, setMsg] = useState(null);
-  const w = getWorkMonth(kid, monthKey, workLogs);
+  const [cashMins, setCashMins] = useState(null); // minutes chosen to cash out (null = all available)
+  const w = getWorkMonth(kid, monthKey, workLogs, workCashouts);
   if (!w) return null;
   const monthStart = `${currentMonth}-01`;
   const todayKey = dateToKey(today);
@@ -3078,7 +3095,29 @@ function WorkHoursModal({ kid, today, workLogs, setWorkLogs, isParent, pinGate, 
   };
   const remove = (id) => setWorkLogs(prev => { const u = { ...prev }; delete u[id]; if (Object.keys(u).length === 0) u._empty = true; return u; });
   const startEdit = (e) => { setEditing(e.id); setHours(Math.floor(e.minutes / 60)); setMins(e.minutes % 60); setDate(e.date); setNote(e.note || ""); setMsg(null); };
+  const money = (n) => `$${n % 1 ? n.toFixed(2) : n}`;
+  const cashChoice = w.cashable > 0 ? Math.min(cashMins ?? w.cashable, w.cashable) : 0;
+  const cashSteps = []; for (let m = 15; m <= w.cashable; m += 15) cashSteps.push(m);
+  if (w.cashable > 0 && !cashSteps.includes(w.cashable)) cashSteps.push(w.cashable);
+  const cashOut = () => {
+    if (!cashChoice) return;
+    const run = () => {
+      const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+      const amount = cashoutAmount(kid, cashChoice);
+      setWorkCashouts(prev => { const u = { ...prev }; delete u._empty; u[id] = { kid, month: currentMonth, minutes: cashChoice, rate: w.cashRate, amount, at: Date.now(), by: isParent ? "Parent" : kid, paid: false }; return u; });
+      setCashMins(null);
+      setMsg({ ok: true, text: `Cashed out ${formatMinutes(cashChoice)} = ${money(amount)}. Mom or Dad will mark it paid.` });
+    };
+    if (isParent) run(); else pinGate(kid, run);
+  };
+  const setCashout = (id, patch) => setWorkCashouts(prev => {
+    const u = { ...prev }; delete u._empty;
+    if (patch === null) delete u[id]; else u[id] = { ...u[id], ...patch };
+    if (Object.keys(u).length === 0) u._empty = true;
+    return u;
+  });
   const fmtDate = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); };
+  const cashedText = !w.beforeStart && w.cashedThisMonth > 0 ? `${formatMinutes(w.cashedThisMonth)} cashed out` : null;
   const carryText = w.beforeStart ? null
     : w.carryIn > 0 ? `12h − ${formatMinutes(w.carryIn)} credit from earlier`
     : w.carryIn < 0 ? `12h + ${formatMinutes(-w.carryIn)} carried from last month` : null;
@@ -3105,9 +3144,21 @@ function WorkHoursModal({ kid, today, workLogs, setWorkLogs, isParent, pinGate, 
             <div><div className="stat-value" style={{ color: w.remaining ? "var(--danger)" : "var(--success)" }}>{w.remaining ? formatMinutes(w.remaining) : "✓"}</div><div className="stat-label">{w.remaining ? "Left" : "Done!"}</div></div>
           </div>
           <div className="work-bar-track big"><span className="work-bar-fill" style={{ width: `${pct}%`, background: w.remaining ? "var(--accent)" : "var(--success)" }} /></div>
-          {(carryText || w.extra > 0) && <div className="work-summary-note">{carryText}{carryText && w.extra > 0 ? " · " : ""}{w.extra > 0 ? `+${formatMinutes(w.extra)} extra carries to next month` : ""}</div>}
+          {(carryText || cashedText || w.extra > 0) && <div className="work-summary-note">{[carryText, cashedText, w.extra > 0 ? `+${formatMinutes(w.extra)} extra — cash out or keep it on the 1st` : null].filter(Boolean).join(" · ")}</div>}
         </>)}
 
+        {monthKey === currentMonth && w.cashable > 0 && (
+          <div className="work-cash">
+            <div className="work-cash-title">🎉 You have {formatMinutes(w.cashable)} extra</div>
+            <div className="work-cash-sub">Cash some out at {money(w.cashRate)}/hr, or keep it as credit — whatever you don't cash out rolls over and lowers what you owe.</div>
+            <div className="work-form-row" style={{ marginTop: 10, marginBottom: 0 }}>
+              <select className="form-select" value={cashChoice} onChange={e => setCashMins(Number(e.target.value))} aria-label="Time to cash out">
+                {cashSteps.map(m => <option key={m} value={m}>{formatMinutes(m)}</option>)}
+              </select>
+              <button className="btn btn-primary work-cash-btn" onClick={cashOut}>💵 Cash out {money(cashoutAmount(kid, cashChoice))}</button>
+            </div>
+          </div>
+        )}
         {monthKey === currentMonth && (
           <div className="work-form">
             <div className="reminders-label">{editing ? "Edit entry" : "Log time"}</div>
@@ -3125,6 +3176,25 @@ function WorkHoursModal({ kid, today, workLogs, setWorkLogs, isParent, pinGate, 
         )}
         {msg && <div className="reminders-msg" style={{ color: msg.ok ? "var(--success)" : "var(--danger)" }}>{msg.text}</div>}
 
+        {w.cashouts.length > 0 && (
+          <div className="work-cashouts">
+            <div className="reminders-label">Cash-outs</div>
+            {w.cashouts.slice(0, 6).map(c => {
+              const canUndo = !c.paid && (isParent || (c.by === kid && Date.now() - (c.at || 0) < UNDO_MS));
+              return (
+                <div key={c.id} className="work-entry">
+                  <div className="work-entry-when">{new Date(c.at || 0).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                  <div className="work-entry-what">💵 {formatMinutes(c.minutes)} × {money(c.rate)}/hr</div>
+                  <div className="work-entry-mins">{money(c.amount)}</div>
+                  {c.paid ? <span className="work-paid">✓ Paid</span>
+                    : isParent ? <button className="btn btn-ghost work-mark-paid" onClick={() => setCashout(c.id, { paid: true, paidAt: Date.now() })}>Mark paid</button>
+                    : <span className="work-unpaid">Unpaid</span>}
+                  {canUndo && <button className="chore-delete-btn" onClick={() => setCashout(c.id, null)} title="Undo cash-out">{isParent ? <Icons.X size={14} /> : "Undo"}</button>}
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="work-entries">
           <div className="reminders-label">{w.entries.length ? `${w.entries.length} entr${w.entries.length === 1 ? "y" : "ies"} in ${monthName(monthKey)}` : `Nothing logged in ${monthName(monthKey)} yet`}</div>
           {w.entries.map(e => {

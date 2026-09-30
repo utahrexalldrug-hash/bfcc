@@ -837,7 +837,8 @@ export function getDateNight(date, records = {}) {
 // the first month. Add another kid with one line here.
 // ============================================================
 export const MONTHLY_WORK = {
-  Cole: { hours: 12, start: "2026-10" },
+  // cashRate: $ per extra hour when a kid cashes out credit instead of rolling it over
+  Cole: { hours: 12, start: "2026-10", cashRate: 12 },
 };
 
 export function addMonths(monthKey, n) {
@@ -858,7 +859,20 @@ export function formatMinutes(total) {
 
 // Everything the work-hours screen and reminders need for one kid + month.
 // Minutes throughout. carryIn > 0 = credit from earlier, < 0 = still owed.
-export function getWorkMonth(kid, monthKey, logs = {}) {
+// Cash-outs live in Firestore family/workCashouts:
+//   { "<id>": { kid, month: "YYYY-MM" (month it was cashed), minutes, rate, amount, at, paid, paidAt } }
+// Extra time only becomes cash-able once its month is over: on the 1st, last
+// month's leftover shows up as credit, and the kid can cash some/all of it out
+// or leave it to roll over. A cash-out reduces the credit for the month it's
+// taken in (and everything after).
+export function workCashoutsFor(kid, cashouts = {}) {
+  return Object.entries(cashouts || {})
+    .filter(([id, c]) => id !== "_empty" && c && c.kid === kid && c.month && Number(c.minutes) > 0)
+    .map(([id, c]) => ({ id, ...c, minutes: Number(c.minutes), amount: Number(c.amount) || 0 }))
+    .sort((a, b) => (b.at || 0) - (a.at || 0));
+}
+
+export function getWorkMonth(kid, monthKey, logs = {}, cashouts = {}) {
   const cfg = MONTHLY_WORK[kid];
   if (!cfg) return null;
   const required = cfg.hours * 60;
@@ -872,19 +886,32 @@ export function getWorkMonth(kid, monthKey, logs = {}) {
     if (mk < cfg.start) preStart += e.minutes;
     else perMonth[mk] = (perMonth[mk] || 0) + e.minutes;
   }
+  const cashList = workCashoutsFor(kid, cashouts);
+  const cashedIn = (mk) => cashList.filter(c => (c.month < cfg.start ? cfg.start : c.month) === mk).reduce((t, c) => t + c.minutes, 0);
   const entries = all.filter(e => e.date.slice(0, 7) === monthKey)
     .sort((a, b) => (b.date.localeCompare(a.date)) || ((b.loggedAt || 0) - (a.loggedAt || 0)));
-  const logged = entries.reduce((s, e) => s + e.minutes, 0);
+  const logged = entries.reduce((t, e) => t + e.minutes, 0);
+  const unpaid = cashList.filter(c => !c.paid);
+  const common = { kid, monthKey, start: cfg.start, required, entries, logged, cashRate: cfg.cashRate || 0, cashouts: cashList, unpaid,
+    unpaidAmount: unpaid.reduce((t, c) => t + c.amount, 0) };
   if (monthKey < cfg.start) {
-    return { kid, monthKey, start: cfg.start, beforeStart: true, required, entries, logged, creditTowardStart: preStart };
+    return { ...common, beforeStart: true, creditTowardStart: preStart, cashable: 0, cashedThisMonth: 0 };
   }
-  let carryIn = preStart;
-  for (let mk = cfg.start; mk < monthKey; mk = addMonths(mk, 1)) carryIn += (perMonth[mk] || 0) - required;
+  let carry = preStart;               // minutes; > 0 = credit, < 0 = still owed
+  for (let mk = cfg.start; mk < monthKey; mk = addMonths(mk, 1)) carry += (perMonth[mk] || 0) - required - cashedIn(mk);
+  const cashedThisMonth = cashedIn(monthKey);
+  const carryIn = carry - cashedThisMonth;
   const target = Math.max(0, required - carryIn);
   return {
-    kid, monthKey, start: cfg.start, beforeStart: false, required, carryIn, target, logged, entries,
+    ...common, beforeStart: false, carryIn, target, cashedThisMonth,
+    cashable: Math.max(0, carryIn),   // credit from finished months that can be cashed out now
     remaining: Math.max(0, target - logged),
     extra: Math.max(0, logged - target),
     carryOut: carryIn + logged - required,
   };
+}
+
+export function cashoutAmount(kid, minutes) {
+  const rate = (MONTHLY_WORK[kid] && MONTHLY_WORK[kid].cashRate) || 0;
+  return Math.round((minutes / 60) * rate * 100) / 100;
 }

@@ -83,7 +83,7 @@ export function jobsLeft(member, date, customTasks, completedChores) {
     .filter(c => !c.routine && !completedChores[`${dk}_${member}_${c.id}`]);
 }
 
-export function buildMessages(subscriptions, date, customTasks, completedChores, dateNights = {}, workLogs = {}) {
+export function buildMessages(subscriptions, date, customTasks, completedChores, dateNights = {}, workLogs = {}, workCashouts = {}) {
   const kids = FAMILY_MEMBERS.map(m => m.name);
   const left = Object.fromEntries(kids.map(k => [k, jobsLeft(k, date, customTasks, completedChores)]));
   // Sundays: remind parents whose turn it is for the one-on-one night out (until it's scheduled).
@@ -93,7 +93,7 @@ export function buildMessages(subscriptions, date, customTasks, completedChores,
   // Last 7 days of the month: nudge parents about monthly work hours still owed.
   const daysLeft = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate() - date.getDate();
   const workLines = daysLeft < 7 ? Object.keys(MONTHLY_WORK).map(kid => {
-    const w = getWorkMonth(kid, getMonthKey(date), workLogs);
+    const w = getWorkMonth(kid, getMonthKey(date), workLogs, workCashouts);
     return w && !w.beforeStart && w.remaining > 0 ? `⏱️ ${kid}: ${formatMinutes(w.remaining)} work left this month` : null;
   }).filter(Boolean) : [];
   const extraLines = [dateLine, ...workLines].filter(Boolean);
@@ -204,11 +204,11 @@ export default async function handler(req, res, deps = {}) {
 
     // Claim today first so an overlapping run can't double-send.
     if (!force) await patchDoc("pushState", { lastSentDate: dateToKey(now) }, fetchImpl);
-    const [subs, completedChores, customTasks, dateNights, workLogs] = await Promise.all([
+    const [subs, completedChores, customTasks, dateNights, workLogs, workCashouts] = await Promise.all([
       readDoc("pushSubscriptions", fetchImpl), readDoc("completedChores", fetchImpl), readDoc("customTasks", fetchImpl),
-      readDoc("dateNights", fetchImpl), readDoc("workLogs", fetchImpl),
+      readDoc("dateNights", fetchImpl), readDoc("workLogs", fetchImpl), readDoc("workCashouts", fetchImpl),
     ]);
-    const messages = buildMessages(subs, now, customTasks, completedChores, dateNights, workLogs);
+    const messages = buildMessages(subs, now, customTasks, completedChores, dateNights, workLogs, workCashouts);
     const result = await sendAll(messages, subs, send);
     if (result.removed.length) await patchDoc("pushSubscriptions", Object.fromEntries(result.removed.map(id => [id, null])), fetchImpl);
     return res.status(200).json({ ok: true, date: dateToKey(now), devices: Object.keys(subs).length, ...result });
