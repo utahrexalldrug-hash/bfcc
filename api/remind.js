@@ -116,19 +116,19 @@ export function buildMessages(subscriptions, date, customTasks, completedChores,
       if (notDone.length) out.push({ subId, payload: {
         title: notDone.length === 1 ? "1 kid still has jobs" : `${notDone.length} kids still have jobs`,
         body: [notDone.map(k => `${k} ${left[k].length}`).join(" · "), ...extraLines].join("\n"),
-        url: "/",
+        url: "/?kid=all", // Everyone view, whatever kid this device last looked at
         tag: "hq-parent",
       } });
       else if (dateLine) out.push({ subId, payload: {
         title: `🍔 One-on-one this week: ${dn.kid}`,
         body: ["Not scheduled yet — tap to set it up", ...workLines].join("\n"),
-        url: "/",
+        url: "/?kid=all", // Everyone view, whatever kid this device last looked at
         tag: "hq-parent",
       } });
       else if (workLines.length) out.push({ subId, payload: {
         title: "⏱️ Work hours this month",
         body: workLines.join("\n"),
-        url: "/",
+        url: "/?kid=all", // Everyone view, whatever kid this device last looked at
         tag: "hq-parent",
       } });
     }

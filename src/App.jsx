@@ -3,7 +3,7 @@ import { db, storage } from "./firebase";
 import { doc, setDoc, onSnapshot, deleteField, increment, FieldPath } from "firebase/firestore";
 import {
   isVideoGameDay, getDailyAssignment, getRoutineForItemId, FAMILY_MEMBERS, getToday, getDayName,
-  formatDate, getWeekStart, dateToKey, getCurrentWeekRotation, getWeekNumber, isTeamWeek,
+  getWeekStart, dateToKey, getCurrentWeekRotation, getWeekNumber, isTeamWeek,
   getChartAssignment, getWeekStartKey, getMonthKey, getYearKey, calculateStreak, STREAK_MILESTONES,
   CHORE_TIME_GROUPS, buildChoreList, getDateNight, MONTHLY_WORK, addMonths, formatMinutes,
   getWorkMonth, cashoutAmount,
@@ -254,65 +254,53 @@ const Icons = {
   Gamepad: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="12" x2="10" y2="12" /><line x1="8" y1="10" x2="8" y2="14" /><line x1="15" y1="13" x2="15.01" y2="13" /><line x1="18" y1="11" x2="18.01" y2="11" /><path d="M17.32 5H6.68a4 4 0 00-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 003 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 019.828 16h4.344a2 2 0 011.414.586L17 18c.5.5 1 1 2 1a3 3 0 003-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0017.32 5z" /></svg>),
   Camera: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>),
   Image: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>),
+  More: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>),
+  Info: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><line x1="12" y1="11" x2="12" y2="16" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>),
+  Crown: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z" /></svg>),
   List: ({ size = 20, color = "currentColor" }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>),
 };
 
 const styles = `
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap');
-:root{--bg-primary:#0d111a;--bg-secondary:#131a26;--bg-card:#161e2c;--bg-card-hover:#1b243a;--text-primary:#f0f4f8;--text-secondary:#8899aa;--text-muted:#5a6a7a;--border:#222d44;--accent:#3B82F6;--success:#10B981;--warning:#F59E0B;--danger:#EF4444}
+:root{--bg-primary:#0d111a;--bg-secondary:#131a26;--bg-card:#161e2c;--bg-card-hover:#1b243a;--text-primary:#f0f4f8;--text-secondary:#8899aa;--text-muted:#5a6a7a;--text-soft:#a9b6c4;--border:#222d44;--ring-track:#222d44;--surface-hi:#1b2a4a;--accent:#3B82F6;--accent-soft:#8ab4ff;--success:#10B981;--warning:#F59E0B;--danger:#EF4444}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
-.app{min-height:100vh;display:flex;flex-direction:column}
-.header{background:var(--bg-primary);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.header-left{display:flex;align-items:center;gap:12px}
-.header-logo{font-family:'Fredoka',sans-serif;font-size:1.4rem;font-weight:600;color:var(--text-primary);display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
-.header-logo .hq-logo{flex-shrink:0;border-radius:8px}
-@media (max-width:560px){.header{padding:12px 14px}.header-date{display:none}.sync-label{display:none}.header-logo{font-size:1.3rem}}
-.header-logo-hq{margin-left:-4px;background:linear-gradient(90deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;background-clip:text;color:transparent}
-.header-date{font-size:0.9rem;color:var(--text-secondary);font-weight:600}
-.header-right{display:flex;align-items:center;gap:8px}
-.sync-indicator{display:flex;align-items:center;gap:4px;font-size:0.7rem;font-weight:600;padding:4px 8px;border-radius:8px}
-.sync-online{color:#34d399;background:rgba(16,185,129,0.1)}.sync-offline{color:#f87171;background:rgba(239,68,68,0.1)}
-.nav{display:flex;background:var(--bg-secondary);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
-.nav-btn{flex:1;min-width:80px;padding:12px 8px;background:none;border:none;color:var(--text-muted);font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s;border-bottom:3px solid transparent;text-transform:uppercase;letter-spacing:0.5px}
-.nav-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(59,130,246,0.05)}
-.nav-btn:hover{color:var(--text-primary);background:rgba(255,255,255,0.03)}
-.main{flex:1;padding:16px;max-width:1400px;width:100%;margin:0 auto}
-.section-label{color:var(--text-muted);font-size:0.7rem;letter-spacing:0.6px;font-weight:600;text-transform:uppercase;margin-bottom:6px}
-.section-title{font-family:'Fredoka',sans-serif;font-weight:500;font-size:1.5rem;color:var(--text-primary);margin-bottom:16px}
-@media(min-width:768px){.today-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.today-grid .member-card{margin-bottom:0}}
-@media(min-width:1100px){.today-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-.day-list{display:flex;flex-direction:column;gap:6px}
-.day-row{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;gap:12px}
-.day-row:hover{background:var(--bg-card-hover)}
-.day-row.today{border-color:var(--accent);background:rgba(59,130,246,0.06)}
-.day-row.selected{background:rgba(59,130,246,0.10);border-color:var(--accent);box-shadow:0 0 0 2px rgba(59,130,246,0.25)}
-.day-row-label{font-size:0.7rem;color:var(--text-muted);letter-spacing:0.5px;font-weight:600;text-transform:uppercase}
-.day-row.today .day-row-label{color:#60a5fa}
-.day-row-status{font-size:0.85rem;font-weight:500;color:var(--text-primary)}
-.day-row-dots{display:flex;gap:4px}
-.day-dot{width:9px;height:9px;border-radius:50%;border:1.5px solid;box-sizing:border-box}
-.day-dot.done{border-color:transparent}
-.day-dot.missed{background:transparent !important;opacity:0.45}
+.app{min-height:100vh;display:flex;flex-direction:column;padding-bottom:calc(73px + env(safe-area-inset-bottom))}
+/* --- Top bar: logo (or back arrow), page name, bell, Parent --- */
+.topbar{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px 16px;background:var(--bg-primary)}
+.topbar.sub{padding-left:6px}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.topbar.sub .topbar-left{gap:4px}
+.topbar-left .hq-logo{flex-shrink:0;border-radius:9px}
+.topbar-text{min-width:0}
+.topbar-kicker{font-size:0.75rem;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-title{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.6rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-right{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.icon-btn{width:44px;height:44px;padding:0;border:none;border-radius:12px;background:none;color:var(--text-primary);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.icon-btn:hover{background:rgba(255,255,255,0.06)}
+.pill-btn{height:44px;padding:0 14px;border:1px solid var(--border);border-radius:22px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;font-size:0.88rem;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+.pill-btn:hover{background:var(--bg-card-hover)}
+.offline-pill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:14px;background:rgba(239,68,68,0.14);color:#fca5a5;font-size:0.75rem;font-weight:800;white-space:nowrap}
+.topbar.sub .offline-pill span{display:none}
+.topbar.sub .offline-pill{padding:0 8px}
+@media (max-width:440px){.offline-pill span{display:none}.offline-pill{padding:0 8px}}
+/* --- Bottom tab bar: five tabs, always reachable by thumb --- */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:100;background:var(--bg-secondary);border-top:1px solid var(--border);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+.tabbar-inner{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));max-width:640px;margin:0 auto}
+.tab-btn{height:56px;padding:0;border:none;border-radius:16px;background:none;color:var(--text-soft);font-family:inherit;font-size:0.75rem;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tab-btn.active{background:var(--surface-hi);color:var(--accent-soft);font-weight:800}
+.main{flex:1;padding:6px 16px 16px;max-width:1400px;width:100%;margin:0 auto}
+.main.has-fab{padding-bottom:84px}
+.page{max-width:720px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;transition:all 0.2s}
 .card-title{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.member-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;transition:all 0.15s;border-left:none}
-.member-stack .member-card{margin-bottom:0}
-@media(min-width:768px){.today-grid .member-stack{align-self:start}}
-.member-card:active{transform:scale(0.995)}
-.member-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
-.member-name-row{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
-.member-emoji{font-size:1.05rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0}
-.member-name{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:500;color:var(--text-primary)}
-.member-meta{font-size:0.72rem;color:var(--text-muted);font-weight:500;margin-top:1px}
-.member-points{display:flex;align-items:center;gap:4px;font-weight:500;font-size:1rem;color:var(--text-primary)}
 .member-progress{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:8px}
 .member-progress-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
 .chore-list{display:flex;flex-direction:column;gap:8px}
 .chore-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
 .chore-item:hover{background:rgba(255,255,255,0.06)}
 .chore-item.completed{opacity:0.5}.chore-item.completed .chore-text{text-decoration:line-through}
-.chore-checkbox{width:28px;height:28px;border-radius:8px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s}
+.chore-checkbox{width:28px;height:28px;padding:0;border-radius:8px;border:2px solid var(--border);background:none;color:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s}
 .chore-checkbox.checked{background:var(--success);border-color:var(--success)}
 .chore-text{flex:1;font-size:0.95rem;font-weight:600}
 .chore-tag{font-size:0.7rem;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:0.5px}
@@ -340,19 +328,9 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .chore-list>.chore-group-label:first-child{margin-top:0}
 .chore-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .chore-details{font-size:0.8rem;font-weight:500;color:var(--text-secondary);line-height:1.4}
-.chore-info-btn{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);background:none;color:var(--text-muted);font-size:0.72rem;font-weight:800;font-style:italic;font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0}
-.chore-info-btn.open{color:var(--accent);border-color:var(--accent)}
+.chore-info-btn{width:40px;height:40px;margin:-6px -4px -6px 0;border-radius:12px;border:none;background:none;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0}
+.chore-info-btn.open{color:var(--accent-soft)}
 @media (max-width:560px){.chore-list .chore-tag{display:none}}
-.nightly-row{display:flex;gap:12px;align-items:flex-start;padding:10px 6px;border-top:1px solid var(--border)}
-.nightly-row:nth-of-type(2){border-top:none}
-.nightly-row.today{background:rgba(59,130,246,0.08);border-radius:10px;border-top-color:transparent}
-.nightly-row.today .nightly-day{color:var(--accent)}
-.nightly-day{width:48px;flex-shrink:0;font-weight:800;font-size:0.9rem;line-height:1.15}
-.nightly-day small{display:block;font-weight:600;font-size:0.7rem;color:var(--text-muted)}
-.nightly-jobs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
-.nightly-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:0.8rem;font-weight:700}
-.nightly-job{color:var(--text-muted);font-weight:600}
-.header-bell{padding:6px 8px}
 .reminders-modal{width:440px;max-width:94vw}
 .reminders-close{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.6rem;line-height:1}
 .reminders-sub{font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px;line-height:1.45}
@@ -369,18 +347,18 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .reminders-device{display:flex;align-items:center;gap:10px;font-size:0.85rem;padding:6px 0}
 .reminders-device span:first-child{font-weight:700;min-width:110px}
 .reminders-device-who{flex:1;color:var(--text-secondary)}
-.date-night{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;margin-bottom:16px;border-radius:16px;border:1px solid rgba(20,184,166,0.35);border-left:4px solid #14B8A6;background:linear-gradient(135deg,rgba(20,184,166,0.14),rgba(139,92,246,0.08))}
-.date-night.scheduled{border-color:rgba(16,185,129,0.35);border-left-color:var(--success);background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(20,184,166,0.06))}
+.date-night{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:16px;border:1px solid #1f5c58;background:#10201f}
+.date-night.scheduled{border-color:rgba(16,185,129,0.45);background:#10231d}
 .date-night.fresh{box-shadow:0 0 0 3px rgba(20,184,166,0.18)}
 .date-night-icon{font-size:1.9rem;line-height:1}
 .date-night-body{flex:1;min-width:0}
 .date-night-label{font-size:0.72rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#5eead4;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .date-night-new{font-size:0.65rem;letter-spacing:0.06em;background:#0d9488;color:#fff;padding:2px 8px;border-radius:999px}
 .date-night-who{display:flex;align-items:center;gap:10px;margin:8px 0 6px;flex-wrap:wrap}
-.date-night-kid{font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.15rem;color:#fff;padding:5px 14px;border-radius:999px}
+.date-night-kid{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.1rem;color:#0d111a;padding:4px 14px;border-radius:999px}
 .date-night-with{font-weight:700;color:var(--text-secondary)}
 .date-night-status{font-size:0.85rem;color:var(--text-secondary);font-weight:600}
-.date-night-next{color:var(--text-muted)}
+.date-night-next{color:var(--text-secondary)}
 .date-night-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
 .date-night-date{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;color-scheme:dark}
 .date-night-btn{background:#0d9488;border-color:#0d9488}
@@ -409,15 +387,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .work-entry-mins{font-weight:800;white-space:nowrap}
 .duty-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .duty-col{min-width:0;display:flex;flex-direction:column;gap:7px}
-.duty-label{font-size:0.68rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.duty-chips{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;max-width:210px}
-.duty-chip{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;min-width:0;padding:5px 10px;border-radius:999px;font-family:'Fredoka',sans-serif;font-size:1.02rem;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.25);white-space:nowrap}
+.duty-label{font-size:0.82rem;font-weight:700;color:#c3ccd6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.duty-chips{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0}
+.duty-chip{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;min-width:0;min-height:34px;padding:4px 10px;border-radius:999px;font-family:'Fredoka',sans-serif;font-size:1rem;font-weight:600;color:#0d111a;white-space:nowrap}
 .duty-chip-name{overflow:hidden;text-overflow:ellipsis}
-.duty-chip.done{background:rgba(16,185,129,0.22);color:#6ee7b7;text-shadow:none}
+.duty-chip.done{background:rgba(16,185,129,0.22);color:#6ee7b7}
 .duty-chip-count{font-size:0.75rem;font-weight:800;opacity:0.85}
 .duty-chip-check{font-weight:900}
 .duty-none{font-family:'Fredoka',sans-serif;font-size:1rem;color:var(--text-secondary);padding:5px 0}
-@media (max-width:560px){.dishes-banner{padding:12px}.dishes-banner .dishes-banner-icon,.dishes-banner .dishes-banner-status{display:none}.duty-grid{gap:8px}.duty-label{font-size:0.6rem;letter-spacing:0.6px}.duty-chip{font-size:0.95rem;padding:5px 6px;gap:3px}.duty-chip-emoji{display:none}}
+@media (max-width:560px){.duty-grid{gap:8px}.duty-chip{font-size:0.95rem;padding:4px 6px;gap:3px}.duty-chip-emoji{display:none}}
 @media (max-width:400px){.duty-chip{font-size:0.88rem;padding:4px 4px}.duty-chip-count{font-size:0.68rem}}
 .work-bar-tag{font-size:0.72rem;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .work-bar-tag.cash{background:rgba(245,158,11,0.18);color:#fcd34d}
@@ -430,33 +408,14 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .work-paid{font-size:0.78rem;font-weight:800;color:var(--success);white-space:nowrap}
 .work-unpaid{font-size:0.78rem;font-weight:800;color:#fcd34d;white-space:nowrap}
 .work-mark-paid{padding:4px 10px;font-size:0.78rem}
-.chore-done-toggle{background:none;border:none;color:var(--success);font-size:0.8rem;font-weight:700;text-align:left;padding:6px 2px 2px;cursor:pointer;font-family:inherit}
 .chore-empty{font-size:0.85rem;color:var(--text-muted);padding:8px 12px;font-style:italic}
-/* --- "Dishes today" hero banner --- */
-.dishes-banner{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:16px;border-radius:16px;background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.06));border:1px solid rgba(59,130,246,0.4);border-left:5px solid var(--accent)}
-.dishes-banner.done{background:linear-gradient(135deg,rgba(16,185,129,0.16),rgba(16,185,129,0.05));border-color:rgba(16,185,129,0.4);border-left-color:var(--success)}
-.dishes-banner.none{background:var(--bg-card);border-color:var(--border);border-left-color:var(--text-muted);opacity:0.75}
-.dishes-banner-icon{font-size:1.9rem;line-height:1;flex-shrink:0}
-.dishes-banner-body{flex:1;min-width:0}
-.dishes-banner-label{font-size:0.68rem;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px}
-.dishes-banner-names{display:flex;flex-wrap:wrap;gap:7px}
-.dishes-kid{display:inline-flex;align-items:center;gap:6px;padding:5px 13px 5px 9px;border-radius:999px;font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.25)}
-.dishes-kid.done{background:rgba(16,185,129,0.2);color:#34d399;text-shadow:none}
-.dishes-kid-emoji{font-size:1.1rem}
-.dishes-kid-check{font-weight:900}
-.dishes-kid-count{font-size:0.78rem;font-weight:800;opacity:0.85}
-.dishes-banner-none-text{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:500;color:var(--text-secondary)}
-.dishes-banner-status{font-size:0.7rem;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#34d399;flex-shrink:0}
-.dishes-chip{font-size:0.6rem;font-weight:900;letter-spacing:0.6px;padding:3px 7px;border-radius:6px;background:var(--accent);color:#fff;white-space:nowrap;margin-left:2px}
-.dishes-chip.done{background:rgba(16,185,129,0.2);color:#34d399}
+/* --- Tonight's dinner jobs (Dishes / Clear table / Trash) --- */
+.tonight{padding:12px 14px 14px;border:1px solid #2b4a86;border-radius:16px;background:#131c30;display:flex;flex-direction:column;gap:10px}
+.tonight.done{border-color:rgba(16,185,129,0.45);background:#10231d}
+.tonight .mini-label{color:#9db4d6}
+.tonight.done .mini-label{color:#6ee7b7}
 /* --- Routine summary chips on the collapsed card --- */
-.routine-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
-.routine-chip{font-size:0.68rem;font-weight:800;padding:2px 7px;border-radius:6px;background:rgba(56,189,248,0.13);color:#38bdf8;white-space:nowrap}
-.routine-chip.done{background:rgba(16,185,129,0.15);color:#34d399}
 /* --- Daily routine sections (morning / bedtime), nested in the card --- */
-.member-card .routine-card{margin-top:10px}
-.member-stack{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
-.today-grid .member-stack{margin-bottom:0}
 .routine-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;border-left:3px solid rgba(56,189,248,0.5)}
 .routine-card.complete{border-left-color:#10B981;background:rgba(16,185,129,0.05)}
 .routine-header{display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -469,44 +428,10 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .chore-points-badge{font-size:0.7rem;font-weight:800;color:var(--warning);padding:2px 6px;border-radius:6px;background:rgba(245,158,11,0.1);margin-right:4px;white-space:nowrap}
 .chore-delete-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);transition:color 0.15s;flex-shrink:0;display:flex;align-items:center}
 .chore-delete-btn:hover{color:#f87171}
-.weekly-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media(max-width:480px){.weekly-grid{grid-template-columns:1fr}}
-.weekly-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.03)}
-.weekly-icon{font-size:1.5rem;width:40px;text-align:center}.weekly-info{flex:1}
-.weekly-task{font-size:0.8rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
-.weekly-person{font-weight:700;font-size:1rem}
 .recycle-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700}
 .recycle-yes{background:rgba(16,185,129,0.15);color:#34d399}.recycle-no{background:rgba(239,68,68,0.1);color:#f87171}
-.leaderboard-item{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;margin-bottom:8px;background:rgba(255,255,255,0.03);transition:all 0.2s}
-.leaderboard-item:first-child{background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(245,158,11,0.05));border:1px solid rgba(245,158,11,0.2)}
-.leaderboard-rank{font-family:'Fredoka',sans-serif;font-size:1.3rem;font-weight:700;width:36px;text-align:center;color:var(--text-muted)}
-.leaderboard-item:first-child .leaderboard-rank{color:var(--warning)}
-.leaderboard-name{flex:1;font-weight:700;font-size:1.05rem}
-.leaderboard-score{display:flex;align-items:center;gap:6px;font-weight:800;font-size:1.1rem;color:var(--warning)}
-.leaderboard-bar{height:4px;border-radius:2px;background:var(--border);margin-top:6px}
-.leaderboard-bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease}
-.streak-badge{display:inline-flex;align-items:center;gap:3px;font-size:0.8rem;font-weight:700;color:#fb923c;padding:2px 8px;border-radius:12px;background:rgba(251,146,60,0.1)}
-.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
 .week-nav-btn{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);width:40px;height:40px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;padding:0}
 .week-nav-btn:hover{background:var(--bg-card-hover)}
-.week-label{font-family:'Fredoka',sans-serif;font-size:1.05rem;font-weight:500;text-align:center;flex:1}
-.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;overflow-x:auto}
-@media(max-width:700px){.week-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:400px){.week-grid{grid-template-columns:repeat(2,1fr)}}
-.day-col{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:10px;min-width:120px}
-.day-col.today{border-color:var(--accent);background:rgba(59,130,246,0.05)}
-.day-col:hover{background:var(--bg-card-hover);border-color:var(--text-muted)}
-.day-col-selected{border-color:var(--accent)!important;background:rgba(59,130,246,0.1)!important;box-shadow:0 0 0 2px rgba(59,130,246,0.3)}
-.day-detail-panel{margin-top:20px;padding-top:16px;border-top:2px solid var(--accent)}
-.day-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.day-detail-title{font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--text-primary)}
-.day-col-header{text-align:center;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px}
-.day-name{font-weight:800;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary)}
-.day-col.today .day-name{color:var(--accent)}
-.day-date-num{font-family:'Fredoka',sans-serif;font-size:1.3rem;font-weight:700}
-.day-member{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;margin-bottom:4px;font-size:0.78rem;font-weight:600;background:rgba(255,255,255,0.03)}
-.day-member-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.day-member-chore{color:var(--text-secondary);font-size:0.7rem;font-weight:400}
 .pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
 .pin-dialog,.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:28px;max-width:92vw;max-height:90vh;overflow-y:auto}
 .pin-dialog{padding:32px;text-align:center;width:320px}
@@ -539,8 +464,6 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .form-select{cursor:pointer;appearance:auto}
 .form-row{display:flex;gap:12px}.form-row .form-group{flex:1}
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
-.my-jobs-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap}
-.my-jobs-btn:hover{background:var(--bg-card-hover);color:var(--text-primary)}
 .my-jobs-modal{background:var(--bg-card);border-radius:20px;padding:20px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;animation:slideUp 0.25s ease}
 .my-jobs-day{margin-bottom:16px}
 .my-jobs-day-header{font-family:'Fredoka',sans-serif;font-size:0.95rem;font-weight:700;color:var(--text-primary);margin-bottom:8px;display:flex;align-items:center;gap:8px}
@@ -553,11 +476,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .my-jobs-summary-stat{flex:1;text-align:center}
 .my-jobs-summary-stat .stat-value{font-family:'Fredoka',sans-serif;font-size:1.4rem;font-weight:700}
 .my-jobs-summary-stat .stat-label{font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;font-weight:600}
-.add-task-fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:16px;background:var(--accent);color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(59,130,246,0.4);transition:all 0.2s;z-index:50}
+.add-task-fab{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));right:20px;width:56px;height:56px;border-radius:16px;background:var(--accent);color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(59,130,246,0.4);transition:all 0.2s;z-index:50}
 .add-task-fab:hover{background:#2563eb;transform:scale(1.05)}.add-task-fab:active{transform:scale(0.95)}
-.time-tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--bg-secondary);padding:4px;border-radius:12px}
-.time-tab{flex:1;padding:8px 4px;border:none;background:none;color:var(--text-muted);font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer;border-radius:8px;transition:all 0.2s;text-transform:uppercase;letter-spacing:0.3px}
-.time-tab.active{background:var(--accent);color:white}
 .team-card{background:var(--bg-card);border:2px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;transition:all 0.2s}
 .team-card.winning{border-color:var(--warning);background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02))}
 .team-name{font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:700;margin-bottom:4px}
@@ -687,7 +607,6 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .admin-unlock-toggle{padding:6px 14px;border-radius:8px;border:none;font-family:'Nunito',sans-serif;font-weight:700;font-size:0.75rem;cursor:pointer;transition:all 0.15s}
 .admin-unlock-toggle.unlock{background:rgba(16,185,129,0.15);color:#34d399}
 .admin-unlock-toggle.lock{background:rgba(239,68,68,0.15);color:#f87171}
-.game-tab-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;border-left:4px solid}
 .game-timer-display{font-family:'Fredoka',sans-serif;font-size:3rem;font-weight:700;text-align:center;padding:16px 0;letter-spacing:2px}
 .game-timer-display.running{color:#34d399}
 .game-timer-display.paused{color:#fbbf24}
@@ -704,9 +623,6 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .game-adjust-row{display:flex;gap:6px;justify-content:center;margin-top:8px}
 .game-adjust-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text-secondary);font-family:'Nunito',sans-serif;font-weight:700;font-size:0.75rem;cursor:pointer;transition:all 0.15s}
 .game-adjust-btn:hover{background:rgba(255,255,255,0.1);color:var(--text-primary)}
-.game-status-msg{text-align:center;font-size:0.85rem;font-weight:600;padding:12px;border-radius:10px;margin-bottom:12px}
-.game-status-msg.locked{background:rgba(239,68,68,0.1);color:#f87171}
-.game-status-msg.not-today{background:rgba(139,92,246,0.1);color:#a78bfa}
 .game-family-timers{margin-top:8px}
 .game-family-timer-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);margin-bottom:6px}
 .game-family-timer-name{display:flex;align-items:center;gap:8px;font-weight:700}
@@ -737,7 +653,220 @@ body{font-family:'Nunito',sans-serif;background:var(--bg-primary);color:var(--te
 .admin-photo-card img{width:100%;height:80px;object-fit:cover;cursor:pointer}
 .admin-photo-card-info{padding:6px 8px;font-size:0.7rem;font-weight:600;color:var(--text-muted)}
 .admin-photo-card-name{color:var(--text-secondary);font-weight:700}
+
+/* ============================================================
+   Layout refresh (Oct 2026): faces, rings, rows, grids, podium
+   ============================================================ */
+.page>.card,.page>.date-night{margin-bottom:0}
+.stack-8{display:flex;flex-direction:column;gap:8px}
+.mini-label{font-size:0.75rem;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-soft)}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:2px 2px 0}
+.section-head h2{font-family:'Fredoka',sans-serif;font-weight:500;font-size:1.06rem}
+.section-head h2.ok{color:#6ee7b7}
+.section-head span{font-size:0.82rem;font-weight:700;color:var(--text-secondary)}
+.avatar{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1}
+.ring{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.ring-inner{border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center}
+/* Row of faces */
+.faces{display:grid;width:100%;max-width:520px;margin:0 auto}
+.face{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;padding:6px 0;border:none;border-radius:14px;background:none;color:#c3ccd6;font-family:inherit;font-size:0.75rem;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.face.active{background:var(--bg-card-hover);color:var(--text-primary);font-weight:800}
+.face-all{width:48px;height:48px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center}
+.face.active .face-all{border-color:#6ea8ff}
+.face-emoji{font-size:20px;line-height:1}
+.face-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.face .avatar{margin:2px 0}
+/* List rows (kids, More menu) */
+.rows{border:1px solid var(--border);border-radius:16px;background:var(--bg-card);overflow:hidden;display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:10px 8px 10px 12px;border:none;border-top:1px solid var(--border);background:none;color:var(--text-primary);font-family:inherit;font-size:1rem;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rows>.row:first-child{border-top:none}
+button.row:hover{background:rgba(255,255,255,0.03)}
+div.row{cursor:default}
+.row-body{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:7px}
+.row-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.row-tags{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;min-width:0}
+.row-tags .streak-fire,.row-tags .streak-on-fire,.hero-chips .streak-fire,.hero-chips .streak-on-fire{margin-left:0;font-size:0.8rem}
+.row-name{font-family:'Fredoka',sans-serif;font-weight:500;font-size:1.06rem}
+.row-count{font-size:0.82rem;font-weight:700;color:var(--text-soft);white-space:nowrap;flex-shrink:0}
+.row-count.ok{color:#6ee7b7}
+.row-points{min-width:42px;display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:0.95rem;font-weight:800;color:#fbbf24;flex-shrink:0}
+.row-chev{color:var(--text-secondary);display:flex;flex-shrink:0}
+.row .must-do-alert{align-self:flex-start;margin-top:0}
+.tag-pill{padding:2px 8px;border-radius:9px;font-size:0.75rem;font-weight:800;white-space:nowrap}
+.tag-pill.dishes{background:#1c2d4f;color:#9cc0ff}.tag-pill.ok{background:#14332b;color:#6ee7b7}
+.tag-pill.locked{background:rgba(239,68,68,0.14);color:#fca5a5}
+.tag-pill.work{background:#14332b;color:#6ee7b7}.tag-pill.routine{background:rgba(56,189,248,0.14);color:#7dd3fc}
+.bar{display:block;height:6px;border-radius:3px;background:var(--ring-track);overflow:hidden}
+.bar>span{display:block;height:100%;border-radius:3px;transition:width 0.4s ease}
+.row-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--ring-track);color:#c3ccd6;font-size:1.15rem}
+.row-icon.blue{background:#1b2a4a;color:#8ab4ff}.row-icon.gold{background:#3a2c10;color:#fcd34d}.row-icon.green{background:#14332b;color:#6ee7b7}.row-icon.teal{background:#10201f}
+.row-label{flex:1;min-width:0;font-size:1rem;font-weight:700}
+.row-label small{display:block;font-size:0.8rem;font-weight:700;color:var(--text-soft);margin-top:1px}
+.row-value{font-size:0.88rem;font-weight:700;color:var(--text-soft);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.row-value.ok{color:#6ee7b7}.row-value.bad{color:#fca5a5}
+/* One kid: big ring, chips, bigger checkboxes */
+.kid-view{display:flex;flex-direction:column;gap:12px}
+.hero{display:flex;align-items:center;gap:16px;padding:14px 16px;border:1px solid var(--border);border-radius:18px;background:var(--bg-card)}
+.hero-count{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.5rem;line-height:1}
+.hero-count small{font-size:0.95rem;font-weight:500;color:var(--text-soft)}
+.hero-done{font-size:0.68rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-soft);margin-top:2px}
+.hero-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.hero-name .emoji-picker-btn{width:44px;height:44px;margin:-5px -2px -5px -5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hero-name{display:flex;align-items:center;gap:8px;font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.5rem;line-height:1.1}
+.hero-left{font-size:0.95rem;font-weight:700;color:#c3ccd6}
+.hero-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.chip{min-height:26px;padding:0 10px;border-radius:13px;font-size:0.8rem;font-weight:800;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.chip.points{background:#3a2c10;color:#fcd34d}.chip.dishes{background:#1c2d4f;color:#9cc0ff}.chip.ok{background:#14332b;color:#6ee7b7}
+.emoji-panel{border:1px solid var(--border);border-radius:14px;background:var(--bg-card)}
+.info-line{display:flex;align-items:center;gap:10px;width:100%;min-height:46px;padding:8px 10px 8px 14px;border:1px solid var(--border);border-radius:14px;background:none;color:#c3ccd6;font-family:inherit;font-size:0.9rem;font-weight:700;text-align:left;cursor:pointer}
+.info-line.good{border-color:rgba(16,185,129,0.45);color:#6ee7b7}
+.info-line-text{flex:1;min-width:0}
+.info-line small{display:block;font-size:0.8rem;font-weight:700;color:var(--text-secondary);margin-top:1px}
+.link-btn{align-self:center;min-height:44px;padding:0 12px;border:none;background:none;color:var(--accent-soft);font-family:inherit;font-size:0.9rem;font-weight:800;cursor:pointer}
+.kid-view .chore-item,.day-chores .chore-item{min-height:56px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--bg-card)}
+.kid-view .chore-item.priority,.day-chores .chore-item.priority{border-color:rgba(245,158,11,0.45);background:rgba(245,158,11,0.10)}
+.kid-view .chore-checkbox,.day-chores .chore-checkbox{width:30px;height:30px;border-radius:9px;border-color:#5d7096;cursor:pointer}
+.kid-view .chore-checkbox.checked,.day-chores .chore-checkbox.checked{border-color:var(--success)}
+.kid-view .chore-text,.day-chores .chore-text{font-size:1rem;font-weight:700;cursor:pointer}
+.kid-view .chore-item.completed,.day-chores .chore-item.completed{opacity:1;min-height:46px;padding:7px 12px;border-color:transparent;background:#121924}
+.kid-view .chore-item.completed .chore-text,.day-chores .chore-item.completed .chore-text{font-size:0.95rem;color:var(--text-soft)}
+.kid-view .chore-group-label,.day-chores .chore-group-label{color:var(--text-soft)}
+.kid-view .routine-card{border-radius:14px;border-left:1px solid var(--border)}
+.kid-view .routine-card.complete{border-color:rgba(16,185,129,0.45)}
+.kid-view .work-bar{margin-top:0}
+.done-list{gap:6px}
+.all-done{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid rgba(16,185,129,0.45);border-radius:16px;background:#10231d}
+.all-done-check{width:44px;height:44px;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.all-done b{display:block;font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.2rem}
+.all-done small{display:block;font-size:0.88rem;font-weight:700;color:#a7e8cf;margin-top:2px}
+/* Week: day strip + the picked day */
+.daystrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.daycell{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:8px 0;border:none;border-radius:14px;background:none;color:#c3ccd6;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.daycell.selected{background:var(--surface-hi);color:var(--text-primary)}
+.daycell-name{font-size:0.75rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase}
+.daycell.today .daycell-name{color:var(--accent-soft)}
+.daycell-num{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1rem;line-height:1}
+.daycell-num.ok{color:#6ee7b7}
+.day-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px;flex-wrap:wrap}
+.day-head h2{display:flex;align-items:center;gap:10px;font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.35rem}
+.day-head>span{font-size:0.88rem;font-weight:700;color:var(--text-soft)}
+.today-pill{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;background:var(--surface-hi);color:var(--accent-soft);font-family:'Nunito',sans-serif;font-size:0.72rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase}
+.today-pill.plain{background:var(--bg-card);color:var(--text-soft)}
+.dinner-card{padding:12px 8px;border:1px solid var(--border);border-radius:16px;background:var(--bg-card);display:flex;flex-direction:column;gap:10px}
+.dinner-card .mini-label{padding:0 6px}
+.dinner-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.dinner-col{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
+.dinner-job{font-size:0.75rem;font-weight:700;color:#c3ccd6}
+.dinner-who{max-width:100%;padding:0 2px;font-size:0.75rem;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dinner-none{height:34px;display:flex;align-items:center;color:var(--text-secondary);font-weight:700}
+.av-stack{display:flex;justify-content:center}
+.av-stack .avatar+.avatar{margin-left:-8px;box-shadow:0 0 0 2px var(--bg-card)}
+.week-row{min-height:52px}
+.week-row-name{width:78px;flex-shrink:0;font-family:'Fredoka',sans-serif;font-weight:500;font-size:1rem}
+.week-row .bar{flex:1;height:8px;border-radius:4px}
+.week-row .bar>span{border-radius:4px}
+.week-row-count{width:44px;flex-shrink:0;text-align:right;font-size:0.88rem;font-weight:800;color:#c3ccd6}
+.week-row-count.ok{color:#6ee7b7}
+.week-row .row-chev{transition:transform 0.2s}
+.week-row.open .row-chev{transform:rotate(90deg)}
+.day-chores{padding:2px 10px 12px;border-top:none}
+.upnext-day{width:40px;flex-shrink:0;font-size:0.75rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-soft)}
+/* Jobs: the week as a grid */
+.grid-card{padding:12px 8px 8px;border:1px solid var(--border);border-radius:16px;background:var(--bg-card);display:flex;flex-direction:column;gap:6px}
+.grid-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px}
+.grid-card h2{font-family:'Fredoka',sans-serif;font-weight:500;font-size:1.06rem}
+.jg-row{display:flex;align-items:center;min-height:38px;border-radius:10px}
+.jg-row.head{min-height:22px;font-size:0.75rem;font-weight:800;color:var(--text-soft)}
+.jg-row.today{background:var(--surface-hi)}
+.jg-day{width:58px;flex-shrink:0;padding-left:8px;font-size:0.82rem;font-weight:800;color:#c3ccd6;line-height:1.15}
+.jg-row.today .jg-day{color:var(--text-primary)}
+.jg-day small{display:block;font-size:0.68rem;font-weight:800;color:var(--accent-soft)}
+.jg-day small.recycle{color:#6ee7b7}
+.jg-cell{flex:1;min-width:0;display:flex;justify-content:center;text-align:center}
+.jg-cell .avatar+.avatar{margin-left:-8px;box-shadow:0 0 0 2px var(--bg-card)}
+.jg-row.today .jg-cell .avatar+.avatar{box-shadow:0 0 0 2px var(--surface-hi)}
+.avatar.dim{opacity:0.2}
+.avatar.hit{box-shadow:0 0 0 2px var(--bg-card),0 0 0 4px #f0f4f8}
+.jg-row.today .avatar.hit{box-shadow:0 0 0 2px var(--surface-hi),0 0 0 4px #f0f4f8}
+.jg-empty{color:var(--text-secondary);font-weight:700}
+.wk-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px;padding:4px 6px 6px}
+.wk-item{display:flex;align-items:center;gap:8px;min-width:0;min-height:40px}
+.wk-item.dim{opacity:0.3}
+.wk-item-text{min-width:0;line-height:1.2}
+.wk-item-text b{display:block;font-size:0.88rem;font-weight:800}
+.wk-item-text small{display:block;font-size:0.82rem;font-weight:700;color:var(--text-soft)}
+.week-switch{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.week-switch .week-nav-btn{width:44px;height:44px;border-radius:22px}
+.week-switch-label{flex:1;text-align:center;font-family:'Fredoka',sans-serif;font-weight:500;font-size:1.1rem;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+/* Points: podium */
+.seg{display:grid;min-height:48px;padding:4px;border-radius:24px;background:var(--bg-card)}
+.seg button{min-height:40px;padding:0 4px;border:none;border-radius:20px;background:none;color:#c3ccd6;font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer}
+.seg button.active{background:var(--accent);color:#0d111a;font-weight:800}
+.podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;width:100%;max-width:460px;margin:0 auto;padding-top:6px}
+.podium-col{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
+.podium-name{max-width:100%;margin-top:6px;font-family:'Fredoka',sans-serif;font-weight:500;font-size:1.06rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.podium-col.first .podium-name{font-weight:600;font-size:1.25rem}
+.podium-pts{display:flex;align-items:center;gap:4px;font-size:1.06rem;font-weight:800;color:#fbbf24}
+.podium-col.first .podium-pts{font-size:1.25rem}
+.podium-extra{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 6px;min-height:16px;font-size:0.72rem;font-weight:800;color:var(--text-soft)}
+.podium-extra .streak-fire,.podium-extra .streak-on-fire{margin-left:0;font-size:0.72rem}
+.podium-block{width:100%;border-top:3px solid;border-radius:12px 12px 0 0;background:var(--bg-card);display:flex;align-items:center;justify-content:center;font-family:'Fredoka',sans-serif;font-weight:600;line-height:1}
+.podium-col.first .podium-block{background:var(--bg-card-hover)}
+.podium-rest{margin-top:-12px}
+.rank-num{width:22px;flex-shrink:0;text-align:center;font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.25rem;color:var(--text-soft)}
+.total-line{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px;padding:0 14px;border:1px solid var(--border);border-radius:16px;font-size:0.95rem;font-weight:700;color:#c3ccd6}
+.total-line b{display:inline-flex;align-items:center;gap:4px;font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.25rem;color:var(--text-primary)}
+/* Games + Hall of Fame */
+.status-card{padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--bg-card);display:flex;flex-direction:column;gap:14px}
+.status-top{display:flex;align-items:center;gap:14px}
+.status-icon{width:56px;height:56px;border-radius:50%;background:var(--ring-track);color:#c3ccd6;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.status-card.on{border-color:rgba(16,185,129,0.45)}
+.status-card.on .status-icon{background:#14332b;color:#6ee7b7}
+.status-title{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.35rem;line-height:1.1}
+.status-text{font-size:0.9rem;font-weight:700;color:#c3ccd6;line-height:1.35;margin-top:3px}
+.status-next{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:0 14px;border-radius:12px;background:var(--surface-hi);font-size:0.9rem;font-weight:700;color:#c3ccd6}
+.status-next b{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.06rem;color:var(--accent-soft)}
+.section-note{padding:0 2px;font-size:0.82rem;font-weight:700;color:var(--text-soft);line-height:1.4}
+.game-row{align-items:flex-start;padding:12px 14px 12px 12px}
+.game-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.game-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px}
+.game-meter{display:flex;align-items:center;gap:8px;font-size:0.78rem;font-weight:700;color:var(--text-soft)}
+.game-meter-label{width:96px;flex-shrink:0}
+.game-meter .bar{flex:1}
+.game-meter-val{width:40px;flex-shrink:0;text-align:right;color:#c3ccd6}
+.game-meter-val.ok{color:#6ee7b7}
+.state-pill{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:13px;background:var(--ring-track);color:#c3ccd6;font-size:0.78rem;font-weight:800;white-space:nowrap}
+.state-pill.open{background:#14332b;color:#6ee7b7}.state-pill.parent{background:#3a2c10;color:#fcd34d}
+.small-btn{min-height:40px;padding:0 14px;border:1px solid var(--border);border-radius:20px;background:var(--bg-card-hover);color:var(--text-primary);font-family:inherit;font-size:0.8rem;font-weight:800;cursor:pointer;white-space:nowrap}
+.empty-card{padding:24px 20px 22px;border:1px solid var(--border);border-radius:18px;background:var(--bg-card);display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.empty-medals{display:flex;align-items:flex-end;gap:14px}
+.empty-medal{width:52px;height:52px;border:2px dashed;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.25rem}
+.empty-medal.big{width:72px;height:72px}
+.empty-title{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.35rem}
+.empty-text{font-size:0.95rem;font-weight:700;color:#c3ccd6;line-height:1.4;margin-top:6px}
+.wide-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border:1px solid #3a4a6b;border-radius:24px;background:var(--bg-card-hover);color:var(--text-primary);font-family:inherit;font-size:0.95rem;font-weight:800;cursor:pointer}
+.medal-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Fredoka',sans-serif;font-weight:600;font-size:0.95rem;color:#0d111a}
+.more-group h2{padding:0 2px;font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-soft)}
+@media(min-width:768px){.main{padding-top:10px}.page{gap:14px}}
+@media(max-width:350px){.main{padding-left:10px;padding-right:10px}.face{font-size:0.62rem}.topbar-title{font-size:1.4rem}}
 `;
+
+// ============================================================
+// NAVIGATION — five bottom tabs; three more pages live under "More"
+// ============================================================
+const MAIN_TABS = [
+  { key: "today", label: "Today", title: "Today", Icon: Icons.Home },
+  { key: "week", label: "Week", title: "Week", Icon: Icons.Calendar },
+  { key: "rotation", label: "Jobs", title: "Jobs", Icon: Icons.Recycle },
+  { key: "leaderboard", label: "Points", title: "Points", Icon: Icons.Star },
+  { key: "more", label: "More", title: "More", Icon: Icons.More },
+];
+const SUB_PAGES = {
+  games: { title: "Video games" },
+  history: { title: "Hall of Fame" },
+  admin: { title: "Parent tools" },
+};
+const knownKid = (name) => (FAMILY_MEMBERS.some(m => m.name === name) ? name : null);
 
 // ============================================================
 // MAIN APP COMPONENT
@@ -769,6 +898,13 @@ export default function App() {
   const [workCashouts, setWorkCashoutsRaw] = useState(() => loadData("fcc_workCashouts", {})); // { id: { kid, month, minutes, rate, amount, at, paid } }
   // Tapping a reminder opens /?kid=Carter — expand that kid's card on Today.
   const [focusKid] = useState(() => { try { return new URLSearchParams(window.location.search).get("kid"); } catch { return null; } });
+  // Whose jobs this device is looking at: a kid's name, or null for everyone.
+  // Remembered per device (Carter's phone opens on Carter). A reminder tap wins
+  // for that visit without changing what's remembered: /?kid=Carter opens
+  // Carter, and the parent summary's /?kid=all opens Everyone.
+  const [viewKid, setViewKidRaw] = useState(() => (focusKid != null ? knownKid(focusKid) : knownKid(loadData("fcc_viewKid", null))));
+  const setViewKid = useCallback((name) => { setViewKidRaw(knownKid(name)); saveData("fcc_viewKid", knownKid(name)); }, []);
+  const [afterPin, setAfterPin] = useState(null); // page to open once the parent PIN is accepted
   const [pinPrompt, setPinPrompt] = useState(null); // { member, action } when waiting on kid PIN
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -832,7 +968,6 @@ export default function App() {
   const weekStartKey = getWeekStartKey(today);
   const monthKey = getMonthKey(today);
   const yearKey = getYearKey(today);
-  const weekRotation = getCurrentWeekRotation(today);
   const teamWeek = isTeamWeek(today);
   const teams = teamWeek ? getTeamsForWeek(today) : null;
 
@@ -1310,49 +1445,64 @@ export default function App() {
     });
   }, []);
 
+  // ---- Shell: which page is showing, and what the top bar says ----
+  const goTab = (tab) => { setCurrentTab(tab); try { window.scrollTo(0, 0); } catch { /* ignore */ } };
+  const lockParent = () => { setIsParent(false); if (currentTab === "admin") goTab("more"); };
+  // Parent tools sit behind the parent PIN: ask for it first if needed.
+  const openParentTools = () => { if (isParent) goTab("admin"); else { setAfterPin("admin"); setShowPinDialog(true); } };
+  const subPage = SUB_PAGES[currentTab] || null; // Games, Hall of Fame and Parent tools live under More
+  const mainTab = subPage ? "more" : currentTab;
+  const pageTitle = subPage ? subPage.title : (MAIN_TABS.find(t => t.key === currentTab)?.title || "Today");
+  const pageKicker = subPage ? "More"
+    : currentTab === "today" ? today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
+    : currentTab === "leaderboard" ? (teamWeek ? "Team week" : "Individual week")
+    : currentTab === "rotation" ? "Who does what"
+    : "Family HQ";
+
   return (
     <><style>{styles}</style>
       {showSplash && <LaunchSplash onDone={() => setShowSplash(false)} />}
       <div className="app">
-        <header className="header">
-          <div className="header-left">
-            <span className="header-logo"><LogoMark size={34} />Family <span className="header-logo-hq">HQ</span></span>
-            <span className="header-date">{formatDate(today)}</span>
-          </div>
-          <div className="header-right">
-            <button className="btn btn-ghost header-bell" onClick={() => setShowReminders(true)} title="Reminders" aria-label="Reminders"><Icons.Bell size={18} /></button>
-            <div className={`sync-indicator ${isOnline ? "sync-online" : "sync-offline"}`}>
-              {isOnline ? <Icons.Cloud size={14} /> : <Icons.CloudOff size={14} />}
-              <span className="sync-label">{isOnline ? "Synced" : "Offline"}</span>
+        <header className={`topbar ${subPage ? "sub" : ""}`}>
+          <div className="topbar-left">
+            {subPage
+              ? <button className="icon-btn" onClick={() => goTab("more")} aria-label="Back to More"><Icons.ChevronLeft size={24} /></button>
+              : <LogoMark size={38} />}
+            <div className="topbar-text">
+              <div className="topbar-kicker">{pageKicker}</div>
+              <h1 className="topbar-title">{pageTitle}</h1>
             </div>
+          </div>
+          <div className="topbar-right">
+            {!isOnline && <span className="offline-pill" title="Changes are saved on this device and sync when you're back online"><Icons.CloudOff size={14} /><span>Offline</span></span>}
+            <button className="icon-btn" onClick={() => setShowReminders(true)} title="Reminders" aria-label="Reminders"><Icons.Bell size={22} /></button>
             {isParent ? (
-              <button className="btn btn-ghost" onClick={() => setIsParent(false)} style={{ fontSize: "0.8rem" }}><Icons.Lock size={16} /> Lock</button>
+              <button className="pill-btn" onClick={lockParent}><Icons.Lock size={16} /> Lock</button>
             ) : (
-              <button className="btn btn-ghost" onClick={() => setShowPinDialog(true)} style={{ fontSize: "0.8rem" }}><Icons.Settings size={16} /> Parent</button>
+              <button className="pill-btn" onClick={() => setShowPinDialog(true)}><Icons.Lock size={16} /> Parent</button>
             )}
           </div>
         </header>
-        <nav className="nav">
-          <button className={`nav-btn ${currentTab === "today" ? "active" : ""}`} onClick={() => setCurrentTab("today")}><Icons.Home size={20} /> Today</button>
-          <button className={`nav-btn ${currentTab === "week" ? "active" : ""}`} onClick={() => setCurrentTab("week")}><Icons.Calendar size={20} /> Week</button>
-          <button className={`nav-btn ${currentTab === "rotation" ? "active" : ""}`} onClick={() => setCurrentTab("rotation")}><Icons.Recycle size={20} /> Rotation</button>
-          <button className={`nav-btn ${currentTab === "leaderboard" ? "active" : ""}`} onClick={() => setCurrentTab("leaderboard")}><Icons.Trophy size={20} /> Points</button>
-          <button className={`nav-btn ${currentTab === "games" ? "active" : ""}`} onClick={() => setCurrentTab("games")}><Icons.Gamepad size={20} /> Games</button>
-          <button className={`nav-btn ${currentTab === "history" ? "active" : ""}`} onClick={() => setCurrentTab("history")}><Icons.History size={20} /> History</button>
-          {isParent && <button className={`nav-btn ${currentTab === "admin" ? "active" : ""}`} onClick={() => setCurrentTab("admin")}><Icons.Settings size={20} /> Admin</button>}
-        </nav>
-        <main className="main">
-          {currentTab === "today" && <TodayView focusKid={focusKid} dateNights={dateNights} setDateNights={setDateNights} workLogs={workLogs} setWorkLogs={setWorkLogs} workCashouts={workCashouts} setWorkCashouts={setWorkCashouts} pinGate={pinGate} members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
+        <main className={`main ${isParent && currentTab === "today" ? "has-fab" : ""}`}>
+          {currentTab === "today" && <TodayView viewKid={viewKid} setViewKid={setViewKid} onOpenGames={() => goTab("games")} dateNights={dateNights} setDateNights={setDateNights} workLogs={workLogs} setWorkLogs={setWorkLogs} workCashouts={workCashouts} setWorkCashouts={setWorkCashouts} pinGate={pinGate} members={FAMILY_MEMBERS} getMemberChores={getMemberChores} isChoreComplete={isChoreComplete} toggleChore={toggleChore} getCompletionCount={getCompletionCount} getPoints={getPoints} isParent={isParent} deleteCustomTask={deleteCustomTask} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} setMemberEmoji={setMemberEmoji} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} getVideoGameStatus={getVideoGameStatus} uploadChorePhoto={uploadChorePhoto} getChorePhoto={getChorePhoto} photoUploading={photoUploading} setPhotoViewer={setPhotoViewer} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} today={today} />}
           {currentTab === "week" && <WeekView today={today} weekOffset={weekOffset} setWeekOffset={setWeekOffset} getChoresForDate={getChoresForDate} isChoreCompleteForDate={isChoreCompleteForDate} toggleChoreForDate={toggleChoreForDate} getMemberEmoji={getMemberEmoji} getPoints={getPoints} computedStreaks={computedStreaks} isParent={isParent} deleteCustomTask={deleteCustomTask} teamWeek={teamWeek} getTeamForMember={getTeamForMember} getTeamName={getTeamName} getTeamColor={getTeamColor} />}
-          {currentTab === "rotation" && <RotationView today={today} weekRotation={weekRotation} />}
+          {currentTab === "rotation" && <JobsView today={today} viewKid={viewKid} setViewKid={setViewKid} getMemberEmoji={getMemberEmoji} />}
           {currentTab === "leaderboard" && <LeaderboardView getPoints={getPoints} computedStreaks={computedStreaks} teamWeek={teamWeek} teams={teams} getTeamName={getTeamName} setTeamName={setTeamName} weekStartKey={weekStartKey} getAwardCounts={getAwardCounts} prizes={prizes} setPrizes={setPrizes} awards={awards} getMemberEmoji={getMemberEmoji} getTeamColor={getTeamColor} setTeamColor={setTeamColor} />}
-          {currentTab === "games" && <GameView members={FAMILY_MEMBERS} getVideoGameStatus={getVideoGameStatus} getMemberEmoji={getMemberEmoji} gameTimers={gameTimers} startTimer={startTimer} pauseTimer={pauseTimer} stopTimer={stopTimer} adjustTimer={adjustTimer} isParent={isParent} toggleGameUnlock={toggleGameUnlock} setTimesUpMember={setTimesUpMember} />}
-          {currentTab === "history" && <HistoryView awards={awards} points={points} teamNames={teamNames} getMemberEmoji={getMemberEmoji} today={today} />}
+          {currentTab === "games" && <GameView today={today} members={FAMILY_MEMBERS} getVideoGameStatus={getVideoGameStatus} getMemberEmoji={getMemberEmoji} gameTimers={gameTimers} startTimer={startTimer} pauseTimer={pauseTimer} stopTimer={stopTimer} adjustTimer={adjustTimer} isParent={isParent} toggleGameUnlock={toggleGameUnlock} setTimesUpMember={setTimesUpMember} />}
+          {currentTab === "history" && <HistoryView awards={awards} points={points} teamNames={teamNames} getMemberEmoji={getMemberEmoji} today={today} getPoints={getPoints} isParent={isParent} onParentTools={openParentTools} onSeePoints={() => goTab("leaderboard")} />}
+          {currentTab === "more" && <MoreView today={today} isOnline={isOnline} isParent={isParent} awards={awards} dateNights={dateNights} workLogs={workLogs} setWorkLogs={setWorkLogs} workCashouts={workCashouts} setWorkCashouts={setWorkCashouts} pinGate={pinGate} getMemberEmoji={getMemberEmoji} onOpen={goTab} onOneOnOne={() => { setViewKidRaw(null); goTab("today"); }} onReminders={() => setShowReminders(true)} onParentTools={openParentTools} onLock={lockParent} />}
           {currentTab === "admin" && isParent && <AdminView points={points} setPoints={setPoints} completedChores={completedChores} setCompletedChores={setCompletedChores} streaks={streaks} setStreaks={setStreaks} customTasks={customTasks} deleteCustomTask={deleteCustomTask} getPoints={getPoints} addPoints={addPoints} recordWeekAwards={recordWeekAwards} prizes={prizes} setPrizes={setPrizes} weekStartKey={weekStartKey} monthKey={monthKey} awards={awards} setAwards={setAwards} getVideoGameStatus={getVideoGameStatus} toggleGameUnlock={toggleGameUnlock} chorePhotos={chorePhotos} deleteChorePhoto={deleteChorePhoto} setPhotoViewer={setPhotoViewer} getMemberEmoji={getMemberEmoji} memberPins={memberPins} setMemberPins={setMemberPins} parentSettings={parentSettings} setParentSettings={setParentSettings} />}
         </main>
+        <nav className="tabbar" aria-label="Main">
+          <div className="tabbar-inner">
+            {MAIN_TABS.map(({ key, label, Icon }) => (
+              <button key={key} className={`tab-btn ${mainTab === key ? "active" : ""}`} aria-current={mainTab === key ? "page" : undefined} onClick={() => goTab(key)}><Icon size={22} />{label}</button>
+            ))}
+          </div>
+        </nav>
         {isParent && currentTab === "today" && <button className="add-task-fab" onClick={() => setShowAddTask(true)} title="Add Custom Task"><Icons.Plus size={28} /></button>}
         {showReminders && <RemindersModal pushSubscriptions={pushSubscriptions} setPushSubscriptions={setPushSubscriptions} isParent={isParent} getMemberEmoji={getMemberEmoji} onClose={() => setShowReminders(false)} />}
-        {showPinDialog && <PinDialog parentSettings={parentSettings} onSuccess={() => { setIsParent(true); setShowPinDialog(false); }} onClose={() => setShowPinDialog(false)} />}
+        {showPinDialog && <PinDialog parentSettings={parentSettings} onSuccess={() => { setIsParent(true); setShowPinDialog(false); if (afterPin) { goTab(afterPin); setAfterPin(null); } }} onClose={() => { setShowPinDialog(false); setAfterPin(null); }} />}
         {pinPrompt && (() => {
           const m = FAMILY_MEMBERS.find(f => f.name === pinPrompt.member);
           const expected = memberPins?.[pinPrompt.member];
@@ -1388,6 +1538,89 @@ export default function App() {
     </>
   );
 }
+
+// ============================================================
+// SHARED BITS — faces, progress rings, streak tags, dinner jobs
+// ============================================================
+// A kid's emoji on their colour.
+function Avatar({ member, emoji, size = 38, className = "", title }) {
+  return <span className={`avatar ${className}`} title={title} role={title ? "img" : undefined} aria-label={title} style={{ width: size, height: size, fontSize: Math.round(size * 0.5), background: member.color }}>{emoji}</span>;
+}
+
+// A progress ring drawn around whatever is inside it (0-100).
+function Ring({ pct, color, size = 48, thickness = 4, inner = "var(--bg-primary)", children }) {
+  const deg = Math.round(Math.max(0, Math.min(100, pct || 0)) * 3.6);
+  return (
+    <span className="ring" style={{ width: size, height: size, background: `conic-gradient(${color} ${deg}deg, var(--ring-track) 0deg)` }}>
+      <span className="ring-inner" style={{ width: size - thickness * 2, height: size - thickness * 2, background: inner }}>{children}</span>
+    </span>
+  );
+}
+
+// The row of faces: Everyone, then each kid. `value` is a kid's name or null.
+// Pass `progress` ({ name: 0-100 }) to draw today's ring around each face.
+function KidSwitcher({ value, onChange, getMemberEmoji, progress }) {
+  return (
+    <div className="faces" role="group" aria-label="Whose jobs to show" style={{ gridTemplateColumns: `repeat(${FAMILY_MEMBERS.length + 1}, minmax(0, 1fr))` }}>
+      <button className={`face ${!value ? "active" : ""}`} aria-pressed={!value} onClick={() => onChange(null)}>
+        <span className="face-all"><Icons.Users size={24} /></span>
+        <span className="face-name">Everyone</span>
+      </button>
+      {FAMILY_MEMBERS.map(m => {
+        const emoji = getMemberEmoji(m.name);
+        const p = progress ? progress[m.name] : null;
+        return (
+          <button key={m.name} className={`face ${value === m.name ? "active" : ""}`} aria-pressed={value === m.name} onClick={() => onChange(m.name)}>
+            {p != null
+              ? <Ring pct={p} color={p >= 100 ? "var(--success)" : m.color} size={48}><span className="face-emoji">{emoji}</span></Ring>
+              : <Avatar member={m} emoji={emoji} size={44} />}
+            <span className="face-name">{m.name}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Streak flames — same tiers everywhere a streak is shown.
+function StreakTag({ streak }) {
+  if (streak >= 30) return <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>;
+  if (streak >= 14) return <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>;
+  if (streak >= 7) return <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>;
+  if (streak >= 3) return <span className="streak-fire streak-fire-1" title={`${streak}-day streak!`}>🔥 {streak}d</span>;
+  return null;
+}
+
+// Who has each dinner job on a given night. Built from the same
+// getDailyAssignment() the Today screen uses, so the screens can't disagree.
+const NIGHTLY_JOBS = [
+  { key: "Dishes", label: "Dishes" },
+  { key: "Clear Table", label: "Clear" },
+  { key: "Take Out Trash", label: "Trash" },
+  { key: "Floor Pickup", label: "Floor" },
+  { key: "Set Table", label: "Set" },
+];
+function getNightlyJobs(date) {
+  const jobs = {};
+  FAMILY_MEMBERS.forEach(m => {
+    const a = getDailyAssignment(m.name, date);
+    if (!a) return;
+    if (a.dishes) (jobs["Dishes"] = jobs["Dishes"] || []).push(m.name);
+    a.dinnerJobs.forEach(dj => { (jobs[dj.job] = jobs[dj.job] || []).push(m.name); });
+  });
+  return jobs;
+}
+
+// The next day games are allowed (today counts). Null if none in two weeks.
+function nextGameDay(from) {
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(from); d.setDate(d.getDate() + i);
+    if (isVideoGameDay(d)) return { date: d, daysAway: i };
+  }
+  return null;
+}
+
+const isDishChore = (c) => c.id === "dishes" || c.id.startsWith("dishes_");
 
 // ============================================================
 // TODAY VIEW
@@ -1461,21 +1694,17 @@ function StreakSpotlight({ members, computedStreaks, getMemberEmoji }) {
   );
 }
 
-function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs, workCashouts, setWorkCashouts, pinGate, members, getMemberChores, isChoreComplete, toggleChore, getCompletionCount, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, teamWeek, getTeamForMember, getTeamName, getTeamColor, getVideoGameStatus, uploadChorePhoto, getChorePhoto, photoUploading, setPhotoViewer, getChoresForDate, isChoreCompleteForDate, today }) {
-  const [emojiPicker, setEmojiPicker] = useState(null); // member name or null
+function TodayView({ viewKid, setViewKid, onOpenGames, dateNights, setDateNights, workLogs, setWorkLogs, workCashouts, setWorkCashouts, pinGate, members, getMemberChores, isChoreComplete, toggleChore, getPoints, isParent, deleteCustomTask, computedStreaks, getMemberEmoji, setMemberEmoji, getVideoGameStatus, getChoresForDate, isChoreCompleteForDate, today }) {
+  const [emojiPicker, setEmojiPicker] = useState(false);
   const [jobsModal, setJobsModal] = useState(null); // member name or null
   const [workModal, setWorkModal] = useState(null); // kid name for the work-hours log
-  const [expanded, setExpanded] = useState(() => new Set(focusKid ? [focusKid] : [])); // collapsed by default (except a kid opened from a reminder)
-  useEffect(() => {
-    if (!focusKid) return;
-    const t = setTimeout(() => document.getElementById(`member-${focusKid}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
-    return () => clearTimeout(t);
-  }, [focusKid]);
+  const [expanded, setExpanded] = useState(() => new Set()); // open routine cards and job details
   const toggleExpanded = (name) => setExpanded(prev => {
     const next = new Set(prev);
     if (next.has(name)) next.delete(name); else next.add(name);
     return next;
   });
+  useEffect(() => { setEmojiPicker(false); }, [viewKid]);
 
   const weeklyJobsData = useMemo(() => {
     if (!jobsModal || !getChoresForDate || !isChoreCompleteForDate) return null;
@@ -1489,7 +1718,7 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
       d.setDate(d.getDate() + i);
       const dk = dateToKey(d);
       const dayName = getDayName(d);
-      const chores = getChoresForDate(jobsModal, d);
+      const chores = getChoresForDate(jobsModal, d).filter(c => !c.routine);
       const choreStatuses = chores.map(c => ({
         ...c,
         done: isChoreCompleteForDate(jobsModal, c.id, d),
@@ -1501,44 +1730,100 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
     return { days, totalChores, doneChores, pct: totalChores > 0 ? Math.round((doneChores / totalChores) * 100) : 0 };
   }, [jobsModal, getChoresForDate, isChoreCompleteForDate, today]);
 
-  const headerDate = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }).toUpperCase();
-  return (
-    <div>
-      <div style={{ marginBottom: 18 }}>
-        <div className="section-label">{headerDate}</div>
-        <div className="section-title">Today</div>
+  // One pass over every kid's list for today: counts, tags and what's left.
+  // Routine checklists (morning / bedtime) are kept apart from the job count,
+  // the same way they always have been.
+  const kids = members.map(member => {
+    const name = member.name;
+    const allChores = getMemberChores(name);
+    const chores = allChores.filter(c => !c.routine);
+    const routineGroups = [];
+    allChores.filter(c => c.routine).forEach(c => {
+      let g = routineGroups.find(r => r.key === c.routine);
+      if (!g) { g = { key: c.routine, label: c.routineLabel, icon: c.routineIcon, bonus: c.routineBonus, items: [] }; routineGroups.push(g); }
+      g.items.push(c);
+    });
+    const done = chores.filter(c => isChoreComplete(name, c.id)).length;
+    const total = chores.length;
+    const dishJobs = chores.filter(isDishChore);
+    const routineItems = allChores.filter(c => c.routine);
+    return {
+      member, name, emoji: getMemberEmoji(name), chores, routineGroups, done, total,
+      pct: total > 0 ? Math.round((done / total) * 100) : 0,
+      allDone: total > 0 && done === total,
+      // No-miss jobs still outstanding.
+      priorityOpen: chores.filter(c => c.priority && !isChoreComplete(name, c.id)),
+      hasDishes: dishJobs.length > 0,
+      dishesDone: dishJobs.length > 0 && dishJobs.every(c => isChoreComplete(name, c.id)),
+      routineTotal: routineItems.length,
+      routineDone: routineItems.filter(c => isChoreComplete(name, c.id)).length,
+      streak: computedStreaks?.[name] || 0,
+      points: getPoints(name, "weekly"),
+    };
+  });
+  const progress = Object.fromEntries(kids.map(k => [k.name, k.pct]));
+  const familyDone = kids.reduce((s, k) => s + k.done, 0);
+  const familyTotal = kids.reduce((s, k) => s + k.total, 0);
+  const kid = viewKid ? kids.find(k => k.name === viewKid) : null;
+
+  // Tonight's three "whose turn is it" jobs — dishes, clear table, trash —
+  // side by side in equal columns so everyone can see them at a glance.
+  const tonight = [
+    { key: "dishes", label: "Dishes", match: isDishChore },
+    { key: "clear", label: "Clear table", match: c => c.id === "dinner_clear" },
+    { key: "trash", label: "Trash", match: c => c.id === "dinner_trash" },
+  ].map(col => ({
+    ...col,
+    kids: kids.map(k => {
+      const jobs = k.chores.filter(col.match);
+      if (!jobs.length) return null;
+      const doneCount = jobs.filter(c => isChoreComplete(k.name, c.id)).length;
+      return { m: k.member, emoji: k.emoji, total: jobs.length, doneCount, done: doneCount === jobs.length };
+    }).filter(Boolean),
+  }));
+  const tonightAssigned = tonight.flatMap(c => c.kids);
+  const tonightDone = tonightAssigned.length > 0 && tonightAssigned.every(k => k.done);
+
+  const renderChore = (k, chore) => {
+    const completed = isChoreComplete(k.name, chore.id);
+    const isCustom = chore.tag === "custom";
+    const infoKey = `${k.name}::info::${chore.id}`;
+    const infoOpen = expanded.has(infoKey);
+    const toggle = () => toggleChore(k.name, chore.id, chore.pointValue || 1);
+    return (
+      <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${chore.priority ? "priority" : ""}`} onClick={toggle}>
+        <button type="button" className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} aria-pressed={completed} aria-label={chore.text} onClick={(e) => { e.stopPropagation(); toggle(); }}>{completed && <Icons.Check size={16} color="#0d111a" />}</button>
+        <div className="chore-body">
+          <span className="chore-text">{chore.text}</span>
+          {infoOpen && chore.details && <div className="chore-details" onClick={(e) => { e.stopPropagation(); toggleExpanded(infoKey); }}>{chore.details}</div>}
+        </div>
+        {chore.details && <button className={`chore-info-btn ${infoOpen ? "open" : ""}`} onClick={(e) => { e.stopPropagation(); toggleExpanded(infoKey); }} title={infoOpen ? "Hide details" : "What this job includes"} aria-label="What this job includes"><Icons.Info size={20} /></button>}
+        {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
+        {chore.priority && <span className="must-do-badge">⚠ MUST DO</span>}
+        <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
+        {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
       </div>
-      {(() => {
-        // Tonight's three "whose turn is it" jobs — dishes, clear table, trash —
-        // side by side in equal columns so everyone can see them at a glance.
-        const isDishChore = (c) => c.id === "dishes" || c.id.startsWith("dishes_");
-        const COLUMNS = [
-          { key: "dishes", label: "Dishes", icon: "🍽️", match: isDishChore },
-          { key: "clear", label: "Clear Table", icon: "🧽", match: c => c.id === "dinner_clear" },
-          { key: "trash", label: "Trash", icon: "🗑️", match: c => c.id === "dinner_trash" },
-        ].map(col => ({
-          ...col,
-          kids: members.map(m => {
-            const jobs = getMemberChores(m.name).filter(col.match);
-            if (!jobs.length) return null;
-            const doneCount = jobs.filter(c => isChoreComplete(m.name, c.id)).length;
-            return { m, total: jobs.length, doneCount, done: doneCount === jobs.length };
-          }).filter(Boolean),
-        }));
-        const assigned = COLUMNS.flatMap(c => c.kids);
-        const allDone = assigned.length > 0 && assigned.every(k => k.done);
-        return (
-          <div className={`dishes-banner ${allDone ? "done" : ""}`}>
-            <div className="dishes-banner-icon">{allDone ? "✨" : "🍽️"}</div>
+    );
+  };
+
+  return (
+    <div className="page">
+      <KidSwitcher value={viewKid} onChange={setViewKid} getMemberEmoji={getMemberEmoji} progress={progress} />
+
+      {/* ---------- Everyone ---------- */}
+      {!kid && (
+        <>
+          <section className={`tonight ${tonightDone ? "done" : ""}`} aria-label="Tonight's dinner jobs">
+            <div className="mini-label">{tonightDone ? "Tonight · all done" : "Tonight"}</div>
             <div className="duty-grid">
-              {COLUMNS.map(col => (
+              {tonight.map(col => (
                 <div key={col.key} className="duty-col">
-                  <div className="duty-label">{col.icon} {col.label}</div>
+                  <div className="duty-label">{col.label}</div>
                   <div className="duty-chips">
                     {col.kids.length === 0 && <span className="duty-none">{col.key === "dishes" ? "Day off" : "—"}</span>}
-                    {col.kids.map(({ m, total, doneCount, done }) => (
+                    {col.kids.map(({ m, emoji, total, doneCount, done }) => (
                       <span key={m.name} className={`duty-chip ${done ? "done" : ""}`} style={done ? undefined : { background: m.color }}>
-                        <span className="duty-chip-emoji">{getMemberEmoji(m.name)}</span>
+                        <span className="duty-chip-emoji">{emoji}</span>
                         <span className="duty-chip-name">{m.name}</span>
                         {done ? <span className="duty-chip-check">✓</span> : total > 1 && <span className="duty-chip-count">{doneCount}/{total}</span>}
                       </span>
@@ -1547,214 +1832,180 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
                 </div>
               ))}
             </div>
-            {allDone && <div className="dishes-banner-status">Done</div>}
-          </div>
-        );
-      })()}
-      <DateNightCard today={today} dateNights={dateNights} setDateNights={setDateNights} isParent={isParent} getMemberEmoji={getMemberEmoji} />
-      <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
-      <div className="today-grid">
-      {members.map((member) => {
-        const allChores = getMemberChores(member.name);
-        // Routine items render as their own sections inside the expanded card,
-        // not mixed into the main chore list.
-        const chores = allChores.filter(c => !c.routine);
-        const routineGroups = [];
-        allChores.filter(c => c.routine).forEach(c => {
-          let g = routineGroups.find(r => r.key === c.routine);
-          if (!g) { g = { key: c.routine, label: c.routineLabel, icon: c.routineIcon, bonus: c.routineBonus, items: [] }; routineGroups.push(g); }
-          g.items.push(c);
-        });
-        const done = chores.filter(c => isChoreComplete(member.name, c.id)).length;
-        const total = chores.length;
-        const allDone = total > 0 && done === total;
-        // No-miss jobs still outstanding — shown on the collapsed header.
-        const priorityOpen = chores.filter(c => c.priority && !isChoreComplete(member.name, c.id));
-        const weeklyPts = getPoints(member.name, "weekly");
-        const streak = computedStreaks?.[member.name] || 0;
-        const emoji = getMemberEmoji(member.name);
-        const gameStatus = getVideoGameStatus(member.name);
-        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-        const isExpanded = expanded.has(member.name);
-        return (
-          <div key={member.name} id={`member-${member.name}`} className="member-stack">
-          <div className="member-card animate-in">
-            <div className="member-header" onClick={() => toggleExpanded(member.name)} style={{ cursor: "pointer" }}>
-              <div className="member-name-row">
-                <button className="emoji-picker-btn" onClick={(e) => { e.stopPropagation(); setEmojiPicker(emojiPicker === member.name ? null : member.name); }}>
-                  <div className="member-emoji" style={{ background: member.color }}>{emoji}</div>
-                </button>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="member-name">
-                    {member.name}
-                    {chores.some(c => c.id === "dishes" || c.id.startsWith("dishes_")) && (
-                      <span className={`dishes-chip ${chores.filter(c => c.id === "dishes" || c.id.startsWith("dishes_")).every(c => isChoreComplete(member.name, c.id)) ? "done" : ""}`}>
-                        🍽️ DISHES
+          </section>
+          <DateNightCard today={today} dateNights={dateNights} setDateNights={setDateNights} isParent={isParent} getMemberEmoji={getMemberEmoji} />
+          <StreakSpotlight members={members} computedStreaks={computedStreaks} getMemberEmoji={getMemberEmoji} />
+          <section className="stack-8" aria-label="Jobs today">
+            <div className="section-head"><h2>Jobs today</h2><span>{familyDone} of {familyTotal} done</span></div>
+            <div className="rows">
+              {kids.map(k => {
+                const work = MONTHLY_WORK[k.name] ? getWorkMonth(k.name, getMonthKey(today), workLogs, workCashouts) : null;
+                const gs = getVideoGameStatus(k.name);
+                return (
+                  <button key={k.name} id={`member-${k.name}`} className="row" onClick={() => setViewKid(k.name)}>
+                    <Avatar member={k.member} emoji={k.emoji} size={38} />
+                    <span className="row-body">
+                      <span className="row-top">
+                        <span className="row-tags">
+                          <span className="row-name">{k.name}</span>
+                          {k.hasDishes && <span className={`tag-pill ${k.dishesDone ? "ok" : "dishes"}`}>Dishes{k.dishesDone ? " ✓" : ""}</span>}
+                          <StreakTag streak={k.streak} />
+                          {work && !work.beforeStart && <span className={`tag-pill ${work.remaining === 0 ? "ok" : "work"}`}>Work {formatMinutes(work.logged)} of {formatMinutes(work.target)}</span>}
+                          {k.routineTotal > 0 && <span className={`tag-pill ${k.routineDone === k.routineTotal ? "ok" : "routine"}`}>Routines {k.routineDone} of {k.routineTotal}</span>}
+                          {gs.unlocked ? <span className="tag-pill ok" title={gs.parentOverride ? "Unlocked by a parent" : "Video games unlocked"}>🎮 Unlocked</span>
+                            : gs.gameDay ? <span className="tag-pill locked" title={`Housekeeping ${gs.housekeepingPct}% · Dinner ${gs.dinnerPct}%`}>🎮 Locked</span> : null}
+                        </span>
+                        <span className={`row-count ${k.allDone ? "ok" : ""}`}>{k.total === 0 ? "No jobs" : k.allDone ? "All done" : `${k.done} of ${k.total}`}</span>
                       </span>
-                    )}
-                    {streak >= 30 ? <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>
-                     : streak >= 14 ? <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>
-                     : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
-                     : streak >= 3 ? <span className="streak-fire streak-fire-1" title={`${streak}-day streak!`}>🔥 {streak}d</span>
-                     : null}
-                    <span className={`game-unlock-badge ${gameStatus.unlocked ? (gameStatus.parentOverride ? "override" : "unlocked") : "locked"}`} title={gameStatus.unlocked ? (gameStatus.parentOverride ? "Unlocked by parent" : `Video games unlocked!`) : `Locked — HK: ${gameStatus.housekeepingPct}% · Dinner: ${gameStatus.dinnerPct}%`}>
-                      <span className="game-unlock-icon">🎮</span>
-                      <span className="game-lock-icon">{gameStatus.unlocked ? "🔓" : "🔒"}</span>
+                      <span className="bar"><span style={{ width: `${k.pct}%`, background: k.allDone ? "var(--success)" : k.member.color }} /></span>
+                      {k.priorityOpen.length > 0 && (
+                        <span className="must-do-alert">
+                          <span className="must-do-alert-icon">⚠</span>
+                          <span className="must-do-alert-text">{k.priorityOpen.length === 1 ? k.priorityOpen[0].text : `${k.priorityOpen.length} must-do jobs today`}</span>
+                        </span>
+                      )}
                     </span>
+                    <span className="row-points" title="Points this week"><Icons.Star size={14} color="#fbbf24" filled />{k.points}</span>
+                    <span className="row-chev"><Icons.ChevronRight size={18} /></span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* ---------- One kid ---------- */}
+      {kid && (() => {
+        const name = kid.name;
+        const left = kid.total - kid.done;
+        const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+        const openChores = kid.chores.filter(c => !isChoreComplete(name, c.id));
+        const doneChores = kid.chores.filter(c => isChoreComplete(name, c.id));
+        const gs = getVideoGameStatus(name);
+        const nextGame = nextGameDay(today);
+        const gameText = gs.unlocked ? (gs.parentOverride ? "Games unlocked by a parent" : "Games unlocked")
+          : gs.gameDay ? "Games locked today"
+          : nextGame ? `Games open ${nextGame.daysAway === 1 ? "tomorrow" : nextGame.date.toLocaleDateString("en-US", { weekday: "long" })}`
+          : "Video games";
+        const gameNote = gs.unlocked ? "" : gs.gameDay ? `Jobs ${gs.housekeepingPct}% · Dinner ${gs.dinnerPct}%` : "Mon–Thu jobs unlock them";
+        return (
+          <div className="kid-view" id={`member-${name}`}>
+            <section className="hero">
+              <Ring pct={kid.pct} color={kid.allDone ? "var(--success)" : kid.member.color} size={88} thickness={8} inner="var(--bg-card)">
+                <span className="hero-count">{kid.done}<small> / {kid.total}</small></span>
+                <span className="hero-done">done</span>
+              </Ring>
+              <div className="hero-body">
+                <div className="hero-name">
+                  <button className="emoji-picker-btn" onClick={() => setEmojiPicker(v => !v)} title="Change picture" aria-label={`Change ${name}'s picture`}><Avatar member={kid.member} emoji={kid.emoji} size={34} /></button>
+                  {name}
+                </div>
+                <div className="hero-left">{kid.total === 0 ? "Nothing assigned today" : kid.allDone ? "All done for today" : `${left} job${left === 1 ? "" : "s"} left today`}</div>
+                <div className="hero-chips">
+                  <span className="chip points"><Icons.Star size={13} color="#fcd34d" filled /> {kid.points} this week</span>
+                  {kid.hasDishes && <span className={`chip ${kid.dishesDone ? "ok" : "dishes"}`}>{kid.dishesDone ? "Dishes done ✓" : "Dishes tonight"}</span>}
+                  <StreakTag streak={kid.streak} />
+                </div>
+              </div>
+            </section>
+
+            {emojiPicker && (
+              <div className="emoji-grid emoji-panel">
+                {EMOJI_OPTIONS.map(e => (
+                  <div key={e} className={`emoji-option ${kid.emoji === e ? "selected" : ""}`} onClick={() => { setMemberEmoji(name, e); setEmojiPicker(false); }}>{e}</div>
+                ))}
+              </div>
+            )}
+
+            <button className={`info-line ${gs.unlocked ? "good" : ""}`} onClick={onOpenGames}>
+              <Icons.Gamepad size={20} />
+              <span className="info-line-text">{gameText}{gameNote && <small>{gameNote}</small>}</span>
+              <Icons.ChevronRight size={16} />
+            </button>
+
+            {MONTHLY_WORK[name] && <WorkHoursBar kid={name} color={kid.member.color} today={today} workLogs={workLogs} workCashouts={workCashouts} onOpen={() => setWorkModal(name)} />}
+
+            {/* What's left, grouped by time of day (must-do jobs stay first within their group). */}
+            <div className="chore-list">
+              {CHORE_TIME_GROUPS.map(group => {
+                const items = openChores.filter(c => (c.when || "day") === group.key);
+                if (items.length === 0) return null;
+                return (
+                  <Fragment key={group.key}>
+                    <div className="chore-group-label">
+                      <span>{isWeekend && group.weekendIcon ? group.weekendIcon : group.icon}</span>
+                      {isWeekend && group.weekendLabel ? group.weekendLabel : group.label}
+                    </div>
+                    {items.map(c => renderChore(kid, c))}
+                  </Fragment>
+                );
+              })}
+              {kid.chores.length === 0 && <div className="chore-empty">Nothing assigned today</div>}
+              {kid.chores.length > 0 && openChores.length === 0 && (
+                <div className="all-done">
+                  <span className="all-done-check"><Icons.Check size={22} color="#0d111a" /></span>
+                  <span><b>All done for today</b><small>Every job is checked off. Nice work!</small></span>
+                </div>
+              )}
+            </div>
+
+            {kid.routineGroups.map((rg) => {
+              const rKey = `${name}::${rg.key}`;
+              const rOpen = expanded.has(rKey);
+              const rDone = rg.items.filter(it => isChoreComplete(name, it.id)).length;
+              const rTotal = rg.items.length;
+              const rComplete = rDone === rTotal;
+              const rPct = rTotal > 0 ? Math.round((rDone / rTotal) * 100) : 0;
+              return (
+                <div key={rg.key} className={`routine-card ${rComplete ? "complete" : ""}`}>
+                  <div className="routine-header" onClick={() => toggleExpanded(rKey)}>
+                    <div className="routine-icon">{rg.icon}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="routine-title">{rg.label}</div>
+                      <div className="routine-meta">
+                        {rComplete
+                          ? <span style={{ color: "#34d399" }}>Complete · +{rg.bonus} pts earned</span>
+                          : <span>{rDone} of {rTotal} · +{rg.bonus} pts when all done</span>}
+                      </div>
+                    </div>
+                    <div className={`routine-bonus-chip ${rComplete ? "earned" : ""}`}>+{rg.bonus}</div>
+                    <div className="expand-chevron" style={{ transform: rOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", color: "var(--text-secondary)", display: "flex", alignItems: "center" }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
                   </div>
-                  <div className="member-meta" style={{ color: allDone ? "#34d399" : "var(--text-muted)" }}>
-                    {allDone ? "All done" : `${done} of ${total} done`}
+                  <div className="member-progress">
+                    <div className="member-progress-fill" style={{ width: `${rPct}%`, background: rComplete ? "#10B981" : kid.member.color }} />
                   </div>
-                  {routineGroups.length > 0 && !isExpanded && (
-                    <div className="routine-chips">
-                      {routineGroups.map(rg => {
-                        const d = rg.items.filter(it => isChoreComplete(member.name, it.id)).length;
+                  {rOpen && (
+                    <div className="chore-list" style={{ marginTop: 10 }}>
+                      {rg.items.map((item) => {
+                        const completed = isChoreComplete(name, item.id);
                         return (
-                          <span key={rg.key} className={`routine-chip ${d === rg.items.length ? "done" : ""}`}>
-                            {rg.icon} {rg.label} {d}/{rg.items.length}
-                          </span>
+                          <div key={item.id} className={`chore-item ${completed ? "completed" : ""}`} onClick={() => toggleChore(name, item.id, item.pointValue ?? 0)}>
+                            <button type="button" className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} aria-pressed={completed} aria-label={item.text} onClick={(e) => { e.stopPropagation(); toggleChore(name, item.id, item.pointValue ?? 0); }}>{completed && <Icons.Check size={16} color="#0d111a" />}</button>
+                            <span className="chore-text">{item.text}</span>
+                          </div>
                         );
                       })}
                     </div>
                   )}
-                  {priorityOpen.length > 0 && (
-                    <div className="must-do-alert">
-                      <span className="must-do-alert-icon">⚠</span>
-                      <span className="must-do-alert-text">
-                        {priorityOpen.length === 1
-                          ? priorityOpen[0].text
-                          : `${priorityOpen.length} must-do jobs today`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button className="my-jobs-btn" onClick={(e) => { e.stopPropagation(); setJobsModal(member.name); }} title="View weekly jobs">
-                  <Icons.List size={14} />
-                </button>
-                <div className="member-points">{weeklyPts}</div>
-                <div className="expand-chevron" style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-                </div>
-              </div>
-            </div>
-            <div className="member-progress">
-              <div className="member-progress-fill" style={{ width: `${pct}%`, background: member.color }} />
-            </div>
-            {MONTHLY_WORK[member.name] && <WorkHoursBar kid={member.name} color={member.color} today={today} workLogs={workLogs} workCashouts={workCashouts} onOpen={() => setWorkModal(member.name)} />}
-            {emojiPicker === member.name && (
-              <div className="emoji-grid" style={{ marginBottom: 12 }}>
-                {EMOJI_OPTIONS.map(e => (
-                  <div key={e} className={`emoji-option ${emoji === e ? "selected" : ""}`} onClick={() => { setMemberEmoji(member.name, e); setEmojiPicker(null); }}>{e}</div>
-                ))}
-              </div>
-            )}
-            {isExpanded && (() => {
-              // Open chores grouped by time of day (must-do jobs stay first within
-              // their group); finished chores collapse into one "done" row at the
-              // bottom so what's left is always on top.
-              const isWeekend = today.getDay() === 0 || today.getDay() === 6;
-              const openChores = chores.filter(c => !isChoreComplete(member.name, c.id));
-              const doneChores = chores.filter(c => isChoreComplete(member.name, c.id));
-              const doneKey = `${member.name}::done`;
-              const showDone = expanded.has(doneKey);
-              const renderChore = (chore) => {
-                const completed = isChoreComplete(member.name, chore.id);
-                const isCustom = chore.tag === "custom";
-                const infoKey = `${member.name}::info::${chore.id}`;
-                const infoOpen = expanded.has(infoKey);
-                return (
-                  <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${chore.priority ? "priority" : ""}`}>
-                    <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{completed && <Icons.Check size={16} color="white" />}</div>
-                    <div className="chore-body">
-                      <span className="chore-text" onClick={() => toggleChore(member.name, chore.id, chore.pointValue || 1)}>{chore.text}</span>
-                      {infoOpen && chore.details && <div className="chore-details" onClick={() => toggleExpanded(infoKey)}>{chore.details}</div>}
-                    </div>
-                    {chore.details && <button className={`chore-info-btn ${infoOpen ? "open" : ""}`} onClick={(e) => { e.stopPropagation(); toggleExpanded(infoKey); }} title={infoOpen ? "Hide details" : "Show details"} aria-label="Show details">i</button>}
-                    {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
-                    {chore.priority && <span className="must-do-badge">⚠ MUST DO</span>}
-                    <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
-                    {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
-                  </div>
-                );
-              };
-              return (
-                <div className="chore-list" style={{ marginTop: 10 }}>
-                  {CHORE_TIME_GROUPS.map(group => {
-                    const items = openChores.filter(c => (c.when || "day") === group.key);
-                    if (items.length === 0) return null;
-                    return (
-                      <Fragment key={group.key}>
-                        <div className="chore-group-label">
-                          <span>{isWeekend && group.weekendIcon ? group.weekendIcon : group.icon}</span>
-                          {isWeekend && group.weekendLabel ? group.weekendLabel : group.label}
-                        </div>
-                        {items.map(renderChore)}
-                      </Fragment>
-                    );
-                  })}
-                  {chores.length === 0 && <div className="chore-empty">Nothing assigned today</div>}
-                  {chores.length > 0 && openChores.length === 0 && <div className="chore-empty">Everything's done — nice work! 🎉</div>}
-                  {doneChores.length > 0 && (
-                    <>
-                      <button className="chore-done-toggle" onClick={() => toggleExpanded(doneKey)}>
-                        ✓ {doneChores.length} done <span style={{ opacity: 0.7 }}>{showDone ? "· hide" : "· show"}</span>
-                      </button>
-                      {showDone && doneChores.map(renderChore)}
-                    </>
-                  )}
                 </div>
               );
-            })()}
-            {isExpanded && routineGroups.map((rg) => {
-            const rKey = `${member.name}::${rg.key}`;
-            const rOpen = expanded.has(rKey);
-            const rDone = rg.items.filter(it => isChoreComplete(member.name, it.id)).length;
-            const rTotal = rg.items.length;
-            const rComplete = rDone === rTotal;
-            const rPct = rTotal > 0 ? Math.round((rDone / rTotal) * 100) : 0;
-            return (
-              <div key={rg.key} className={`routine-card ${rComplete ? "complete" : ""}`}>
-                <div className="routine-header" onClick={() => toggleExpanded(rKey)}>
-                  <div className="routine-icon">{rg.icon}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="routine-title">{rg.label}</div>
-                    <div className="routine-meta">
-                      {rComplete
-                        ? <span style={{ color: "#34d399" }}>Complete · +{rg.bonus} pts earned</span>
-                        : <span>{rDone} of {rTotal} · +{rg.bonus} pts when all done</span>}
-                    </div>
-                  </div>
-                  <div className={`routine-bonus-chip ${rComplete ? "earned" : ""}`}>+{rg.bonus}</div>
-                  <div className="expand-chevron" style={{ transform: rOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-                  </div>
-                </div>
-                <div className="member-progress">
-                  <div className="member-progress-fill" style={{ width: `${rPct}%`, background: rComplete ? "#10B981" : member.color }} />
-                </div>
-                {rOpen && (
-                  <div className="chore-list" style={{ marginTop: 10 }}>
-                    {rg.items.map((item) => {
-                      const completed = isChoreComplete(member.name, item.id);
-                      return (
-                        <div key={item.id} className={`chore-item ${completed ? "completed" : ""}`}>
-                          <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} onClick={() => toggleChore(member.name, item.id, item.pointValue ?? 0)}>{completed && <Icons.Check size={16} color="white" />}</div>
-                          <span className="chore-text" onClick={() => toggleChore(member.name, item.id, item.pointValue ?? 0)}>{item.text}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+            })}
+
+            {doneChores.length > 0 && (
+              <div className="chore-list done-list">
+                <div className="section-head"><h2 className="ok">Done</h2><span>tap to undo</span></div>
+                {doneChores.map(c => renderChore(kid, c))}
               </div>
-            );
-          })}
-          </div>
+            )}
+
+            <button className="link-btn" onClick={() => setJobsModal(name)}>See {name}'s whole week</button>
           </div>
         );
-      })}
-      </div>
+      })()}
+
       {workModal && <WorkHoursModal kid={workModal} today={today} workLogs={workLogs} setWorkLogs={setWorkLogs} workCashouts={workCashouts} setWorkCashouts={setWorkCashouts} isParent={isParent} pinGate={pinGate} getMemberEmoji={getMemberEmoji} onClose={() => setWorkModal(null)} />}
       {jobsModal && weeklyJobsData && (
         <div className="modal-overlay" onClick={() => setJobsModal(null)}>
@@ -1763,7 +2014,7 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
               <div style={{ fontFamily: "'Fredoka', sans-serif", fontSize: "1.2rem", fontWeight: 700 }}>
                 {getMemberEmoji(jobsModal)} {jobsModal}'s Week
               </div>
-              <button onClick={() => setJobsModal(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "1.5rem" }}>&times;</button>
+              <button onClick={() => setJobsModal(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", fontSize: "1.5rem" }} aria-label="Close">&times;</button>
             </div>
             <div className="my-jobs-summary">
               <div className="my-jobs-summary-stat">
@@ -1784,11 +2035,11 @@ function TodayView({ focusKid, dateNights, setDateNights, workLogs, setWorkLogs,
                 <div className="my-jobs-day-header">
                   {day.dayName}
                   <span className={`day-badge ${day.isToday ? "today" : ""}`}>{day.isToday ? "Today" : day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                  <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                     {day.chores.filter(c => c.done).length}/{day.chores.length}
                   </span>
                 </div>
-                {day.chores.length === 0 && <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", paddingLeft: 10 }}>No chores</div>}
+                {day.chores.length === 0 && <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", paddingLeft: 10 }}>No chores</div>}
                 {day.chores.map(chore => (
                   <div key={chore.id} className={`my-jobs-chore ${chore.done ? "done" : ""} ${chore.priority ? "priority" : ""}`}>
                     <span className="chore-status">{chore.done ? "✅" : chore.priority ? "⚠️" : "⬜"}</span>
@@ -1813,13 +2064,9 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
   const [renamingTeam, setRenamingTeam] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [colorEditing, setColorEditing] = useState(null); // null or "team1"/"team2"
-  const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
-
   const sorted = useMemo(() => {
     return [...FAMILY_MEMBERS].sort((a, b) => getPoints(b.name, period) - getPoints(a.name, period));
   }, [getPoints, period]);
-
-  const maxPts = useMemo(() => Math.max(1, ...FAMILY_MEMBERS.map(m => getPoints(m.name, period))), [getPoints, period]);
 
   const teamScores = useMemo(() => {
     if (!teamWeek || !teams) return null;
@@ -1859,12 +2106,12 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
   };
 
   return (
-    <div>
-      {/* Competition type badge */}
-      <div style={{ textAlign: "center" }}>
-        <span className={`competition-badge ${teamWeek ? "badge-team" : "badge-individual"}`}>
-          {teamWeek ? "\u{1F46B} Team Week" : "\u{1F3C3} Individual Week"}
-        </span>
+    <div className="page">
+      {/* Time period */}
+      <div className="seg" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }} role="group" aria-label="Time period">
+        {[["weekly","Week"],["monthly","Month"],["yearly","Year"],["alltime","All time"]].map(([key, label]) => (
+          <button key={key} className={period === key ? "active" : ""} aria-pressed={period === key} onClick={() => setPeriod(key)}>{label}</button>
+        ))}
       </div>
 
       {/* Prize Cards */}
@@ -1872,7 +2119,7 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
 
       {/* Team standings (team weeks only, weekly period) */}
       {teamWeek && teams && period === "weekly" && teamScores && (
-        <div className="animate-in" style={{ marginBottom: 16 }}>
+        <div className="animate-in">
           <div className={`team-card ${teamScores.team1 >= teamScores.team2 ? "winning" : ""}`} style={getTeamColor("team1") ? { borderColor: getTeamColor("team1") } : {}}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
@@ -1939,52 +2186,81 @@ function LeaderboardView({ getPoints, computedStreaks, teamWeek, teams, getTeamN
         </div>
       )}
 
-      {/* Time period tabs */}
-      <div className="time-tabs">
-        {[["weekly","Week"],["monthly","Month"],["yearly","Year"],["alltime","All"]].map(([key, label]) => (
-          <button key={key} className={`time-tab ${period === key ? "active" : ""}`} onClick={() => setPeriod(key)}>{label}</button>
-        ))}
-      </div>
-
-      {/* Individual leaderboard */}
-      <div className="card animate-in">
-        <div className="card-title"><Icons.Trophy size={22} color="var(--warning)" />
-          {period === "weekly" ? "This Week" : period === "monthly" ? "This Month" : period === "yearly" ? "This Year" : "All Time"}
-        </div>
-        {sorted.map((member, i) => {
-          const pts = getPoints(member.name, period);
-          const streak = computedStreaks?.[member.name] || 0;
-          return (
-            <div key={member.name} className="leaderboard-item animate-in">
-              <div className="leaderboard-rank">{i < 3 ? medals[i] : `#${i + 1}`}</div>
-              <div className="member-emoji" style={{ fontSize: "1.3rem", width: 36, height: 36 }}>{getMemberEmoji(member.name)}</div>
-              <div style={{ flex: 1 }}>
-                <div className="leaderboard-name" style={{ color: member.color }}>
-                  {member.name}
-                  {streak >= 30 ? <span className="streak-on-fire" style={{ marginLeft: 8 }}>🔥 {streak}d ON FIRE</span>
-                   : streak >= 14 ? <span className="streak-fire streak-fire-3" style={{ marginLeft: 8 }}>🔥🔥🔥 {streak}d</span>
-                   : streak >= 7 ? <span className="streak-fire streak-fire-2" style={{ marginLeft: 8 }}>🔥🔥 {streak}d</span>
-                   : streak >= 3 ? <span className="streak-fire streak-fire-1" style={{ marginLeft: 8 }}>🔥 {streak}d</span>
-                   : streak >= 1 ? <span className="streak-badge" style={{ marginLeft: 8 }}><Icons.Fire size={14} color="#fb923c" /> {streak}d</span>
-                   : null}
-                </div>
-                <div className="leaderboard-bar"><div className="leaderboard-bar-fill" style={{ width: `${maxPts > 0 ? (pts / maxPts) * 100 : 0}%`, background: member.color }} /></div>
-                {period !== "weekly" && (() => {
-                  const wins = getAwardCounts(member.name, "win", period);
-                  const mvps = getAwardCounts(member.name, "mvp", period);
-                  return (wins > 0 || mvps > 0) ? (
-                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                      {wins > 0 && <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#fbbf24" }}>🏆 {wins} win{wins !== 1 ? "s" : ""}</span>}
-                      {mvps > 0 && <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#a78bfa" }}>⭐ {mvps} MVP{mvps !== 1 ? "s" : ""}</span>}
+      {/* Podium for the top three, everyone else listed underneath */}
+      {(() => {
+        const periodWord = period === "weekly" ? "this week" : period === "monthly" ? "this month" : period === "yearly" ? "this year" : "all time";
+        const allPts = sorted.map(m => getPoints(m.name, period));
+        const ranked = sorted.map((member, i) => ({
+          member, i,
+          place: 1 + allPts.filter(p => p > allPts[i]).length, // tied kids share a place
+          pts: getPoints(member.name, period),
+          streak: computedStreaks?.[member.name] || 0,
+          wins: period !== "weekly" ? getAwardCounts(member.name, "win", period) : 0,
+          mvps: period !== "weekly" ? getAwardCounts(member.name, "mvp", period) : 0,
+        }));
+        const total = ranked.reduce((s, r) => s + r.pts, 0);
+        const extras = (r) => (
+          <>
+            {r.streak >= 3 ? <StreakTag streak={r.streak} /> : r.streak >= 1 ? <span>🔥 {r.streak}d</span> : null}
+            {r.wins > 0 && <span style={{ color: "#fbbf24" }}>🏆 {r.wins} win{r.wins !== 1 ? "s" : ""}</span>}
+            {r.mvps > 0 && <span style={{ color: "#c4b5fd" }}>⭐ {r.mvps} MVP{r.mvps !== 1 ? "s" : ""}</span>}
+          </>
+        );
+        // Only kids who have points stand on the podium.
+        const onPodium = ranked.slice(0, 3).filter(r => r.pts > 0);
+        const rest = ranked.filter(r => !onPodium.includes(r));
+        const MEDALS = [
+          { color: "#fbbf24", height: 100, size: 80, num: 36 },
+          { color: "#cbd5e1", height: 70, size: 62, num: 28 },
+          { color: "#d99a5b", height: 50, size: 62, num: 24 },
+        ];
+        return (
+          <>
+            {total === 0 && <div className="section-note" style={{ textAlign: "center", padding: "8px 0" }}>No points yet {periodWord}. Check off a job to get on the board.</div>}
+            {onPodium.length > 0 && (
+              <section className="podium" aria-label={`Top of the board ${periodWord}`} style={{ gridTemplateColumns: `repeat(${onPodium.length}, minmax(0, 1fr))`, maxWidth: 153 * onPodium.length }}>
+                {(onPodium.length === 3 ? [onPodium[1], onPodium[0], onPodium[2]] : onPodium.length === 2 ? [onPodium[1], onPodium[0]] : onPodium).map(r => {
+                  const medal = MEDALS[r.place - 1];
+                  return (
+                    <div key={r.member.name} className={`podium-col ${r.place === 1 ? "first" : ""}`}>
+                      {r.place === 1 && <Icons.Crown size={26} color="#fbbf24" />}
+                      <span className="avatar" style={{ width: medal.size, height: medal.size, fontSize: Math.round(medal.size * 0.48), background: r.member.color, boxShadow: `0 0 0 3px var(--bg-primary), 0 0 0 ${r.place === 1 ? 6 : 5}px ${medal.color}` }}>{getMemberEmoji(r.member.name)}</span>
+                      <span className="podium-name">{r.member.name}</span>
+                      <span className="podium-pts"><Icons.Star size={r.place === 1 ? 17 : 15} color="#fbbf24" filled />{r.pts}</span>
+                      <span className="podium-extra">{extras(r)}</span>
+                      <div className="podium-block" style={{ height: medal.height, borderTopColor: medal.color, color: medal.color, fontSize: medal.num }}>{r.place}</div>
                     </div>
-                  ) : null;
-                })()}
-              </div>
-              <div className="leaderboard-score"><Icons.Star size={18} color="#F59E0B" filled />{pts}</div>
+                  );
+                })}
+              </section>
+            )}
+            {rest.length > 0 && (
+              <section className={`rows ${onPodium.length > 0 ? "podium-rest" : ""}`} aria-label="Standings">
+                {rest.map(r => {
+                  const above = r.i > 0 ? ranked[r.i - 1] : null;
+                  const gap = above ? above.pts - r.pts : 0;
+                  return (
+                    <div key={r.member.name} className="row">
+                      <span className="rank-num">{r.place}</span>
+                      <Avatar member={r.member} emoji={getMemberEmoji(r.member.name)} size={38} />
+                      <span className="row-label">
+                        <span className="row-name">{r.member.name}</span>
+                        {total > 0 && (r.pts === 0 ? <small>No points yet</small> : above && <small>{gap === 0 ? `Tied with ${above.member.name}` : `${gap} behind ${above.member.name}`}</small>)}
+                        <span className="podium-extra" style={{ justifyContent: "flex-start", minHeight: 0 }}>{extras(r)}</span>
+                      </span>
+                      <span className="row-points" style={{ fontSize: "1.06rem" }}><Icons.Star size={15} color="#fbbf24" filled />{r.pts}</span>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+            <div className="total-line">
+              <span>Family total {periodWord}</span>
+              <b><Icons.Star size={16} color="#fbbf24" filled />{total}</b>
             </div>
-          );
-        })}
-      </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -2135,258 +2411,281 @@ function AddTaskModal({ onAdd, onClose, todayKey }) {
 // ============================================================
 // WEEK VIEW
 // ============================================================
-function WeekView({ today, weekOffset, setWeekOffset, getChoresForDate, isChoreCompleteForDate, toggleChoreForDate, getMemberEmoji, getPoints, computedStreaks, isParent, deleteCustomTask, teamWeek, getTeamForMember, getTeamName, getTeamColor }) {
-  const [selectedDay, setSelectedDay] = useState(null); // Date object or null
+function WeekView({ today, weekOffset, setWeekOffset, getChoresForDate, isChoreCompleteForDate, toggleChoreForDate, getMemberEmoji, isParent, deleteCustomTask, teamWeek, getTeamForMember, getTeamName, getTeamColor }) {
+  const todayKey = dateToKey(today);
   const weekStart = useMemo(() => { const d = getWeekStart(today); d.setDate(d.getDate() + weekOffset * 7); return d; }, [today, weekOffset]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }), [weekStart]);
-  const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-  const rotation = getCurrentWeekRotation(weekStart);
+  const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const [pickedKey, setPickedKey] = useState(null); // a day the user tapped; otherwise today (Sunday in other weeks)
+  const [openKid, setOpenKid] = useState(null); // whose checklist is open for the picked day
 
-  // Clear selection when changing weeks
+  // Start fresh when changing weeks
   const prevWeekOffset = useRef(weekOffset);
-  useEffect(() => { if (prevWeekOffset.current !== weekOffset) { setSelectedDay(null); prevWeekOffset.current = weekOffset; } }, [weekOffset]);
+  useEffect(() => { if (prevWeekOffset.current !== weekOffset) { setPickedKey(null); setOpenKid(null); prevWeekOffset.current = weekOffset; } }, [weekOffset]);
 
-  const selectedDayKey = selectedDay ? dateToKey(selectedDay) : null;
+  // Jobs done / total for the whole family on each day. Routine checklists
+  // aren't counted, so the numbers match the Today screen.
+  const stats = days.map(date => {
+    const key = dateToKey(date);
+    let done = 0, total = 0;
+    FAMILY_MEMBERS.forEach(m => {
+      const jobs = getChoresForDate(m.name, date).filter(c => !c.routine);
+      total += jobs.length;
+      done += jobs.filter(c => isChoreCompleteForDate(m.name, c.id, date)).length;
+    });
+    return { date, key, done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0, complete: total > 0 && done === total, isToday: key === todayKey, isPast: key < todayKey };
+  });
+  const sel = stats.find(s => s.key === pickedKey) || stats.find(s => s.isToday) || stats[0];
+  const nightly = getNightlyJobs(sel.date);
+
+  // Later this week: days with a once-a-week must-do job, and game days.
+  // A job that only shows up because an earlier day's wasn't checked yet
+  // ("carried over") isn't news, and in summer every day is a game day.
+  const everyDayIsGameDay = days.every(d => isVideoGameDay(d));
+  const comingUp = stats.filter(s => s.key > todayKey && s.key !== sel.key).map(s => {
+    const who = FAMILY_MEMBERS.filter(m => getChoresForDate(m.name, s.date).some(c => c.priority && !/carried over/i.test(c.text))).map(m => m.name);
+    return { ...s, who, gameDay: !everyDayIsGameDay && isVideoGameDay(s.date) };
+  }).filter(s => s.who.length > 0 || s.gameDay);
+  // Weeks before the current schedule began used different dinner jobs.
+  const oldSchedule = !!getDailyAssignment(FAMILY_MEMBERS[0].name, sel.date)?.legacy;
 
   return (
-    <div>
-      <div className="week-nav">
-        <button className="week-nav-btn" onClick={() => setWeekOffset(o => o - 1)}><Icons.ChevronLeft size={20} /></button>
-        <span className="week-label">{weekLabel}</span>
-        <button className="week-nav-btn" onClick={() => setWeekOffset(o => o + 1)}><Icons.ChevronRight size={20} /></button>
+    <div className="page">
+      <div className="week-switch">
+        <button className="week-nav-btn" onClick={() => setWeekOffset(o => o - 1)} aria-label="Previous week"><Icons.ChevronLeft size={20} /></button>
+        <span className="week-switch-label">
+          {weekLabel}
+          {weekOffset === 0 ? <span className="today-pill">This week</span> : <button className="small-btn" onClick={() => setWeekOffset(0)}>Back to this week</button>}
+        </span>
+        <button className="week-nav-btn" onClick={() => setWeekOffset(o => o + 1)} aria-label="Next week"><Icons.ChevronRight size={20} /></button>
       </div>
-      <div className="day-list">
-        {days.map((date) => {
-          const dn = getDayName(date);
-          const dk = dateToKey(date);
-          const isToday = dk === dateToKey(today);
-          const isSelected = dk === selectedDayKey;
-          // Per-kid status dot: outline ring if missed/incomplete, solid if all due chores done
-          const kidStatus = FAMILY_MEMBERS.map(member => {
-            const chores = getChoresForDate(member.name, date);
-            if (chores.length === 0) return { member, state: "none" };
-            const doneCount = chores.filter(c => isChoreCompleteForDate(member.name, c.id, date)).length;
-            const allDone = doneCount === chores.length;
-            return { member, state: allDone ? "done" : (isToday || date > today ? "pending" : "missed") };
-          });
-          const summary = (() => {
-            const total = kidStatus.filter(k => k.state !== "none").length;
-            const done = kidStatus.filter(k => k.state === "done").length;
-            if (isToday) return done === total && total > 0 ? "Today · all done" : "Today · in progress";
-            if (date > today) return "Upcoming";
-            return `${done} of ${total} done`;
-          })();
+
+      <div className="daystrip" role="group" aria-label="Pick a day">
+        {stats.map(s => {
+          const isSel = s.key === sel.key;
+          const color = s.complete ? "var(--success)" : s.isPast ? "var(--warning)" : "var(--accent-soft)";
           return (
-            <div key={dk} className={`day-row ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}`} onClick={() => setSelectedDay(isSelected ? null : date)}>
-              <div>
-                <div className="day-row-label">{dn.slice(0, 3).toUpperCase()} · {date.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}{isToday ? " · TODAY" : ""}</div>
-                <div className="day-row-status">{summary}</div>
-              </div>
-              <div className="day-row-dots">
-                {kidStatus.filter(k => k.state !== "none").map(k => (
-                  <div
-                    key={k.member.name}
-                    className={`day-dot ${k.state === "done" ? "done" : ""} ${k.state === "missed" ? "missed" : ""}`}
-                    style={{ background: k.state === "done" ? k.member.color : "transparent", borderColor: k.member.color }}
-                    title={`${k.member.name}: ${k.state}`}
-                  />
-                ))}
-              </div>
-            </div>
+            <button key={s.key} className={`daycell ${isSel ? "selected" : ""} ${s.isToday ? "today" : ""}`} aria-pressed={isSel}
+              aria-label={`${s.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${s.isToday ? ", today" : ""}: ${s.done} of ${s.total} jobs done`}
+              onClick={() => { setPickedKey(s.key); setOpenKid(null); }}>
+              <span className="daycell-name">{s.date.toLocaleDateString("en-US", { weekday: "short" })}</span>
+              <Ring pct={s.pct} color={color} size={40} thickness={3.5} inner={isSel ? "var(--surface-hi)" : "var(--bg-primary)"}>
+                <span className={`daycell-num ${s.complete ? "ok" : ""}`}>{s.date.getDate()}</span>
+              </Ring>
+            </button>
           );
         })}
       </div>
 
-      {/* Day Detail Panel — like Today view but for the selected day */}
-      {selectedDay && (
-        <div className="day-detail-panel animate-in">
-          <div className="day-detail-header">
-            <div className="day-detail-title">
-              <Icons.Calendar size={20} color="var(--accent)" />
-              {selectedDay.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-            </div>
-            <button className="btn btn-ghost" onClick={() => setSelectedDay(null)} style={{ padding: 4 }}><Icons.X size={20} /></button>
-          </div>
-          {FAMILY_MEMBERS.map((member) => {
-            const chores = getChoresForDate(member.name, selectedDay);
-            if (chores.length === 0) return null;
-            const doneCount = chores.filter(c => isChoreCompleteForDate(member.name, c.id, selectedDay)).length;
-            const allDone = chores.length > 0 && doneCount === chores.length;
-            const emoji = getMemberEmoji(member.name);
-            const streak = computedStreaks?.[member.name] || 0;
-            const team = getTeamForMember ? getTeamForMember(member.name) : null;
-            const teamColor = team && getTeamColor ? getTeamColor(team.key) : null;
-            const cardBorderColor = teamColor || member.color;
+      <div className="day-head">
+        <h2>
+          {sel.date.toLocaleDateString("en-US", { weekday: "long" })}
+          {sel.isToday ? <span className="today-pill">Today</span> : <span className="today-pill plain">{sel.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+        </h2>
+        <span>{sel.total === 0 ? "No jobs" : `${sel.done} of ${sel.total} jobs done`}</span>
+      </div>
+
+      {!oldSchedule && <section className="dinner-card" aria-label="Dinner jobs">
+        <div className="mini-label">Dinner jobs</div>
+        <div className="dinner-grid">
+          {NIGHTLY_JOBS.map(j => {
+            const names = nightly[j.key] || [];
             return (
-              <div key={member.name} className="member-card animate-in" style={{ borderLeftColor: cardBorderColor }}>
-                <div className="member-header">
-                  <div className="member-name-row">
-                    <div className="member-emoji">{emoji}</div>
-                    <div>
-                      <div className="member-name" style={{ color: member.color }}>
-                        {member.name}
-                        {teamWeek && team && getTeamName && <span className="team-badge-mini" style={{ background: `${teamColor || "var(--border)"}22`, color: teamColor || "var(--text-muted)", border: `1px solid ${teamColor || "var(--border)"}` }}>{getTeamName(team.key)}</span>}
-                        {streak >= 30 ? <span className="streak-on-fire">🔥 {streak}d ON FIRE</span>
-                         : streak >= 14 ? <span className="streak-fire streak-fire-3" title={`${streak}-day streak!`}>🔥🔥🔥 {streak}d</span>
-                         : streak >= 7 ? <span className="streak-fire streak-fire-2" title={`${streak}-day streak!`}>🔥🔥 {streak}d</span>
-                         : streak >= 3 ? <span className="streak-fire streak-fire-1" title={`${streak}-day streak!`}>🔥 {streak}d</span>
-                         : null}
-                      </div>
-                      <div style={{ fontSize: "0.8rem", color: allDone ? "#10B981" : "var(--text-muted)", fontWeight: 600 }}>
-                        {allDone ? "All done!" : `${doneCount}/${chores.length} complete`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="chore-list">
-                  {chores.map((chore) => {
-                    const completed = isChoreCompleteForDate(member.name, chore.id, selectedDay);
-                    const isCustom = chore.tag === "custom";
-                    return (
-                      <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${chore.priority ? "priority" : ""}`} onClick={(e) => { e.stopPropagation(); toggleChoreForDate(member.name, chore.id, selectedDay, chore.pointValue ?? 1); }}>
-                        <div className={`chore-checkbox ${completed ? "checked check-pop" : ""}`}>{completed && <Icons.Check size={16} color="white" />}</div>
-                        <span className="chore-text">{chore.text}</span>
-                        {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
-                        {chore.priority && <span className="must-do-badge">⚠ MUST DO</span>}
-                        <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
-                        {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
-                      </div>
-                    );
-                  })}
-                </div>
+              <div key={j.key} className="dinner-col">
+                <span className="dinner-job">{j.key === "Set Table" ? "Set table" : j.label}</span>
+                {names.length > 0
+                  ? <span className="av-stack">{names.map(n => { const m = FAMILY_MEMBERS.find(f => f.name === n); return m ? <Avatar key={n} member={m} emoji={getMemberEmoji(n)} size={34} /> : null; })}</span>
+                  : <span className="dinner-none">–</span>}
+                <span className="dinner-who">{names.length > 0 ? names.join(" & ") : (j.key === "Dishes" ? "Day off" : "")}</span>
               </div>
             );
           })}
         </div>
+      </section>}
+
+      {/* Each kid's day — tap a row to open the checklist and check things off. */}
+      <section className="rows" aria-label="Each kid's jobs">
+        {FAMILY_MEMBERS.map((member) => {
+          const chores = getChoresForDate(member.name, sel.date);
+          if (chores.length === 0) return null;
+          const jobs = chores.filter(c => !c.routine);
+          const routineItems = chores.filter(c => c.routine);
+          const done = jobs.filter(c => isChoreCompleteForDate(member.name, c.id, sel.date)).length;
+          const renderDayChore = (chore) => {
+            const completed = isChoreCompleteForDate(member.name, chore.id, sel.date);
+            const isCustom = chore.tag === "custom";
+            const toggle = () => toggleChoreForDate(member.name, chore.id, sel.date, chore.pointValue ?? 1);
+            return (
+              <div key={chore.id} className={`chore-item ${completed ? "completed" : ""} ${chore.priority ? "priority" : ""}`} onClick={toggle}>
+                <button type="button" className={`chore-checkbox ${completed ? "checked check-pop" : ""}`} aria-pressed={completed} aria-label={chore.text} onClick={(e) => { e.stopPropagation(); toggle(); }}>{completed && <Icons.Check size={16} color="#0d111a" />}</button>
+                <span className="chore-text">{chore.text}</span>
+                {isCustom && chore.pointValue > 1 && <span className="chore-points-badge">+{chore.pointValue}</span>}
+                {chore.priority && <span className="must-do-badge">⚠ MUST DO</span>}
+                <span className={`chore-tag tag-${chore.tag}`}>{chore.tag}</span>
+                {isParent && isCustom && <button className="chore-delete-btn" onClick={(e) => { e.stopPropagation(); deleteCustomTask(chore.taskKey); }} title="Delete task"><Icons.X size={16} /></button>}
+              </div>
+            );
+          };
+          const allDone = jobs.length > 0 && done === jobs.length;
+          const isOpen = openKid === member.name;
+          // Team names belong to the current week only.
+          const team = teamWeek && weekOffset === 0 && getTeamForMember ? getTeamForMember(member.name) : null;
+          const teamColor = team && getTeamColor ? getTeamColor(team.key) : null;
+          return (
+            <Fragment key={member.name}>
+              <button className={`row week-row ${isOpen ? "open" : ""}`} aria-expanded={isOpen} onClick={() => setOpenKid(isOpen ? null : member.name)}>
+                <Avatar member={member} emoji={getMemberEmoji(member.name)} size={30} />
+                <span className="week-row-name">{member.name}</span>
+                <span className="bar"><span style={{ width: `${jobs.length > 0 ? (done / jobs.length) * 100 : 0}%`, background: allDone ? "var(--success)" : member.color }} /></span>
+                <span className={`week-row-count ${allDone ? "ok" : ""}`}>{jobs.length > 0 ? `${done} / ${jobs.length}` : "–"}</span>
+                <span className="row-chev"><Icons.ChevronRight size={18} /></span>
+              </button>
+              {isOpen && (
+                <div className="chore-list day-chores">
+                  {team && getTeamName && <div><span className="team-badge-mini" style={{ marginLeft: 0, background: `${teamColor || "var(--border)"}22`, color: teamColor || "var(--text-soft)", border: `1px solid ${teamColor || "var(--border)"}` }}>{getTeamName(team.key)}</span></div>}
+                  {jobs.map(renderDayChore)}
+                  {routineItems.length > 0 && <div className="chore-group-label">Routines · not part of the count</div>}
+                  {routineItems.map(renderDayChore)}
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
+      </section>
+
+      {comingUp.length > 0 && (
+        <section className="stack-8" aria-label="Coming up this week">
+          <div className="section-head"><h2>Coming up</h2></div>
+          <div className="rows">
+            {comingUp.map(s => (
+              <button key={s.key} className="row" onClick={() => { setPickedKey(s.key); setOpenKid(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* ignore */ } }}>
+                <span className="upnext-day">{s.date.toLocaleDateString("en-US", { weekday: "short" })}</span>
+                <span className="row-label">
+                  {s.who.length > 0 ? "Weekly must-do jobs" : "Game day"}
+                  <small>{s.who.length > 0 ? `${s.who.join(", ")}${s.gameDay ? " · also a game day" : ""}` : "Unlocked by Monday–Thursday jobs"}</small>
+                </span>
+                <span className="row-chev"><Icons.ChevronRight size={18} /></span>
+              </button>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
 }
 
 // ============================================================
-// ROTATION VIEW
+// JOBS VIEW (was "Rotation") — who does what, one week per screen
 // ============================================================
-const NIGHTLY_JOB_DISPLAY = [
-  { key: "Dishes", label: "Dishes", icon: "🍽️" },
-  { key: "Take Out Trash", label: "Trash", icon: "🗑️" },
-  { key: "Clear Table", label: "Clear", icon: "🧽" },
-  { key: "Floor Pickup", label: "Floor", icon: "🧹" },
-  { key: "Set Table", label: "Set", icon: "🍴" },
+const WEEKLY_JOBS = [
+  { key: "collectTrash", label: "Collect trash", short: "Collect" },
+  { key: "trashOut", label: "Take bins out", short: "Bins out" },
+  { key: "bringCansIn", label: "Bring cans in", short: "Cans in" },
+  { key: "refillSoap", label: "Refill soap", short: "Soap" },
+  { key: "toiletPaper", label: "Refill toilet paper", short: "TP" },
 ];
 
-function RotationView({ today, weekRotation }) {
-  const [rotationOffset, setRotationOffset] = useState(0);
-  const member = (name) => FAMILY_MEMBERS.find(m => m.name === name);
+function JobsView({ today, viewKid, setViewKid, getMemberEmoji }) {
+  const [offset, setOffset] = useState(0); // weeks away from this week
+  const todayKey = dateToKey(today);
+  const weekStart = useMemo(() => { const d = getWeekStart(today); d.setDate(d.getDate() + offset * 7); return d; }, [today, offset]);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-  // Show 4 weeks at a time starting from offset
-  const weeks = useMemo(() => {
-    const result = [];
-    for (let i = 0; i < 4; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + (rotationOffset + i) * 7);
-      const ws = getWeekStart(d);
-      const rot = getCurrentWeekRotation(ws);
-      const isCurrent = dateToKey(getWeekStart(today)) === dateToKey(ws);
-      result.push({ date: ws, rotation: rot, isCurrent });
-    }
-    return result;
-  }, [today, rotationOffset]);
+  // Dishes + dinner jobs for each night of the week shown.
+  const rows = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart); d.setDate(d.getDate() + i);
+    return { date: d, key: dateToKey(d), isToday: dateToKey(d) === todayKey, jobs: getNightlyJobs(d) };
+  }), [weekStart, todayKey]);
+  const rotation = getCurrentWeekRotation(weekStart);
+  // Weeks before the current schedule began used different dinner jobs.
+  const oldSchedule = !!getDailyAssignment(FAMILY_MEMBERS[0].name, weekStart)?.legacy;
+  const comingWeeks = useMemo(() => [1, 2, 3].map(i => {
+    const d = new Date(weekStart); d.setDate(d.getDate() + i * 7);
+    return { date: d, rotation: getCurrentWeekRotation(d) };
+  }).filter(w => w.rotation), [weekStart]);
 
-  // Nightly jobs (dishes + dinner jobs) for the first week shown. Built from the
-  // same getDailyAssignment() the Today screen uses, so the two can't disagree.
-  const nightly = useMemo(() => {
-    const ws = weeks[0]?.date;
-    if (!ws) return null;
-    const todayKey = dateToKey(today);
-    const rows = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(ws); d.setDate(d.getDate() + i);
-      const jobs = {};
-      FAMILY_MEMBERS.forEach(m => {
-        const a = getDailyAssignment(m.name, d);
-        if (!a) return;
-        if (a.dishes) (jobs["Dishes"] = jobs["Dishes"] || []).push(m.name);
-        a.dinnerJobs.forEach(dj => { (jobs[dj.job] = jobs[dj.job] || []).push(m.name); });
-      });
-      rows.push({ date: d, key: dateToKey(d), isToday: dateToKey(d) === todayKey, jobs });
-    }
-    return { weekStart: ws, rows };
-  }, [weeks, today]);
+  // A kid's face; with a kid picked up top, theirs are ringed and the rest fade.
+  const face = (name, size = 28, fade = true) => {
+    const m = FAMILY_MEMBERS.find(f => f.name === name);
+    if (!m) return <span key={name} className="jg-empty">{name || "–"}</span>;
+    return <Avatar key={name} member={m} emoji={getMemberEmoji(name)} size={size} title={name} className={viewKid ? (viewKid === name ? "hit" : fade ? "dim" : "") : ""} />;
+  };
 
   return (
-    <div>
-      <div className="week-nav">
-        <button className="week-nav-btn" onClick={() => setRotationOffset(o => o - 4)}><Icons.ChevronLeft size={20} /></button>
-        <span className="week-label">Rotation Schedule</span>
-        <button className="week-nav-btn" onClick={() => setRotationOffset(o => o + 4)}><Icons.ChevronRight size={20} /></button>
+    <div className="page">
+      <KidSwitcher value={viewKid} onChange={setViewKid} getMemberEmoji={getMemberEmoji} />
+
+      <div className="week-switch">
+        <button className="week-nav-btn" onClick={() => setOffset(o => o - 1)} aria-label="Previous week"><Icons.ChevronLeft size={20} /></button>
+        <span className="week-switch-label">
+          {fmt(weekStart)} – {fmt(weekEnd)}
+          {offset === 0 ? <span className="today-pill">This week</span> : <button className="small-btn" onClick={() => setOffset(0)}>Back to this week</button>}
+        </span>
+        <button className="week-nav-btn" onClick={() => setOffset(o => o + 1)} aria-label="Next week"><Icons.ChevronRight size={20} /></button>
       </div>
-      {nightly && (
-        <div className="card animate-in">
-          <div className="card-title">
-            <span>🍽️</span>
-            <span>Nightly Jobs · week of {nightly.weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+
+      {oldSchedule && <div className="section-note">This week was on the old schedule, so its nightly jobs aren't shown here. Open the day in Week to see what each kid had.</div>}
+      {!oldSchedule && <section className="grid-card" aria-label="Nightly jobs">
+        <div className="grid-card-head"><h2>Nightly jobs</h2></div>
+        <div className="jg-row head">
+          <span className="jg-day" />
+          {NIGHTLY_JOBS.map(j => <span key={j.key} className="jg-cell">{j.label}</span>)}
+        </div>
+        {rows.map(row => (
+          <div key={row.key} className={`jg-row ${row.isToday ? "today" : ""}`}>
+            <span className="jg-day">
+              {row.date.toLocaleDateString("en-US", { weekday: "short" })} {row.date.getDate()}
+              {row.isToday && <small>Today</small>}
+            </span>
+            {NIGHTLY_JOBS.map(j => (
+              <span key={j.key} className="jg-cell">
+                {(row.jobs[j.key] || []).length > 0 ? row.jobs[j.key].map(n => face(n)) : <span className="jg-empty">–</span>}
+              </span>
+            ))}
           </div>
-          {nightly.rows.map(row => (
-            <div key={row.key} className={`nightly-row ${row.isToday ? "today" : ""}`}>
-              <div className="nightly-day">
-                {row.date.toLocaleDateString("en-US", { weekday: "short" })}
-                <small>{row.isToday ? "Today" : row.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</small>
-              </div>
-              <div className="nightly-jobs">
-                {NIGHTLY_JOB_DISPLAY.filter(j => row.jobs[j.key]).map(j => (
-                  <span key={j.key} className="nightly-chip">
-                    <span>{j.icon}</span>
-                    <span className="nightly-job">{j.label}</span>
-                    {row.jobs[j.key].map(name => {
-                      const m = member(name);
-                      return <span key={name} style={{ color: m?.color }}>{name}</span>;
-                    })}
-                  </span>
-                ))}
-              </div>
+        ))}
+      </section>}
+
+      {rotation && (
+        <section className="grid-card" aria-label="Weekly jobs">
+          <div className="grid-card-head">
+            <h2>Weekly jobs</h2>
+            <span className={`recycle-badge ${rotation.recycle ? "recycle-yes" : "recycle-no"}`}><Icons.Recycle size={14} /> {rotation.recycle ? "Recycling week" : "No recycling"}</span>
+          </div>
+          <div className="wk-grid">
+            {WEEKLY_JOBS.map(j => {
+              const name = rotation[j.key];
+              return (
+                <div key={j.key} className={`wk-item ${viewKid && viewKid !== name ? "dim" : ""}`}>
+                  {face(name, 30, false)}
+                  <span className="wk-item-text"><b>{j.label}</b><small>{name}</small></span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="section-note" style={{ padding: "0 6px 4px" }}>Wednesday jobs. The cans come back in on Thursday.</div>
+        </section>
+      )}
+
+      {comingWeeks.length > 0 && (
+        <section className="grid-card" aria-label="Weekly jobs in the coming weeks">
+          <div className="grid-card-head"><h2>Coming weeks</h2></div>
+          <div className="jg-row head">
+            <span className="jg-day" />
+            {WEEKLY_JOBS.map(j => <span key={j.key} className="jg-cell">{j.short}</span>)}
+          </div>
+          {comingWeeks.map(w => (
+            <div key={dateToKey(w.date)} className="jg-row">
+              <span className="jg-day">
+                {fmt(w.date)}
+                {w.rotation.recycle && <small className="recycle">Recycling</small>}
+              </span>
+              {WEEKLY_JOBS.map(j => <span key={j.key} className="jg-cell">{face(w.rotation[j.key])}</span>)}
             </div>
           ))}
-        </div>
+        </section>
       )}
-      {weeks.map(({ date, rotation, isCurrent }) => {
-        if (!rotation) return null;
-        const weekLabel = `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(date.getTime() + 6*24*60*60*1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-        const tasks = [
-          { icon: "🗑️", task: "Collect Trash", person: rotation.collectTrash },
-          { icon: "🚛", task: "Take Trash Out", person: rotation.trashOut },
-          { icon: "🫧", task: "Refill Soap", person: rotation.refillSoap },
-          { icon: "🧻", task: "Toilet Paper", person: rotation.toiletPaper },
-          { icon: "🗑️", task: "Bring Cans In", person: rotation.bringCansIn },
-        ];
-        return (
-          <div key={dateToKey(date)} className="card animate-in" style={isCurrent ? { borderColor: "var(--accent)", borderWidth: 2 } : {}}>
-            <div className="card-title">
-              <Icons.Recycle size={18} color={isCurrent ? "var(--accent)" : "var(--success)"} />
-              <span>{weekLabel}</span>
-              {isCurrent && <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", background: "rgba(59,130,246,0.1)", padding: "2px 8px", borderRadius: 6 }}>THIS WEEK</span>}
-            </div>
-            <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
-              <span className={`recycle-badge ${rotation.recycle ? "recycle-yes" : "recycle-no"}`}>
-                <Icons.Recycle size={14} /> Recycling: {rotation.recycle ? "YES" : "No"}
-              </span>
-            </div>
-            <div className="weekly-grid">
-              {tasks.map((t) => {
-                const m = member(t.person);
-                return (
-                  <div key={t.task} className="weekly-item">
-                    <div className="weekly-icon">{t.icon}</div>
-                    <div className="weekly-info">
-                      <div className="weekly-task">{t.task}</div>
-                      <div className="weekly-person" style={{ color: m?.color }}>{m?.emoji} {t.person}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -2394,7 +2693,7 @@ function RotationView({ today, weekRotation }) {
 // ============================================================
 // HISTORY VIEW
 // ============================================================
-function HistoryView({ awards, points, teamNames, getMemberEmoji, today }) {
+function HistoryView({ awards, points, teamNames, getMemberEmoji, today, getPoints, isParent, onParentTools, onSeePoints }) {
   // Parse awards to get all finalized weeks
   const pastWeeks = useMemo(() => {
     if (!awards || awards._empty) return [];
@@ -2465,41 +2764,77 @@ function HistoryView({ awards, points, teamNames, getMemberEmoji, today }) {
       .sort((a, b) => b.total - a.total || b.wins - a.wins);
   }, [pastWeeks]);
 
+  // Where this week stands right now — shown until the first awards exist.
+  const standings = [...FAMILY_MEMBERS].map(m => ({ member: m, pts: getPoints(m.name, "weekly") })).sort((a, b) => b.pts - a.pts).filter(r => r.pts > 0).slice(0, 3);
+  const MEDAL_COLORS = ["#fbbf24", "#cbd5e1", "#d99a5b"];
+  const withAwards = allTimeStats.filter(s => s.total > 0);
+  const withoutAwards = allTimeStats.filter(s => s.total === 0);
+
   return (
-    <div>
-      {/* All-Time Hall of Fame */}
-      <div className="card animate-in">
-        <div className="card-title"><Icons.Trophy size={22} color="#fbbf24" /> Hall of Fame</div>
-        {allTimeStats.length > 0 ? (
-          <div className="history-hall-of-fame">
-            {allTimeStats.map((s, i) => {
-              const member = FAMILY_MEMBERS.find(m => m.name === s.name);
-              return (
-                <div key={s.name} className="hall-of-fame-item" style={{ borderLeftColor: member?.color }}>
-                  <div className="hall-of-fame-rank">{i === 0 ? "\u{1F947}" : i === 1 ? "\u{1F948}" : i === 2 ? "\u{1F949}" : `#${i+1}`}</div>
-                  <div className="hall-of-fame-emoji">{getMemberEmoji(s.name)}</div>
-                  <div className="hall-of-fame-info">
-                    <div className="hall-of-fame-name" style={{ color: member?.color }}>{s.name}</div>
-                    <div className="hall-of-fame-stats">
-                      {s.wins > 0 && <span className="hof-stat hof-wins">{"\u{1F3C6}"} {s.wins} win{s.wins !== 1 ? "s" : ""}</span>}
-                      {s.mvps > 0 && <span className="hof-stat hof-mvps">{"\u2B50"} {s.mvps} MVP{s.mvps !== 1 ? "s" : ""}</span>}
-                      {s.wins === 0 && s.mvps === 0 && <span className="hof-stat" style={{ color: "var(--text-muted)" }}>No awards yet</span>}
+    <div className="page">
+      {pastWeeks.length === 0 ? (
+        <>
+          <section className="empty-card" aria-label="No awards yet">
+            <div className="empty-medals" aria-hidden="true">
+              <span className="empty-medal" style={{ color: MEDAL_COLORS[1] }}>2</span>
+              <span className="empty-medal big" style={{ color: MEDAL_COLORS[0] }}><Icons.Trophy size={34} /></span>
+              <span className="empty-medal" style={{ color: MEDAL_COLORS[2] }}>3</span>
+            </div>
+            <div>
+              <div className="empty-title">No awards yet</div>
+              <div className="empty-text">The first medals land here when a parent finalizes the week.</div>
+            </div>
+            <button className="wide-btn" onClick={onParentTools}>{!isParent && <Icons.Lock size={16} />} Finalize in parent tools</button>
+          </section>
+          {standings.length > 0 && (
+            <section className="stack-8" aria-label="Standings if the week ended today">
+              <div className="section-head"><h2>If the week ended today</h2><button className="link-btn" style={{ margin: "-12px 0" }} onClick={onSeePoints}>See points</button></div>
+              <div className="rows">
+                {standings.map((r, i) => (
+                  <div key={r.member.name} className="row" style={{ minHeight: 56, paddingRight: 14 }}>
+                    <span className="medal-dot" style={{ background: MEDAL_COLORS[i] }}>{i + 1}</span>
+                    <Avatar member={r.member} emoji={getMemberEmoji(r.member.name)} size={34} />
+                    <span className="row-label"><span className="row-name">{r.member.name}</span></span>
+                    <span className="row-points"><Icons.Star size={14} color="#fbbf24" filled />{r.pts}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+          <section className="stack-8" aria-label="Past weeks">
+            <div className="section-head"><h2>Past weeks</h2></div>
+            <div className="section-note">Each finalized week is saved here with its winners.</div>
+          </section>
+        </>
+      ) : (
+        <>
+          {/* All-Time Hall of Fame */}
+          <div className="card animate-in">
+            <div className="card-title"><Icons.Trophy size={22} color="#fbbf24" /> Hall of Fame</div>
+            <div className="history-hall-of-fame">
+              {withAwards.map((s, i) => {
+                const member = FAMILY_MEMBERS.find(m => m.name === s.name);
+                return (
+                  <div key={s.name} className="hall-of-fame-item" style={{ borderLeftColor: member?.color }}>
+                    <div className="hall-of-fame-rank">{i === 0 ? "\u{1F947}" : i === 1 ? "\u{1F948}" : i === 2 ? "\u{1F949}" : `#${i+1}`}</div>
+                    <div className="hall-of-fame-emoji">{getMemberEmoji(s.name)}</div>
+                    <div className="hall-of-fame-info">
+                      <div className="hall-of-fame-name" style={{ color: member?.color }}>{s.name}</div>
+                      <div className="hall-of-fame-stats">
+                        {s.wins > 0 && <span className="hof-stat hof-wins">{"\u{1F3C6}"} {s.wins} win{s.wins !== 1 ? "s" : ""}</span>}
+                        {s.mvps > 0 && <span className="hof-stat hof-mvps">{"\u2B50"} {s.mvps} MVP{s.mvps !== 1 ? "s" : ""}</span>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {withoutAwards.length > 0 && <div className="section-note" style={{ marginTop: 10 }}>No awards yet: {withoutAwards.map(s => s.name).join(", ")}</div>}
           </div>
-        ) : (
-          <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>No finalized weeks yet</div>
-        )}
-      </div>
-
-      {/* Week-by-week results */}
-      <div className="card-title" style={{ padding: "0 4px", marginBottom: 12 }}><Icons.History size={22} color="var(--accent)" /> Past Weeks</div>
-      {pastWeeks.length === 0 ? (
-        <div className="card"><div style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>No finalized weeks yet. Results appear here after the admin finalizes each week.</div></div>
-      ) : pastWeeks.map(week => {
+          <div className="section-head"><h2>Past weeks</h2></div>
+        </>
+      )}
+      {pastWeeks.map(week => {
         const scores = getWeekScores(week.weekKey);
         const teamInfo = getWeekTeamInfo(week.weekKey);
         const isCurrent = week.weekKey === currentWeekKey;
@@ -2628,109 +2963,165 @@ function TimesUpOverlay({ member, memberEmoji, parentSettings, onDismiss }) {
 }
 
 // ============================================================
-// GAME VIEW (🎮 Tab)
+// GAME VIEW (under More) — one status card, then each kid's unlock progress
+// Rule (see getVideoGameStatus): Monday–Thursday housekeeping 100% and dinner
+// jobs 90%+, on a game day. A parent can unlock a kid early.
 // ============================================================
-function GameView({ members, getVideoGameStatus, getMemberEmoji, gameTimers, startTimer, pauseTimer, stopTimer, adjustTimer, isParent, toggleGameUnlock, setTimesUpMember }) {
-  const [, forceUpdate] = useState(0);
-
-  // Tick every second to update live countdowns
-  useEffect(() => {
-    const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Request notification permission on first render
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  const getTimerRemaining = (member) => {
-    const timer = gameTimers?.[member];
-    if (!timer || !timer.active) return timer?.remaining || 0;
-    if (timer.pausedAt) return timer.remaining;
-    const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
-    return Math.max(0, timer.remaining - elapsed);
-  };
-
-  const getTimerState = (member) => {
-    const timer = gameTimers?.[member];
-    if (!timer || !timer.active) return "idle";
-    if (timer.pausedAt) return "paused";
-    const remaining = getTimerRemaining(member);
-    if (remaining <= 0) return "expired";
-    return "running";
-  };
-
-  const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  };
+function GameView({ today, members, getVideoGameStatus, getMemberEmoji, isParent, toggleGameUnlock }) {
+  const gameDay = isVideoGameDay(today);
+  const next = nextGameDay(today);
+  const nextLabel = !next ? null : next.daysAway === 1 ? "Tomorrow" : next.date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 
   return (
-    <div>
-      <div className="card">
-        <div className="card-title" style={{ fontSize: "1.3rem" }}>🎮 Video Games</div>
-        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 16 }}>
-          {isVideoGameDay(new Date()) ? "Today is a game day! Check your status below." : "Games are available on Fridays & Saturdays (and school days off)."}
+    <div className="page">
+      <section className={`status-card ${gameDay ? "on" : ""}`} aria-label="Game day status">
+        <div className="status-top">
+          <span className="status-icon"><Icons.Gamepad size={30} /></span>
+          <div>
+            <div className="status-title">{gameDay ? "It's a game day" : "Not a game day"}</div>
+            <div className="status-text">{gameDay ? "Kids who finished their Monday–Thursday jobs can play." : "Games open Fridays, Saturdays and days off school."}</div>
+          </div>
         </div>
-      </div>
+        {!gameDay && nextLabel && (
+          <div className="status-next"><span>Next game day</span><b>{nextLabel}</b></div>
+        )}
+      </section>
 
-      {members.map(member => {
-        const gs = getVideoGameStatus(member.name);
-        const emoji = getMemberEmoji(member.name);
-        const timerState = getTimerState(member.name);
-        const remaining = getTimerRemaining(member.name);
-        const timer = gameTimers?.[member.name];
-        const duration = timer?.duration || 7200;
-        const pct = duration > 0 ? (remaining / duration) * 100 : 0;
-
-        return (
-          <div key={member.name} className="game-tab-card" style={{ borderLeftColor: member.color }}>
-            <div className="member-header" style={{ marginBottom: 8 }}>
-              <div className="member-name-row">
-                <div className="member-emoji">{emoji}</div>
-                <div>
-                  <div className="member-name" style={{ color: member.color }}>
-                    {member.name}
-                    <span className={`game-unlock-badge ${gs.unlocked ? (gs.parentOverride ? "override" : "unlocked") : "locked"}`}>
-                      <span className="game-unlock-icon">🎮</span>
-                      <span className="game-lock-icon">{gs.unlocked ? "🔓" : "🔒"}</span>
-                    </span>
+      <section className="stack-8" aria-label="Unlock progress">
+        <div className="section-head"><h2>{gameDay ? "Who can play" : "Unlock progress"}</h2></div>
+        <div className="section-note">Games unlock with every Monday–Thursday housekeeping job done and at least 90% of dinner jobs.</div>
+        <div className="rows">
+          {members.map(member => {
+            const gs = getVideoGameStatus(member.name);
+            const hkOk = gs.housekeepingPct >= 100;
+            const dinnerOk = gs.dinnerPct >= 90;
+            const state = gs.parentOverride ? { cls: "parent", text: "Unlocked by parent" }
+              : gs.unlocked ? { cls: "open", text: "Unlocked" }
+              : gs.choresComplete ? { cls: "open", text: "Ready for game day" }
+              : { cls: "", text: "Locked" };
+            return (
+              <div key={member.name} className="row game-row">
+                <Avatar member={member} emoji={getMemberEmoji(member.name)} size={38} />
+                <div className="game-body">
+                  <div className="game-top">
+                    <span className="row-name">{member.name}</span>
+                    <span className={`state-pill ${state.cls}`}>{state.cls ? <Icons.Check size={13} /> : <Icons.Lock size={13} />}{state.text}</span>
                   </div>
+                  {!gs.parentOverride && (
+                    <>
+                      <div className="game-meter">
+                        <span className="game-meter-label">Housekeeping</span>
+                        <span className="bar"><span style={{ width: `${Math.min(100, gs.housekeepingPct)}%`, background: hkOk ? "var(--success)" : member.color }} /></span>
+                        <span className={`game-meter-val ${hkOk ? "ok" : ""}`}>{gs.housekeepingPct}%</span>
+                      </div>
+                      <div className="game-meter">
+                        <span className="game-meter-label">Dinner jobs</span>
+                        <span className="bar"><span style={{ width: `${Math.min(100, gs.dinnerPct)}%`, background: dinnerOk ? "var(--success)" : member.color }} /></span>
+                        <span className={`game-meter-val ${dinnerOk ? "ok" : ""}`}>{gs.dinnerPct}%</span>
+                      </div>
+                    </>
+                  )}
+                  {isParent && (gs.parentOverride || !gs.unlocked) && (
+                    <div><button className="small-btn" onClick={() => toggleGameUnlock(member.name)}>{gs.parentOverride ? "Remove parent unlock" : "Unlock early"}</button></div>
+                  )}
                 </div>
               </div>
-            </div>
+            );
+          })}
+        </div>
+        {!isParent && <div className="section-note">Parents can unlock a kid early after tapping Parent.</div>}
+      </section>
+    </div>
+  );
+}
 
-            {/* Status messages */}
-            {!gs.gameDay && !gs.parentOverride && (
-              <div className="game-status-msg not-today">📅 Not a game day — games available on Fridays, Saturdays & days off</div>
-            )}
-            {gs.gameDay && !gs.choresComplete && !gs.parentOverride && (
-              <div className="game-status-msg locked">
-                🔒 This week's Mon-Thu chores incomplete — HK: {gs.housekeepingPct}% (need 100%) · Dinner: {gs.dinnerPct}% (need 90%)
-              </div>
-            )}
-            {gs.unlocked && (
-              <div className="game-status-msg" style={{ color: "#34d399" }}>
-                ✅ Unlocked! {gs.parentOverride ? "(Parent override)" : ""}
-              </div>
-            )}
-            {isParent && (
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                <button className={`admin-unlock-toggle ${gs.unlocked ? "lock" : "unlock"}`} onClick={() => toggleGameUnlock(member.name)}>
-                  {gs.parentOverride ? "↩️ Remove Override" : gs.unlocked ? "🔒 Lock Games" : "🔓 Override Unlock"}
-                </button>
-              </div>
-            )}
+// ============================================================
+// MORE VIEW — everything that isn't one of the four main tabs
+// ============================================================
+function MoreView({ today, isOnline, isParent, awards, dateNights, workLogs, setWorkLogs, workCashouts, setWorkCashouts, pinGate, getMemberEmoji, onOpen, onOneOnOne, onReminders, onParentTools, onLock }) {
+  const [workModal, setWorkModal] = useState(null); // kid name for the work-hours log
+  const next = nextGameDay(today);
+  const gamesValue = !next ? "" : next.daysAway === 0 ? "Game day" : next.daysAway === 1 ? "Opens tomorrow" : `Opens ${next.date.toLocaleDateString("en-US", { weekday: "long" })}`;
+  const finalizedWeeks = new Set(Object.keys(awards || {}).filter(k => k.startsWith("win_") || k.startsWith("mvp_")).map(k => k.slice(4, 14))).size;
+  const oneOnOne = getDateNight(today, dateNights || {});
+  const chevron = <span className="row-chev"><Icons.ChevronRight size={18} /></span>;
 
+  return (
+    <div className="page">
+      <section className="stack-8 more-group" aria-label="Family">
+        <h2>Family</h2>
+        <div className="rows">
+          <button className="row" onClick={() => onOpen("games")}>
+            <span className="row-icon blue"><Icons.Gamepad size={20} /></span>
+            <span className="row-label">Video games</span>
+            <span className="row-value">{gamesValue}</span>
+            {chevron}
+          </button>
+          <button className="row" onClick={() => onOpen("history")}>
+            <span className="row-icon gold"><Icons.Trophy size={20} /></span>
+            <span className="row-label">Hall of Fame</span>
+            <span className="row-value">{finalizedWeeks === 0 ? "No awards yet" : `${finalizedWeeks} week${finalizedWeeks === 1 ? "" : "s"}`}</span>
+            {chevron}
+          </button>
+          {Object.keys(MONTHLY_WORK).map(kid => {
+            const w = getWorkMonth(kid, getMonthKey(today), workLogs, workCashouts);
+            if (!w) return null;
+            const value = w.beforeStart ? "Not started yet" : w.remaining > 0 ? `${formatMinutes(w.logged)} of ${formatMinutes(w.target)}` : "Done this month";
+            return (
+              <button key={kid} className="row" onClick={() => setWorkModal(kid)}>
+                <span className="row-icon green"><Icons.History size={20} /></span>
+                <span className="row-label">{kid}'s work hours</span>
+                <span className={`row-value ${!w.beforeStart && w.remaining === 0 ? "ok" : ""}`}>{value}</span>
+                {chevron}
+              </button>
+            );
+          })}
+          {oneOnOne && (
+            <button className="row" onClick={onOneOnOne}>
+              <span className="row-icon teal">🍔</span>
+              <span className="row-label">One-on-one</span>
+              <span className="row-value">{oneOnOne.kid} this week</span>
+              {chevron}
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="stack-8 more-group" aria-label="This device">
+        <h2>This device</h2>
+        <div className="rows">
+          <button className="row" onClick={onReminders}>
+            <span className="row-icon"><Icons.Bell size={20} /></span>
+            <span className="row-label">Reminders<small>A 6 o'clock nudge for the kids you pick</small></span>
+            {chevron}
+          </button>
+          <div className="row" style={{ paddingRight: 14 }}>
+            <span className="row-icon">{isOnline ? <Icons.Cloud size={20} /> : <Icons.CloudOff size={20} />}</span>
+            <span className="row-label">Sync{!isOnline && <small>Changes are kept on this device until it's back online</small>}</span>
+            <span className={`row-value ${isOnline ? "ok" : "bad"}`}>{isOnline ? <><Icons.Check size={14} /> Online</> : "Offline"}</span>
           </div>
-        );
-      })}
+        </div>
+      </section>
+
+      <section className="stack-8 more-group" aria-label="Parents">
+        <h2>Parents</h2>
+        <div className="rows">
+          <button className="row" onClick={onParentTools}>
+            <span className="row-icon"><Icons.Settings size={20} /></span>
+            <span className="row-label">Parent tools<small>Points, prizes, custom jobs, game unlocks, PINs</small></span>
+            {!isParent && <span className="row-value"><Icons.Lock size={14} /> PIN</span>}
+            {chevron}
+          </button>
+          {isParent && (
+            <button className="row" onClick={onLock}>
+              <span className="row-icon"><Icons.Lock size={20} /></span>
+              <span className="row-label">Lock parent mode</span>
+            </button>
+          )}
+        </div>
+      </section>
+
+      {workModal && <WorkHoursModal kid={workModal} today={today} workLogs={workLogs} setWorkLogs={setWorkLogs} workCashouts={workCashouts} setWorkCashouts={setWorkCashouts} isParent={isParent} pinGate={pinGate} getMemberEmoji={getMemberEmoji} onClose={() => setWorkModal(null)} />}
     </div>
   );
 }

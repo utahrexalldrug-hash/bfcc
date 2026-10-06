@@ -70,6 +70,7 @@ async function run(nowISO, docs, q = "") {
   const dad = a.sent.find(m => m.to === "dad");
   check("parent summary lists who's not done", dad && /kids still have jobs/.test(dad.title), dad && `${dad.title} | ${dad.body}`);
   check("tapping opens that kid's card", carter[0] && carter[0].url === "/?kid=Carter");
+  check("tapping the parent summary opens the Everyone view", dad && dad.url === "/?kid=all", dad && dad.url);
 }
 
 // 2. Winter (MST, UTC-7): 00:30Z = 5:30pm → skip; 01:30Z = 6:30pm → send
