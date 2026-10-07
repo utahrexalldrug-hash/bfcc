@@ -1174,16 +1174,27 @@ export default function App() {
       const effectivePoints = Math.round(pointValue * lateFactor * 100) / 100;
       // If this is a routine item, the points are all-or-nothing at the routine level.
       const routine = getRoutineForItemId(member, date, choreId);
+      // One tap is one intention — "check this" or "un-check this" — decided the
+      // first time React runs the updater below. React may run it again against
+      // newer data and keep only the last result (always in development's
+      // StrictMode; in production when another device's change lands at the same
+      // instant as the tap). So every run redoes the work from that same
+      // intention: if the job is already in the wanted state there is nothing
+      // to change. Points are then trued up to the latest run instead of being
+      // added again, so a tap can never pay (or refund) more than once.
+      let intent = null;      // "check" | "uncheck"
+      let pointsApplied = 0;  // what this tap has added to the points so far
       setCompletedChores(prev => {
         const next = { ...prev }; delete next._empty;
         const wasRoutineDone = routine ? routine.items.every(it => !!next[`${dk}_${member}_${it.id}`]) : false;
         const existing = next[key];
+        if (intent === null) intent = existing ? "uncheck" : "check";
         let delta = 0;
-        if (existing) {
+        if (intent === "uncheck" && existing) {
           const refund = (existing === true) ? effectivePoints : (existing.pts ?? effectivePoints);
           delete next[key];
           delta -= refund;
-        } else {
+        } else if (intent === "check" && !existing) {
           next[key] = { ts: Date.now(), pts: effectivePoints };
           delta += effectivePoints;
         }
@@ -1201,7 +1212,11 @@ export default function App() {
             delta -= refund;
           }
         }
-        if (delta !== 0) addPointsForDate(member, delta, date);
+        if (delta !== pointsApplied) {
+          const change = Math.round((delta - pointsApplied) * 100) / 100;
+          pointsApplied = delta;
+          if (change !== 0) addPointsForDate(member, change, date);
+        }
         return next;
       });
     };
